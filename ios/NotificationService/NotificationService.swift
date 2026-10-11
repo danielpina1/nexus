@@ -29,7 +29,7 @@ final class NotificationService: UNNotificationServiceExtension {
         }
 
         guard userInfo[EnvelopeFormat.pushPayloadKey] != nil else {
-            contentHandler(content)
+            finish()
             return
         }
 
@@ -38,7 +38,7 @@ final class NotificationService: UNNotificationServiceExtension {
             plaintext = try EnvelopeCrypto.openNotification(userInfo: userInfo)
         } catch {
             // Could not decrypt (e.g. re-paired device, old key): keep the generic alert.
-            contentHandler(content)
+            finish()
             return
         }
 
@@ -47,7 +47,7 @@ final class NotificationService: UNNotificationServiceExtension {
         guard let urlString = plaintext.attachmentURL,
               let url = URL(string: urlString),
               Self.isHubURL(url) else {
-            contentHandler(content)
+            finish()
             return
         }
 

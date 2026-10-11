@@ -64,8 +64,8 @@ public enum Keychain {
     }
 
     public static func data(for item: Item) -> Data? {
-        if let data = data(for: item, accessGroup: AppGroup.identifier) { return data }
-        return data(for: item, accessGroup: nil)
+        if let found = Self.data(for: item, accessGroup: AppGroup.identifier) { return found }
+        return Self.data(for: item, accessGroup: nil)
     }
 
     private static func data(for item: Item, accessGroup: String?) -> Data? {
@@ -92,7 +92,7 @@ public enum Keychain {
     }
 
     public static func string(for item: Item) -> String? {
-        guard let data = data(for: item) else { return nil }
+        guard let data = Self.data(for: item) else { return nil }
         return String(data: data, encoding: .utf8)
     }
 

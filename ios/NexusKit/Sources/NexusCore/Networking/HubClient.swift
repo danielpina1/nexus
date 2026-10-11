@@ -91,9 +91,6 @@ public final class HubClient: @unchecked Sendable {
         var headers: Headers = [:]
         let token = try await tokens.token(using: self)
         headers["Authorization"] = ["Bearer \(token)"]
-        if let deviceID = configuration.deviceID {
-            headers["X-Nexus-Device-Id"] = [deviceID]
-        }
         return headers
     }
 

@@ -69,7 +69,7 @@ struct ChatThreadView: View {
     }
 
     private var tasks: [Nexus_V1_Task] {
-        store.tasks(forAgent: thread.agentID)
+        store.chatTasks(forAgent: thread.agentID)
     }
 
     var body: some View {

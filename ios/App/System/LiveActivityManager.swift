@@ -96,7 +96,7 @@ final class LiveActivityManager {
     /// "Follow live" from task detail.
     @discardableResult
     func follow(task: Nexus_V1_Task, agent: Nexus_V1_Agent?, nodeName: String) throws -> Activity<RunActivityAttributes> {
-        if let existing = activity(for: task.id) { return existing }
+        if let existing = self.activity(for: task.id) { return existing }
         let attributes = RunActivityAttributes(
             taskId: task.id,
             agentId: task.agentID,
@@ -106,14 +106,14 @@ final class LiveActivityManager {
         )
         let state = Self.contentState(for: task, approval: nil)
         let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(15 * 60), relevanceScore: 50)
-        let activity = try Activity<RunActivityAttributes>.request(attributes: attributes, content: content, pushType: .token)
-        observe(activity)
-        return activity
+        let newActivity = try Activity<RunActivityAttributes>.request(attributes: attributes, content: content, pushType: .token)
+        observe(newActivity)
+        return newActivity
     }
 
     /// Local update while the app is running (the Hub also pushes updates).
     func update(task: Nexus_V1_Task, approval: Nexus_V1_Approval?) {
-        guard let activity = activity(for: task.id) else { return }
+        guard let activity = self.activity(for: task.id) else { return }
         let state = Self.contentState(for: task, approval: approval, previous: activity.content.state)
         let isFinal = task.state.isTerminal
         Task {

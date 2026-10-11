@@ -77,7 +77,7 @@ struct ApprovalSheet: View {
 
                 if let expires {
                     Label(
-                        isExpired ? "Expired" : "Expires \(Format.relative(expires))",
+                        isExpired ? "Expired" : "Expires " + Format.relative(expires),
                         systemImage: "timer"
                     )
                     .font(.footnote)

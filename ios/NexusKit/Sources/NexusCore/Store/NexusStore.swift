@@ -85,7 +85,7 @@ public final class NexusStore {
         tasks.values.filter { $0.parentID == taskID }.sorted { $0.createdAt.date < $1.createdAt.date }
     }
 
-    public func tasks(forAgent agentID: String?) -> [Nexus_V1_Task] {
+    public func chatTasks(forAgent agentID: String?) -> [Nexus_V1_Task] {
         rootTasks.filter { agentID == nil ? ($0.source == "ios-chat" || $0.source.isEmpty) : $0.agentID == agentID }
             .sorted { $0.createdAt.date < $1.createdAt.date }
     }
@@ -111,9 +111,10 @@ public final class NexusStore {
     /// Connects to the paired Hub (or loads demo data) and starts the event stream.
     public func start() {
         if isDemo {
-            loadDemoData()
+            if agents.isEmpty { loadDemoData() }
             return
         }
+        if hub != nil && stream != nil { return }
         configuration = HubConfiguration.load()
         guard let configuration, configuration.primaryURL != nil else {
             connection = .disconnected
@@ -122,7 +123,7 @@ public final class NexusStore {
         do {
             let hub = try HubClient(configuration: configuration)
             self.hub = hub
-            stream?.stop()
+            self.stream?.stop()
             let stream = EventStream(
                 hub: hub,
                 onEvent: { [weak self] event in self?.apply(event) },
@@ -133,6 +134,14 @@ public final class NexusStore {
             Task { await refresh() }
         } catch {
             lastError = error.localizedDescription
+        }
+    }
+
+    /// App returned to the foreground: reconnect a stalled stream right away.
+    public func foreground() {
+        start()
+        if let stream, connection != .connected {
+            stream.restart()
         }
     }
 

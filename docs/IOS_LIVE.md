@@ -86,8 +86,13 @@ struct RunActivityAttributes: ActivityAttributes {
 
 | Button | Mechanism |
 |---|---|
-| Approve (`approve` level) | `LiveActivityIntent` in the background → signed `ApprovalService.Decide` |
-| Approve with Face ID (`biometric`) | Opens the app on the approval sheet (Face ID cannot be shown from a background intent) |
+| Approve / Deny (any level) | Deep link to the in-app approval sheet → Face ID → signature with the biometry-bound approval key → `ApprovalService.Decide` |
+
+> **Decision (ultra-safe default):** every approval decision — approve or deny, any trust level — is
+> signed with the Face ID-bound approval key and verified by the hub (and by nodes). Background
+> approval from a Live Activity or notification is therefore not possible; the buttons open the
+> approval sheet. The app keeps a switch (`ApprovalSignature.backgroundDecisionsUseAuthKey`) in case a
+> future policy allows auth-key signatures for `approve`-level actions.
 | Choice (simple question) | Background intent → `TaskService.SendMessage` |
 | Stop / Try harder / Pause | Background intent → `CancelTask` / `EscalateTask` |
 

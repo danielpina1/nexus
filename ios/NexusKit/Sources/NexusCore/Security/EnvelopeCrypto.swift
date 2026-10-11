@@ -129,7 +129,13 @@ public enum EnvelopeCrypto {
             signed.append(envelope.header)
             signed.append(envelope.encapsulatedKey)
             signed.append(envelope.ciphertext)
-            let signature = try P256.Signing.ECDSASignature(derRepresentation: envelope.signature)
+            // DER or raw 64-byte r||s (both accepted by the backend).
+            let signature: P256.Signing.ECDSASignature
+            if envelope.signature.count == 64 {
+                signature = try P256.Signing.ECDSASignature(rawRepresentation: envelope.signature)
+            } else {
+                signature = try P256.Signing.ECDSASignature(derRepresentation: envelope.signature)
+            }
             guard senderPublicKey.isValidSignature(signature, for: signed) else {
                 throw EnvelopeError.badSignature
             }
@@ -150,9 +156,9 @@ public enum EnvelopeCrypto {
     /// Convenience for the Notification Service Extension.
     public static func openNotification(userInfo: [AnyHashable: Any]) throws -> NotificationPlaintext {
         guard let value = userInfo[EnvelopeFormat.pushPayloadKey] else { throw EnvelopeError.undecodable }
-        let envelope = try envelope(fromPushValue: value)
+        let sealed = try Self.envelope(fromPushValue: value)
         let key = try KeyManager.shared.encryptionKey()
-        let opened = try open(envelope, expectedPurpose: .notification, recipientKey: key)
+        let opened = try Self.open(sealed, expectedPurpose: .notification, recipientKey: key)
         return try JSONDecoder().decode(NotificationPlaintext.self, from: opened.plaintext)
     }
 }

@@ -17,8 +17,10 @@ final class AppLock {
 
     init() {
         let enabled = AppLock.storedEnabled
+        let hasData = (HubConfiguration.load()?.isPaired ?? false)
+            || AppGroup.defaults.bool(forKey: AppGroup.Key.demoMode)
         isEnabled = enabled
-        isLocked = enabled
+        isLocked = enabled && hasData
     }
 
     private static var storedEnabled: Bool {

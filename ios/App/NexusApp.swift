@@ -54,9 +54,11 @@ struct NexusApp: App {
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .active:
-                env.lock.didBecomeActive()
+                if env.store.isPaired || env.store.isDemo {
+                    env.lock.didBecomeActive()
+                }
                 env.router.consumePendingAction()
-                env.store.start()
+                env.store.foreground()
                 Task { await env.store.refresh() }
             case .background:
                 env.lock.didEnterBackground()

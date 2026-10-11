@@ -84,23 +84,36 @@ struct ErrorBanner: View {
     }
 }
 
-/// Toolbar buttons shared by tab roots.
+/// Toolbar items shared by tab roots. (Environment is read inside the item views.)
 struct CommonToolbar: ToolbarContent {
-    @Environment(NexusStore.self) private var store
-    @Environment(AppRouter.self) private var router
-
     var body: some ToolbarContent {
         ToolbarItem(placement: .topBarLeading) {
-            ConnectionPill(state: store.connection)
+            LiveConnectionPill()
         }
         ToolbarItem(placement: .topBarTrailing) {
-            Button {
-                router.showSettings = true
-            } label: {
-                Image(systemName: "gearshape")
-            }
-            .accessibilityLabel("Settings")
+            SettingsButton()
         }
+    }
+}
+
+struct LiveConnectionPill: View {
+    @Environment(NexusStore.self) private var store
+
+    var body: some View {
+        ConnectionPill(state: store.connection)
+    }
+}
+
+struct SettingsButton: View {
+    @Environment(AppRouter.self) private var router
+
+    var body: some View {
+        Button {
+            router.showSettings = true
+        } label: {
+            Image(systemName: "gearshape")
+        }
+        .accessibilityLabel("Settings")
     }
 }
 
