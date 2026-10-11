@@ -104,8 +104,8 @@ func (r *taskRec) to(s nexusv1.TaskState) error {
 // runRec is a run row.
 type runRec struct {
 	id, taskID, agentID, nodeID, state, hint, output, summary string
-	attempt                                                    int
-	tier                                                       nexusv1.Tier
+	attempt                                                   int
+	tier                                                      nexusv1.Tier
 }
 
 func errNotFound(kind, id string) error {

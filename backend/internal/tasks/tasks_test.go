@@ -628,3 +628,22 @@ func TestConnectHandler(t *testing.T) {
 		t.Fatalf("StopAll = %v, %v", stop, err)
 	}
 }
+
+func TestReassign(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	f.env.Host.Provide(kernel.SvcRouter, &taskstest.Router{Result: &nexusv1.Route{AgentId: "helper", Confidence: 0.2}})
+	pending := f.create(t, &nexusv1.CreateTaskRequest{Prompt: "vague"})
+	wantState(t, pending, stNeedsInput)
+	got, err := f.e.ReassignTask(ctx, pending.Id, "smart")
+	if err != nil || got.Id != pending.Id || got.AgentId != "smart" || got.State != stAssigned {
+		t.Fatalf("in-place reassign = %+v, %v", got, err)
+	}
+
+	running := f.create(t, &nexusv1.CreateTaskRequest{Prompt: "go", AgentId: "helper", Source: "web"})
+	got, err = f.e.ReassignTask(ctx, running.Id, "coder")
+	if err != nil || got.Id == running.Id || got.AgentId != "coder" || got.Source != "web" {
+		t.Fatalf("reassign = %+v, %v", got, err)
+	}
+	wantState(t, f.get(t, running.Id), stCancelled)
+}

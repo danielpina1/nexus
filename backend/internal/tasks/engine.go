@@ -800,3 +800,41 @@ func (e *Engine) FollowTask(ctx context.Context, taskID string, deviceIDs []stri
 	}}})
 	return nil
 }
+
+// ReassignTask hands a task to another agent (router correction). A task
+// still waiting for routing (queued/routing/needs_input) is assigned in place;
+// otherwise the task is cancelled if still active and a new task with the
+// same request (and parent) is created for agentID, which is returned.
+func (e *Engine) ReassignTask(ctx context.Context, id, agentID string) (*nexusv1.Task, error) {
+	if agentID == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("agent_id required"))
+	}
+	r, err := e.loadTask(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	switch r.task.State {
+	case stNeedsInput:
+		if _, err := e.mutate(ctx, id, actorUser, func(r *taskRec) error {
+			r.questionID = ""
+			return r.to(stRouting)
+		}); err != nil {
+			return nil, err
+		}
+		fallthrough
+	case stQueued, stRouting:
+		return e.assign(ctx, id, agentID, assignOpts{})
+	}
+	if _, err := e.cancel(ctx, id, "reassigned to "+agentID); err != nil {
+		return nil, err
+	}
+	req := proto.Clone(r.req).(*nexusv1.CreateTaskRequest)
+	req.AgentId, req.IdempotencyKey, req.DryRun = agentID, "", false
+	var parent *taskRec
+	if r.task.ParentId != "" {
+		if parent, err = e.loadTask(ctx, r.task.ParentId); err != nil {
+			return nil, err
+		}
+	}
+	return e.create(ctx, req, parent)
+}
