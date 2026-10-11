@@ -1,0 +1,28 @@
+# Go
+backend/bin/
+*.test
+*.out
+
+# Web
+web/node_modules/
+web/dist/
+*.local
+
+# iOS
+ios/*.xcodeproj/
+ios/build/
+ios/DerivedData/
+xcuserdata/
+.swiftpm/
+.build/
+
+# Runtime data
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/

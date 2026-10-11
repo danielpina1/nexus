@@ -1,23 +1,24 @@
-# Code generation (Phase 0). Plugins are fetched from the Buf Schema Registry.
+# Run `make gen` (or `buf generate`) from the repo root after editing proto/.
 version: v2
 managed:
   enabled: true
   override:
     - file_option: go_package_prefix
-      value: github.com/danielpina1/nexus/gen/go
+      value: github.com/danielpina1/nexus/backend/gen
 plugins:
-  - remote: buf.build/protocolbuffers/go
-    out: gen/go
+  - remote: buf.build/protocolbuffers/go:v1.36.6
+    out: backend/gen
     opt: paths=source_relative
-  - remote: buf.build/connectrpc/go
-    out: gen/go
+  - remote: buf.build/connectrpc/go:v1.18.1
+    out: backend/gen
     opt: paths=source_relative
   - remote: buf.build/bufbuild/es
-    out: gen/ts
+    out: web/src/gen
     opt: target=ts
+    include_imports: true
   - remote: buf.build/apple/swift
-    out: gen/swift
-    opt: Visibility=Public
+    out: ios/NexusKit/Sources/NexusAPI/Generated
+    opt: Visibility=Public,FileNaming=PathToUnderscores
   - remote: buf.build/connectrpc/swift
-    out: gen/swift
-    opt: Visibility=Public
+    out: ios/NexusKit/Sources/NexusAPI/Generated
+    opt: Visibility=Public,FileNaming=PathToUnderscores
