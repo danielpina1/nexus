@@ -1,0 +1,102 @@
+# nexus.yaml — Nexus hub (nexusd) configuration.
+#
+# Every top-level key other than data_dir/modules is the config section of the
+# module (or subsystem) with that name. Missing sections use defaults.
+# Values like ${VAR} are NOT expanded by nexusd; secrets are read from the
+# environment variables named by the *_env keys instead.
+
+# Where modules keep their state (each module gets <data_dir>/<module>/).
+data_dir: ./data
+
+# Which modules run. Modules marked DefaultEnabled run unless disabled here;
+# `nexusd modules` lists them all.
+modules:
+  enable: []
+  disable: []
+
+# --- HTTP API server --------------------------------------------------------
+server:
+  # HTTP/1.1 + h2c (cleartext HTTP/2). Keep it on a private network
+  # (Tailscale/WireGuard) or configure TLS below.
+  listen: ":7700"
+  # Built web dashboard (`make web` → web/dist), e.g. ./web/dist.
+  # Empty: a placeholder page is served. Relative paths in this file are
+  # resolved against nexusd's working directory.
+  web_dir: ""
+  cors:
+    # Browser origins allowed to call the API. "*" allows any origin.
+    # Omit to allow the Vite dev server (localhost:5173) only.
+    allowed_origins:
+      - http://localhost:5173
+      - http://127.0.0.1:5173
+  tls:
+    cert: ""   # path to PEM certificate (enables HTTPS + HTTP/2)
+    key: ""    # path to PEM private key
+
+# --- Operational database (module: store) ------------------------------------
+store:
+  # SQLite file; default <data_dir>/store/nexus.db
+  path: ""
+
+# --- Event log (module: events) ----------------------------------------------
+events:
+  # Live events buffered per subscriber before a slow client is dropped
+  # (it then resumes from its last seq).
+  subscriber_buffer: 4096
+
+# --- Security (module: security) ---------------------------------------------
+security:
+  # Development bearer token: clients send `Authorization: Bearer <dev_token>`.
+  # `nexusd init` generates a random one. Remove once device pairing is set up.
+  dev_token: CHANGE_ME
+
+# --- Vault (module: vault) ---------------------------------------------------
+vault:
+  # Obsidian-compatible Markdown vault (git repository). `nexusd init` copies
+  # vault-template/ here.
+  path: ./vault
+  # Commit changes made through Nexus automatically.
+  auto_commit: true
+  # Optional git remote to push/pull (e.g. for Obsidian on other machines).
+  remote: ""
+
+# --- LLM access (module: llm) ------------------------------------------------
+llm:
+  providers:
+    # Unify Gateway: the single door to cloud models (OpenAI-compatible).
+    unify:
+      kind: openai
+      base_url: https://gateway.example.com/v1
+      api_key_env: UNIFY_API_KEY
+    # Local models through Ollama's OpenAI-compatible endpoint.
+    ollama:
+      kind: openai
+      base_url: http://localhost:11434/v1
+  # Model aliases used by agents and the router (mirrors vault
+  # policies/models.md; the vault note wins when both define an alias).
+  aliases:
+    fast-local: { provider: ollama, model: "llama3.2:3b" }
+    embed:      { provider: ollama, model: "nomic-embed-text" }
+    smart:      { provider: unify,  model: "CHANGE_ME" }
+    best:       { provider: unify,  model: "CHANGE_ME" }
+  # Request timeout.
+  timeout: 120s
+
+# --- Command router (module: router) -----------------------------------------
+router:
+  # Model alias used to classify free-form input.
+  classifier: fast-local
+  # Alias used when the classifier is unavailable or unsure.
+  fallback: smart
+  # Below this confidence the router asks the user to choose.
+  min_confidence: 0.75
+
+# --- Node link (module: nodelink) --------------------------------------------
+nodelink:
+  # Pre-shared node tokens until mTLS pairing lands. Nodes send
+  # `Authorization: Bearer <token>` and `X-Nexus-Node-Id: <id>`.
+  tokens:
+    # mac-studio: CHANGE_ME
+    # vps: CHANGE_ME
+  # Mark a node offline after this long without a heartbeat.
+  heartbeat_timeout: 30s
