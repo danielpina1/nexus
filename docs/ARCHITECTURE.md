@@ -308,37 +308,51 @@ See [ADR-0008](decisions/0008-zero-trust-hub-edge-verification.md).
 
 ---
 
-## 8. Repository layout (target)
+## 8. Repository layout
 
 ```
 nexus/
-├── proto/nexus/v1/        # API schema (source of truth for all clients)
-├── gen/                   # generated code (go, ts, swift) — committed or built in CI
-├── cmd/
-│   ├── nexusd/            # Hub binary
-│   ├── nexus-node/        # Node binary
-│   └── nexus/             # CLI
-├── internal/
-│   ├── hub/               # API handlers, wiring
-│   ├── task/              # task engine + state machine
-│   ├── router/            # command classification, agent selection, escalation
-│   ├── workflow/          # workflow engine, triggers, CEL expressions
-│   ├── policy/            # trust levels, budgets, approvals
-│   ├── events/            # event log + fan-out
-│   ├── vault/             # git vault, parser, indexer, search, graph
-│   ├── memory/            # extraction pipeline
-│   ├── notify/            # APNs, web push
-│   ├── mcp/               # MCP server (hub) + node proxy
-│   ├── node/              # NodeLink client, workspaces, telemetry
-│   ├── runtime/           # adapters: claudecode, codex, openai, ollama, anthrex, shell, browser
-│   ├── llm/               # OpenAI-compatible client (Unify Gateway, Ollama)
-│   └── store/             # SQLite repositories, migrations
-├── web/                   # Vite + React + Tailwind dashboard
-├── ios/                   # SwiftUI app (Xcode project)
-├── vault-template/        # starter vault: example agents, workflows, policies
-├── deploy/                # systemd units, Dockerfiles, Caddy/Tailscale examples
+├── proto/nexus/v1/          # API schema — source of truth for every client (buf)
+├── backend/                 # Go module github.com/danielpina1/nexus/backend
+│   ├── kernel/              # plug-in SDK: Module, Host, tool/runtime/trigger registries, service interfaces
+│   │   └── kerneltest/      # fake Host for module tests
+│   ├── gen/                 # generated Go + connect-go code
+│   ├── cmd/
+│   │   ├── nexusd/          # Hub binary (modules.go = which hub modules are compiled in)
+│   │   ├── nexus-node/      # Node binary (modules.go = which runtimes/tools are compiled in)
+│   │   └── nexus/           # CLI
+│   ├── internal/
+│   │   ├── host/            # module loader: config, dependency order, lifecycle
+│   │   ├── hubserver/       # HTTP/h2c server, CORS, auth middleware, static web
+│   │   ├── store/ events/   # SQLite store, ordered event log + fan-out
+│   │   ├── tasks/ approvals/ policy/ router/ command/   # orchestration brain
+│   │   ├── security/        # PKI, envelopes, signed approvals, owner trust, audit, pairing
+│   │   ├── vault/           # Markdown vault, index, search, graph, agent catalog
+│   │   ├── nodelink/        # hub side of the node link (Dispatcher)
+│   │   ├── node/            # node daemon (run manager, local tools)
+│   │   ├── llm/             # OpenAI-compatible client (Unify Gateway, Ollama)
+│   │   └── runtime/         # echo, shell, agentloop, openai, claudecode, codex …
+│   └── configs/             # example configs
+├── web/                     # Vite + React + Tailwind dashboard (generated TS in src/gen)
+├── ios/                     # SwiftUI app, widgets, extensions (XcodeGen) + NexusKit package
+├── vault-template/          # starter vault: agents, workflows, policies
 └── docs/
 ```
+
+### Modularity
+
+Every capability is a **module** (`kernel.Module`) registered in `init()` and enabled by config.
+Modules communicate only through the `kernel.Host`:
+
+- **Registries** — tools (`ToolRegistry`), runtimes (`RuntimeRegistry`), trigger sources
+  (`TriggerRegistry`). Adding a tool/runtime/trigger never touches the core.
+- **Services** — well-known names (`events`, `tasks`, `dispatcher`, `router`, `policy`, `vault`,
+  `llm`, `auth`…) resolved by interface. Swapping an implementation = enabling a different module
+  that provides the same service.
+- **Event bus** — every module can publish and subscribe.
+
+A new integration (Home Assistant, Gmail, a new agent runtime, Anthrex) is one package with an
+`init()` and one blank import in `cmd/nexusd/modules.go` or `cmd/nexus-node/modules.go`.
 
 ---
 
