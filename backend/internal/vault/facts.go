@@ -71,7 +71,7 @@ func (v *Vault) ProposeFact(ctx context.Context, in FactInput) (*nexusv1.Fact, e
 	if err != nil {
 		return nil, err
 	}
-	name := Slugify(stripLink(in.Subject)+" "+in.Predicate+" "+stripLink(in.Object), 60)
+	name := Slugify(stripLink(subj)+" "+in.Predicate+" "+stripLink(in.Object), 60)
 	rel, err := v.uniquePath("facts/" + name + ".md")
 	if err != nil {
 		return nil, err

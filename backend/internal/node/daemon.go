@@ -218,8 +218,20 @@ func (d *Daemon) session(ctx context.Context) (welcomed bool, err error) {
 	stream := client.Connect(sctx)
 	stream.RequestHeader().Set("Authorization", "Bearer "+d.cfg.Token)
 	stream.RequestHeader().Set(wire.HeaderNodeID, d.cfg.NodeID)
+	// The HTTP/2 transport only notices cancellation once the request body
+	// is closed, so close it explicitly when the session ends.
+	var closeOnce sync.Once
+	closeReq := func() { closeOnce.Do(func() { _ = stream.CloseRequest() }) }
+	stopClose := context.AfterFunc(sctx, func() {
+		d.mu.Lock()
+		defer d.mu.Unlock()
+		closeReq()
+	})
 	defer func() {
-		_ = stream.CloseRequest()
+		stopClose()
+		d.mu.Lock()
+		closeReq() // waits for a concurrent AfterFunc call (sync.Once)
+		d.mu.Unlock()
 		_ = stream.CloseResponse()
 	}()
 

@@ -274,12 +274,12 @@ type ServerOptions struct {
 }
 
 // ServerTLSConfig returns a TLS 1.3-only server config trusting only this
-// CA for client certificates.
+// CA for client certificates. Use it as http.Server.TLSConfig with
+// ListenAndServeTLS("", "") / ServeTLS, which add the h2 ALPN protocol.
 func (ca *CA) ServerTLSConfig(cert *tls.Certificate, o ServerOptions) *tls.Config {
 	cfg := &tls.Config{
 		MinVersion: tls.VersionTLS13,
 		ClientCAs:  ca.Pool(),
-		NextProtos: []string{"h2", "http/1.1"},
 	}
 	if o.GetCertificate != nil {
 		cfg.GetCertificate = o.GetCertificate
@@ -315,7 +315,6 @@ func ClientTLSConfig(caCert *x509.Certificate, cert *tls.Certificate, serverName
 		MinVersion: tls.VersionTLS13,
 		RootCAs:    pool,
 		ServerName: serverName,
-		NextProtos: []string{"h2", "http/1.1"},
 		VerifyConnection: func(cs tls.ConnectionState) error {
 			for _, chain := range cs.VerifiedChains {
 				if len(chain) == 0 {
