@@ -563,6 +563,27 @@ func (s *Security) RedeemNodePairing(ctx context.Context, token, nodeID string, 
 	return &NodePairing{NodeID: nodeID, Token: tok, ClientCert: pki.EncodeCertPEM(der), CACert: s.ca.CertPEM, SafetyCode: code}, nil
 }
 
+// AuthenticateNode checks a node's bearer token (used by the nodelink module,
+// which then ignores its own static token map): accepted are security.node_tokens
+// (any node id) and tokens issued by RedeemNodePairing for exactly nodeID.
+func (s *Security) AuthenticateNode(ctx context.Context, nodeID, token string) error {
+	if nodeID == "" || token == "" {
+		return errors.New("missing node id or token")
+	}
+	for _, nt := range s.cfg.NodeTokens {
+		if nt != "" && ctEq(token, nt) {
+			return nil
+		}
+	}
+	var id string
+	err := s.db.QueryRowContext(ctx, `SELECT id FROM security_nodes WHERE token_hash = ? AND revoked_at = 0`, hashToken(token)).Scan(&id)
+	if err != nil || id != nodeID {
+		s.record("auth.failed", map[string]any{"node_id": nodeID, "reason": "node token"})
+		return errors.New("invalid node credentials")
+	}
+	return nil
+}
+
 // RevokeNode revokes a paired node's token and certificate.
 func (s *Security) RevokeNode(ctx context.Context, nodeID string) error {
 	res, err := s.db.ExecContext(ctx, `UPDATE security_nodes SET revoked_at = ? WHERE id = ? AND revoked_at = 0`, s.now().UnixNano(), nodeID)

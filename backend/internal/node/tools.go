@@ -55,10 +55,27 @@ func Confine(root, rel string) (string, error) {
 	if !within(absRoot, p) {
 		return "", fmt.Errorf("path %q escapes the workspace", rel)
 	}
-	if real, err := filepath.EvalSymlinks(p); err == nil && !within(absRoot, real) {
+	if real := resolveExisting(p); !within(absRoot, real) {
 		return "", fmt.Errorf("path %q escapes the workspace via symlink", rel)
 	}
 	return p, nil
+}
+
+// resolveExisting evaluates symlinks of the longest existing prefix of p and
+// re-appends the missing tail.
+func resolveExisting(p string) string {
+	tail := ""
+	for cur := p; ; {
+		if real, err := filepath.EvalSymlinks(cur); err == nil {
+			return filepath.Join(real, tail)
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			return p
+		}
+		tail = filepath.Join(filepath.Base(cur), tail)
+		cur = parent
+	}
 }
 
 func within(root, p string) bool {

@@ -579,11 +579,23 @@ func TestNodePairingAndTokens(t *testing.T) {
 	if c := call(np.Token, "node_2"); c != 401 {
 		t.Fatalf("node header mismatch: %d", c)
 	}
+	if err := hs.sec.AuthenticateNode(ctx, "node_1", np.Token); err != nil {
+		t.Fatal(err)
+	}
+	if err := hs.sec.AuthenticateNode(ctx, "node_2", np.Token); err == nil {
+		t.Fatal("token accepted for another node id")
+	}
+	if err := hs.sec.AuthenticateNode(ctx, "anything", nodeToken); err != nil {
+		t.Fatal(err)
+	}
 	if err := hs.sec.RevokeNode(ctx, "node_1"); err != nil {
 		t.Fatal(err)
 	}
 	if c := call(np.Token, "node_1"); c != 401 {
 		t.Fatalf("revoked node: %d", c)
+	}
+	if err := hs.sec.AuthenticateNode(ctx, "node_1", np.Token); err == nil {
+		t.Fatal("revoked node token accepted")
 	}
 }
 

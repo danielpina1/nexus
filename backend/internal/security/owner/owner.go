@@ -32,6 +32,7 @@
 package owner
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"crypto/ecdsa"
@@ -40,6 +41,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 
 	nexusv1 "github.com/danielpina1/nexus/backend/gen/nexus/v1"
 	"github.com/danielpina1/nexus/backend/internal/security/approval"
@@ -368,3 +370,46 @@ func (t *TrustStore) ApprovalKey(_ context.Context, deviceID string) (*ecdsa.Pub
 }
 
 var _ approval.KeyLookup = (*TrustStore)(nil)
+
+// EdgeVerifier is the Node-side approval check (SECURITY.md Layer 5). It
+// satisfies the node package's ApprovalVerifier interface
+// (VerifyApproval(ctx, *nexusv1.ApprovalResolution) error) and can be
+// published under node.SvcApprovalVerifier.
+//
+// It rejects everything while the owner kill switch is engaged, recomputes
+// the action hash from Approval.payload (RFC 8785 JCS) and requires it to
+// equal payload_hash, then verifies the device signature against
+// owner-enrolled, non-revoked device keys (approval.VerifyFor). The runtime
+// must execute exactly Approval.payload for the binding to hold.
+type EdgeVerifier struct {
+	Trust *TrustStore
+	Now   func() time.Time
+}
+
+// ErrLocked is returned while the kill switch is engaged.
+var ErrLocked = errors.New("owner: node is locked by the owner (kill switch)")
+
+// VerifyApproval implements the node ApprovalVerifier.
+func (v EdgeVerifier) VerifyApproval(ctx context.Context, res *nexusv1.ApprovalResolution) error {
+	if v.Trust == nil {
+		return errors.New("owner: EdgeVerifier without trust store")
+	}
+	if res == nil || res.Decision == nil || res.Approval == nil || res.Approval.Payload == nil {
+		return fmt.Errorf("%w: resolution needs approval, payload and decision", approval.ErrMalformed)
+	}
+	if v.Trust.Locked() {
+		return ErrLocked
+	}
+	h, err := approval.ActionHash(res.Approval.Payload)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(h, res.Approval.PayloadHash) {
+		return approval.ErrHashMismatch
+	}
+	now := time.Now()
+	if v.Now != nil {
+		now = v.Now()
+	}
+	return approval.VerifyFor(ctx, res.Decision, res.Approval, v.Trust, now)
+}

@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	nexusv1 "github.com/danielpina1/nexus/backend/gen/nexus/v1"
@@ -170,5 +171,67 @@ func TestMalformed(t *testing.T) {
 	}
 	if ts.Sequence() != 0 {
 		t.Fatal("sequence advanced")
+	}
+}
+
+func TestEdgeVerifier(t *testing.T) {
+	root, _ := keys.Generate()
+	dev, _ := keys.Generate()
+	ts := NewTrustStore(&root.PublicKey, "")
+	if err := ts.Apply(stmt(t, root, nexusv1.OwnerStatement_KIND_ENROL_DEVICE, 1, func(s *nexusv1.OwnerStatement) {
+		s.SubjectId, s.SubjectPublicKey = "dev_1", keys.MarshalPublicKey(&dev.PublicKey)
+	})); err != nil {
+		t.Fatal(err)
+	}
+	payload, _ := structpb.NewStruct(map[string]any{"remote": "origin", "branch": "main", "sha": "abc123"})
+	h, _ := approval.ActionHash(payload)
+	now := time.Now()
+	mk := func() *nexusv1.ApprovalResolution {
+		a := &nexusv1.Approval{Id: "apr_1", Challenge: []byte("challenge"), Payload: payload, PayloadHash: h}
+		d := &nexusv1.SignedApproval{ApprovalId: "apr_1", Approve: true, Challenge: a.Challenge, ActionSha256: h,
+			ExpiresAt: timestamppb.New(now.Add(time.Minute)), DeviceId: "dev_1"}
+		if err := approval.Sign(d, dev); err != nil {
+			t.Fatal(err)
+		}
+		return &nexusv1.ApprovalResolution{RunId: "run_1", Approval: a, Decision: d}
+	}
+	v := EdgeVerifier{Trust: ts, Now: func() time.Time { return now }}
+	ctx := context.Background()
+	if err := v.VerifyApproval(ctx, mk()); err != nil {
+		t.Fatal(err)
+	}
+	// Hub swaps the payload (and its hash) but cannot re-sign.
+	res := mk()
+	res.Approval.Payload, _ = structpb.NewStruct(map[string]any{"remote": "evil", "branch": "main", "sha": "abc123"})
+	res.Approval.PayloadHash, _ = approval.ActionHash(res.Approval.Payload)
+	if err := v.VerifyApproval(ctx, res); !errors.Is(err, approval.ErrHashMismatch) {
+		t.Fatal(err)
+	}
+	// Hub swaps the payload but keeps the hash.
+	res = mk()
+	res.Approval.Payload, _ = structpb.NewStruct(map[string]any{"remote": "evil"})
+	if err := v.VerifyApproval(ctx, res); !errors.Is(err, approval.ErrHashMismatch) {
+		t.Fatal(err)
+	}
+	// Kill switch.
+	if err := ts.Apply(stmt(t, root, nexusv1.OwnerStatement_KIND_LOCK, 2, nil)); err != nil {
+		t.Fatal(err)
+	}
+	if err := v.VerifyApproval(ctx, mk()); !errors.Is(err, ErrLocked) {
+		t.Fatal(err)
+	}
+	if err := ts.Apply(stmt(t, root, nexusv1.OwnerStatement_KIND_UNLOCK, 3, nil)); err != nil {
+		t.Fatal(err)
+	}
+	// Device not enrolled by the owner (e.g. hub-only device).
+	other, _ := keys.Generate()
+	res = mk()
+	res.Decision.DeviceId = "dev_hub_only"
+	_ = approval.Sign(res.Decision, other)
+	if err := v.VerifyApproval(ctx, res); !errors.Is(err, approval.ErrUnknownDevice) {
+		t.Fatal(err)
+	}
+	if err := v.VerifyApproval(ctx, &nexusv1.ApprovalResolution{}); err == nil {
+		t.Fatal("empty resolution accepted")
 	}
 }
