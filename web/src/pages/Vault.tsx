@@ -13,7 +13,8 @@ import { Skeleton, SkeletonRows } from "../components/ui/Skeleton";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorState } from "../components/ui/ErrorState";
 import { Markdown } from "../components/Markdown";
-import { ForceGraph, GraphLegend, groupColor, noteGroup, type GraphNode } from "../components/ForceGraph";
+import { ForceGraph, GraphLegend, type GraphNode } from "../components/ForceGraph";
+import { groupColor, noteGroup } from "../components/graphUtil";
 import { cx, formatDateTime, tsDate } from "../lib/format";
 import type { NoteRef } from "../gen/nexus/v1/common_pb";
 
@@ -210,7 +211,7 @@ export default function Vault() {
     setParams(n);
   };
 
-  const refs = graph.data?.nodes ?? [];
+  const refs = useMemo(() => graph.data?.nodes ?? [], [graph.data]);
   const known = useMemo(() => {
     const s = new Set<string>();
     for (const r of refs) {

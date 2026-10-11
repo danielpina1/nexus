@@ -162,11 +162,10 @@ function PaletteBody({ close }: { close: () => void }) {
       if (c.group === "Command" || c.group === "Vault" || c.group === "Run with agent") return true;
       const hay = `${c.keywords} ${typeof c.label === "string" ? c.label : ""}`.toLowerCase();
       return terms.every((t) => hay.includes(t));
-    }).filter((c, i, arr) => c.group !== "Run with agent" || arr.filter((x) => x.group === "Run with agent").indexOf(c) < 3)
+    }).filter((c, _i, arr) => c.group !== "Run with agent" || arr.filter((x) => x.group === "Run with agent").indexOf(c) < 3)
       .slice(0, 40);
   }, [cmds, q]);
 
-  useEffect(() => setSel(0), [q]);
   useEffect(() => {
     listRef.current?.querySelector(`[data-idx="${sel}"]`)?.scrollIntoView({ block: "nearest" });
   }, [sel]);
@@ -192,7 +191,10 @@ function PaletteBody({ close }: { close: () => void }) {
         <input
           data-autofocus
           value={q}
-          onChange={(e) => setQ(e.target.value)}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setSel(0);
+          }}
           placeholder="Type a command, ask Nexus, or search…"
           className="h-12 flex-1 bg-transparent text-[14px] text-fg outline-none placeholder:text-muted"
         />

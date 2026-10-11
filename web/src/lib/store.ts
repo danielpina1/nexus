@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { create, fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
+import { create as createMsg, fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
 import { timestampFromMs } from "@bufbuild/protobuf/wkt";
 import { CostRecordedSchema, EventSchema, TaskUpdatedSchema, type Event, type Notice, type Question } from "../gen/nexus/v1/event_pb";
 import { ApprovalState, type Approval } from "../gen/nexus/v1/approval_pb";
@@ -283,7 +283,7 @@ function buildSnapshot(): Snapshot {
   for (const t of tasks) {
     const ev =
       pickLatest(t.id, (e) => e.body.case === "taskUpdated" && e.body.value.task?.id === t.id) ??
-      synth(0n, t.id, { case: "taskUpdated", value: create(TaskUpdatedSchema, { task: t }) });
+      synth(0n, t.id, { case: "taskUpdated", value: createMsg(TaskUpdatedSchema, { task: t }) });
     events.push(ev);
   }
   for (const a of Object.values(s.approvals)) events.push(synth(0n, a.taskId, { case: "approval", value: a }));
@@ -294,12 +294,12 @@ function buildSnapshot(): Snapshot {
     if (!s.dismissed[n.notice.id]) events.push(synth(n.seq, n.taskId, { case: "notice", value: n.notice }, n.at));
   }
   for (const st of Object.values(s.nodeStatus)) events.push(synth(0n, "", { case: "nodeStatus", value: st }));
-  for (const c of s.costs) events.push(synth(c.seq, c.taskId, { case: "cost", value: create(CostRecordedSchema, { cost: c.cost }) }, c.at));
+  for (const c of s.costs) events.push(synth(c.seq, c.taskId, { case: "cost", value: createMsg(CostRecordedSchema, { cost: c.cost }) }, c.at));
   return { v: 1, lastSeq: s.lastSeq.toString(), events: events.map((e) => toJson(EventSchema, e)) };
 }
 
 function synth(seq: bigint, taskId: string, body: Event["body"], at?: number): Event {
-  return create(EventSchema, {
+  return createMsg(EventSchema, {
     seq,
     taskId,
     actor: "snapshot",

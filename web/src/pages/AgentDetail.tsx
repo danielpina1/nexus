@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, ArrowLeft, CheckCircle2, RotateCcw, Save } from "lucide-react";
@@ -119,13 +119,10 @@ export default function AgentDetail() {
   const [tab, setTab] = useState<"edit" | "preview" | "runs">("edit");
   const tasks = useAllTasks();
 
-  useEffect(() => {
-    if (q.data && md === null) setMd(q.data.markdown);
-  }, [q.data, md]);
-
-  const text = md ?? "";
+  // md === null means "unedited": show what the Hub has.
+  const text = md ?? q.data?.markdown ?? "";
   const local = useMemo(() => parseAgentMarkdown(text), [text]);
-  const dirty = isNew || (q.data ? text !== q.data.markdown : false);
+  const dirty = isNew || (md !== null && md !== q.data?.markdown);
   const body = useMemo(() => splitFrontmatter(text).body, [text]);
 
   const save = useMutation({
@@ -174,7 +171,7 @@ export default function AgentDetail() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {dirty && !isNew && (
-            <Button variant="ghost" icon={<RotateCcw className="size-3.5" />} onClick={() => setMd(q.data?.markdown ?? "")}>
+            <Button variant="ghost" icon={<RotateCcw className="size-3.5" />} onClick={() => setMd(null)}>
               Revert
             </Button>
           )}

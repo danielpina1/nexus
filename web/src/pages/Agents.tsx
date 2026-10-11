@@ -11,13 +11,15 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { AgentIcon } from "../components/AgentIcon";
 import { useAgents } from "../lib/queries";
 import { useAllTasks } from "../lib/selectors";
+import { useNow } from "../lib/useNow";
 import { costMinor, formatMoney, isActive, tierLabel, tsMs } from "../lib/format";
 
 export default function Agents() {
   const { data, isLoading, isError, error, refetch } = useAgents();
   const tasks = useAllTasks();
+  const now = useNow(60_000);
   const stats = useMemo(() => {
-    const since = Date.now() - 7 * 86_400_000;
+    const since = now - 7 * 86_400_000;
     const m = new Map<string, { runs: number; cost: number; active: number }>();
     for (const t of tasks) {
       const s = m.get(t.agentId) ?? { runs: 0, cost: 0, active: 0 };
@@ -29,7 +31,7 @@ export default function Agents() {
       m.set(t.agentId, s);
     }
     return m;
-  }, [tasks]);
+  }, [tasks, now]);
 
   return (
     <div>

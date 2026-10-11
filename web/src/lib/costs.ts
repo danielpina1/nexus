@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useEvents, type CostItem } from "./store";
 import { isLocalRuntime } from "./format";
+import { useNow } from "./useNow";
 import type { Task } from "../gen/nexus/v1/task_pb";
 
 export function startOfDay(ms: number): number {
@@ -33,8 +34,9 @@ function enrich(costs: CostItem[], tasks: Record<string, Task>): CostRow[] {
 
 export function useTodayCost() {
   const rows = useCostRows();
+  const now = useNow(60_000);
   return useMemo(() => {
-    const t0 = startOfDay(Date.now());
+    const t0 = startOfDay(now);
     let cloud = 0;
     let localTokens = 0;
     let cloudTokens = 0;
@@ -53,18 +55,19 @@ export function useTodayCost() {
       }
     }
     return { cloud, localTokens, cloudTokens, localRuns, currency };
-  }, [rows]);
+  }, [rows, now]);
 }
 
 export function useDailyCosts(days: number) {
   const rows = useCostRows();
+  const now = useNow(60_000);
   return useMemo(() => {
-    const today = startOfDay(Date.now());
+    const today = startOfDay(now);
     const out = Array.from({ length: days }, (_, i) => ({ day: today - (days - 1 - i) * 86_400_000, minor: 0 }));
     for (const r of rows) {
       const idx = Math.round((startOfDay(r.at) - out[0].day) / 86_400_000);
       if (idx >= 0 && idx < days) out[idx].minor += r.minor;
     }
     return out;
-  }, [rows, days]);
+  }, [rows, days, now]);
 }

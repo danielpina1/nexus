@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Maximize2, Minus, Plus } from "lucide-react";
 import { cx } from "../lib/format";
+import { groupColor } from "./graphUtil";
 
 export interface GraphNode {
   id: string;
@@ -19,41 +20,6 @@ interface Sim {
   vy: number;
   fx?: number;
   fy?: number;
-}
-
-/** Fixed categorical slot per note type; unknown types fall back to gray. */
-export const GROUP_SLOT: Record<string, number> = {
-  agent: 1,
-  person: 2,
-  topic: 3,
-  machine: 4,
-  product: 5,
-  episode: 6,
-  project: 7,
-};
-
-export function groupColor(group: string): string {
-  const s = GROUP_SLOT[group];
-  return s ? `var(--series-${s})` : "var(--muted)";
-}
-
-export function noteGroup(path: string): string {
-  const dir = path.split("/")[0];
-  const map: Record<string, string> = {
-    agents: "agent",
-    people: "person",
-    topics: "topic",
-    projects: "project",
-    machines: "machine",
-    products: "product",
-    episodes: "episode",
-    daily: "daily",
-    workflows: "workflow",
-    policies: "policy",
-    templates: "template",
-    inbox: "inbox",
-  };
-  return map[dir] ?? (path.includes("/") ? dir : "note");
 }
 
 /**
@@ -81,7 +47,9 @@ export function ForceGraph({
   const sim = useRef(new Map<string, Sim>());
   const alpha = useRef(1);
   const raf = useRef(0);
-  const [, setFrame] = useState(0);
+  const [pos, setPos] = useState<Map<string, { x: number; y: number }>>(() => new Map());
+  const [width, setWidth] = useState(0);
+  const publish = () => setPos(new Map([...sim.current].map(([k, v]) => [k, { x: v.x, y: v.y }])));
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
   const [hover, setHover] = useState<string | null>(null);
   const drag = useRef<{ id?: string; px: number; py: number; vx: number; vy: number; moved: boolean } | null>(null);
@@ -122,7 +90,7 @@ export function ForceGraph({
     const step = () => {
       tick(m, links, degree);
       alpha.current *= 0.985;
-      setFrame((f) => f + 1);
+      publish();
       if (alpha.current > 0.02) raf.current = requestAnimationFrame(step);
     };
     cancelAnimationFrame(raf.current);
@@ -213,7 +181,7 @@ export function ForceGraph({
           }
         }
         alpha.current *= 0.95;
-        setFrame((f) => f + 1);
+        publish();
         if (alpha.current > 0.02) raf.current = requestAnimationFrame(step);
       };
       raf.current = requestAnimationFrame(step);
@@ -248,13 +216,22 @@ export function ForceGraph({
   };
 
   // Fit once the layout has mostly settled.
+  const fitRef = useRef(fit);
   useEffect(() => {
-    const t = setTimeout(fit, 1600);
+    fitRef.current = fit;
+  });
+  useEffect(() => {
+    const t = setTimeout(() => fitRef.current(), 1600);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes.length]);
 
-  const pos = sim.current;
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setWidth(el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   return (
     <div className={cx("relative overflow-hidden rounded-xl bg-surface-2/40", className)} style={{ height }}>
       <svg
@@ -266,7 +243,7 @@ export function ForceGraph({
           const nodeId = (e.target as Element).closest("[data-node]")?.getAttribute("data-node") ?? undefined;
           drag.current = { id: nodeId, px: e.clientX, py: e.clientY, vx: view.x, vy: view.y, moved: false };
           if (nodeId) {
-            const p = pos.get(nodeId);
+            const p = sim.current.get(nodeId);
             if (p) {
               p.fx = p.x;
               p.fy = p.y;
@@ -278,13 +255,13 @@ export function ForceGraph({
           if (!d) return;
           if (Math.abs(e.clientX - d.px) + Math.abs(e.clientY - d.py) > 3) d.moved = true;
           if (d.id) {
-            const p = pos.get(d.id);
+            const p = sim.current.get(d.id);
             if (p) {
               const w = toWorld(e.clientX, e.clientY);
               p.fx = p.x = w.x;
               p.fy = p.y = w.y;
               reheat();
-              setFrame((f) => f + 1);
+              publish();
             }
           } else {
             setView((v) => ({ ...v, x: d.vx + e.clientX - d.px, y: d.vy + e.clientY - d.py }));
@@ -294,7 +271,7 @@ export function ForceGraph({
           const d = drag.current;
           drag.current = null;
           if (d?.id) {
-            const p = pos.get(d.id);
+            const p = sim.current.get(d.id);
             if (p) {
               p.fx = undefined;
               p.fy = undefined;
@@ -303,7 +280,7 @@ export function ForceGraph({
           }
         }}
       >
-        <g transform={`translate(${(svgRef.current?.clientWidth ?? 0) / 2 + view.x} ${height / 2 + view.y}) scale(${view.k})`}>
+        <g transform={`translate(${width / 2 + view.x} ${height / 2 + view.y}) scale(${view.k})`}>
           {links.map((l, i) => {
             const p = pos.get(l.source);
             const q = pos.get(l.target);

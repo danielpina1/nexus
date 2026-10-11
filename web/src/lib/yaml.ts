@@ -12,7 +12,7 @@ export interface ParsedNote {
 }
 
 export function splitFrontmatter(md: string): ParsedNote {
-  const text = md.replace(/^﻿/, "");
+  const text = md.replace(/^\uFEFF/, "");
   if (!text.startsWith("---")) return { frontmatter: {}, body: text, hasFrontmatter: false };
   const end = text.indexOf("\n---", 3);
   if (end < 0) return { frontmatter: {}, body: text, hasFrontmatter: false, error: "Frontmatter is not closed with ---" };

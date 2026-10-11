@@ -12,6 +12,7 @@ import { TaskRow } from "../components/TaskRow";
 import { useAllTasks } from "../lib/selectors";
 import { useAgents, useNodes, useTaskList } from "../lib/queries";
 import { costMinor, formatMoney, isActive, tsMs } from "../lib/format";
+import { useNow } from "../lib/useNow";
 import { TaskState, type Task } from "../gen/nexus/v1/task_pb";
 
 type Status = "all" | "active" | "waiting" | "succeeded" | "failed" | "cancelled";
@@ -79,8 +80,9 @@ export default function Tasks() {
     return m;
   }, [all]);
 
+  const now = useNow(60_000);
   const filtered = useMemo(() => {
-    const since = Date.now() - RANGES[range];
+    const since = now - RANGES[range];
     const text = q.toLowerCase();
     return all.filter(
       (t) =>
@@ -91,7 +93,7 @@ export default function Tasks() {
         tsMs(t.createdAt) >= since &&
         (!text || `${t.title} ${t.prompt} ${t.summary}`.toLowerCase().includes(text)),
     );
-  }, [all, status, agent, node, range, q, roots]);
+  }, [all, status, agent, node, range, q, roots, now]);
 
   const counts = useMemo(() => {
     const c: Record<Status, number> = { all: 0, active: 0, waiting: 0, succeeded: 0, failed: 0, cancelled: 0 };

@@ -1,17 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { Download, FileText, Image as ImageIcon, FileDiff } from "lucide-react";
 import type { Attachment } from "../gen/nexus/v1/common_pb";
 import { cx, formatBytes } from "../lib/format";
 import { hubBaseUrl } from "../lib/api";
 
 function useObjectUrl(att: Attachment): string | undefined {
-  const [url, setUrl] = useState<string>();
-  useEffect(() => {
-    if (!att.data.length) return;
-    const u = URL.createObjectURL(new Blob([att.data as BlobPart], { type: att.mimeType || "application/octet-stream" }));
-    setUrl(u);
-    return () => URL.revokeObjectURL(u);
-  }, [att]);
+  const url = useMemo(
+    () => (att.data.length ? URL.createObjectURL(new Blob([att.data as BlobPart], { type: att.mimeType || "application/octet-stream" })) : undefined),
+    [att],
+  );
+  useEffect(() => () => (url ? URL.revokeObjectURL(url) : undefined), [url]);
   if (!att.data.length && att.url) {
     // Blob URLs issued by the Hub are relative to it.
     return att.url.startsWith("http") ? att.url : `${hubBaseUrl()}${att.url.startsWith("/") ? "" : "/"}${att.url}`;

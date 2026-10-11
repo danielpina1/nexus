@@ -3,7 +3,7 @@ import { Code, ConnectError } from "@connectrpc/connect";
 import { EventSchema, NoticeKind, type Event } from "../gen/nexus/v1/event_pb";
 import { TaskSchema, TaskState, type Task } from "../gen/nexus/v1/task_pb";
 import { ApprovalSchema, ApprovalState, type Approval } from "../gen/nexus/v1/approval_pb";
-import { ActionClass, CostSchema, Tier, TrustLevel, type NoteRef } from "../gen/nexus/v1/common_pb";
+import { ActionClass, CostSchema, NoteRefSchema, Tier, TrustLevel, type NoteRef } from "../gen/nexus/v1/common_pb";
 import { CommandKind, type Route } from "../gen/nexus/v1/command_pb";
 import { NodeStatusSchema, type Node } from "../gen/nexus/v1/node_pb";
 import type { Device } from "../gen/nexus/v1/device_pb";
@@ -149,7 +149,7 @@ export class MockHub {
 
   // ---- task helpers ---------------------------------------------------------------------------
 
-  newTask(init: Partial<MessageInitShape<typeof TaskSchema>> & { title: string }, at = Date.now()): Task {
+  newTask(init: { title: string; prompt?: string; agentId?: string; workflowId?: string; parentId?: string; tier?: Tier; source?: string }, at = Date.now()): Task {
     const id = newId("tsk", at);
     const parent = init.parentId ? this.tasks.get(init.parentId) : undefined;
     const t = create(TaskSchema, {
@@ -212,7 +212,7 @@ export class MockHub {
     }
   }
 
-  notice(taskId: string, kind: NoticeKind, title: string, body: string, opts: { at?: number; data?: Record<string, unknown>; notes?: NoteRef[] } = {}) {
+  notice(taskId: string, kind: NoticeKind, title: string, body: string, opts: { at?: number; data?: Record<string, unknown>; notes?: Array<{ id: string; path: string; title: string }> } = {}) {
     const id = newId("ntc", opts.at);
     this.emit(
       taskId,
@@ -808,7 +808,7 @@ export class MockHub {
     const title = text.replace(/^(remember|note|capture|save)( that)?[:\s]*/i, "").slice(0, 48) || "capture";
     const path = `inbox/${stamp} ${title.replace(/[/\\:]/g, "-")}.md`;
     const n = upsertNote(path, `---\ntype: capture\ntitle: ${title}\nsource: ${source}\ntags: [inbox]\n---\n\n${text}\n`);
-    return { id: n.id, path: n.path, title: n.title } as NoteRef;
+    return create(NoteRefSchema, { id: n.id, path: n.path, title: n.title });
   }
 
   /** Runs a scripted task for an agent with streamed output. */

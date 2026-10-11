@@ -7,7 +7,7 @@ import { cx } from "../lib/format";
 const WIKILINK = /\[\[([^\]|#]+)(#[^\]|]*)?(?:\|([^\]]+))?\]\]/g;
 
 /** Turn [[Target|alias]] into markdown links with a private scheme the renderer understands. */
-export function preprocessWikilinks(md: string): string {
+function preprocessWikilinks(md: string): string {
   // Leave fenced code blocks alone.
   return md
     .split(/(```[\s\S]*?```)/g)
