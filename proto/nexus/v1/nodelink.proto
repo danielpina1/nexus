@@ -1,0 +1,104 @@
+syntax = "proto3";
+
+package nexus.v1;
+
+import "google/protobuf/struct.proto";
+import "nexus/v1/agent.proto";
+import "nexus/v1/approval.proto";
+import "nexus/v1/common.proto";
+import "nexus/v1/event.proto";
+import "nexus/v1/node.proto";
+
+// NodeLinkService is used only by nexus-node. The node dials out and keeps one
+// bidirectional stream open (HTTP/2 + mTLS).
+service NodeLinkService {
+  rpc Connect(stream ConnectRequest) returns (stream ConnectResponse);
+}
+
+// ConnectRequest is a message from node to hub.
+message ConnectRequest {
+  oneof msg {
+    NodeHello hello = 1;
+    NodeStatus status = 2;
+    RunEvent run_event = 3;
+    ToolRequest tool_request = 4; // node asks hub to run a hub-side tool (memory, vault, ask_user...)
+    Ack ack = 5;
+  }
+}
+
+// ConnectResponse is a message from hub to node.
+message ConnectResponse {
+  oneof msg {
+    HubWelcome welcome = 1;
+    RunAssignment assign = 2;
+    RunInput input = 3;
+    ApprovalResolution resolution = 4;
+    RunCancel cancel = 5;
+    ToolResponse tool_response = 6;
+    Ack ack = 7;
+  }
+}
+
+message NodeHello {
+  string node_id = 1;
+  string version = 2;
+  repeated RuntimeInfo runtimes = 3;
+  repeated string tags = 4;
+  // Last hub message seq processed, for lossless resume.
+  int64 resume_seq = 5;
+}
+
+message HubWelcome {
+  int64 resume_seq = 1;
+}
+
+message RunAssignment {
+  string run_id = 1;
+  string task_id = 2;
+  Agent agent = 3;
+  string instructions = 4; // agent note body
+  string prompt = 5;
+  repeated Attachment attachments = 6;
+  google.protobuf.Struct context = 7; // memory snippets, params
+  string run_token = 8; // scoped token for hub-side tools
+}
+
+message RunInput {
+  string run_id = 1;
+  string text = 2;
+  string question_id = 3;
+  string choice = 4;
+}
+
+message ApprovalResolution {
+  string run_id = 1;
+  Approval approval = 2;
+}
+
+message RunCancel {
+  string run_id = 1;
+  string reason = 2;
+}
+
+// RunEvent wraps an event produced by a runtime on the node.
+message RunEvent {
+  int64 node_seq = 1;
+  Event event = 2;
+}
+
+message ToolRequest {
+  string request_id = 1;
+  string run_id = 2;
+  string tool = 3;
+  google.protobuf.Struct input = 4;
+}
+
+message ToolResponse {
+  string request_id = 1;
+  google.protobuf.Struct output = 2;
+  string error = 3;
+}
+
+message Ack {
+  int64 seq = 1;
+}

@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+package nexus.v1;
+
+import "nexus/v1/common.proto";
+
+// Agent is the parsed form of an agent note (vault agents/*.md).
+message Agent {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string icon = 4;
+  string runtime = 5; // claude-code | codex | openai | ollama | anthrex | shell | browser | workflow
+  string model = 6; // model alias
+  Tier tier = 7;
+  repeated string node_tags = 8;
+  repeated string tools = 9;
+  AgentLimits limits = 10;
+  map<string, TrustLevel> policy = 11; // action class name -> level override
+  NoteRef note = 12;
+  int32 version = 13;
+  bool enabled = 14;
+  // Validation errors when the note could not be loaded.
+  repeated string errors = 15;
+}
+
+// AgentLimits bounds a single run.
+message AgentLimits {
+  int64 max_runtime_seconds = 1;
+  Money max_cost = 2;
+  Money max_spend = 3;
+  int32 max_subtasks = 4;
+}
+
+// AgentService lists and edits agents. Writes go through the vault (git) and are policy-checked.
+service AgentService {
+  rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
+  rpc GetAgent(GetAgentRequest) returns (GetAgentResponse);
+  // UpsertAgent writes the agent note (raw Markdown) and returns the parsed agent.
+  rpc UpsertAgent(UpsertAgentRequest) returns (UpsertAgentResponse);
+}
+
+message ListAgentsRequest {
+  bool include_disabled = 1;
+}
+
+message ListAgentsResponse {
+  repeated Agent agents = 1;
+}
+
+message GetAgentRequest {
+  string id = 1;
+}
+
+message GetAgentResponse {
+  Agent agent = 1;
+  string markdown = 2;
+}
+
+message UpsertAgentRequest {
+  string markdown = 1;
+  string commit_message = 2;
+}
+
+message UpsertAgentResponse {
+  Agent agent = 1;
+}

@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package nexus.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Node is a machine running nexus-node.
+message Node {
+  string id = 1;
+  string name = 2;
+  string os = 3;
+  string arch = 4;
+  repeated string tags = 5;
+  repeated RuntimeInfo runtimes = 6;
+  NodeStatus status = 7;
+  google.protobuf.Timestamp paired_at = 8;
+}
+
+// RuntimeInfo describes an available runtime on a node.
+message RuntimeInfo {
+  string name = 1; // claude-code | codex | ollama | browser | ...
+  string version = 2;
+  bool available = 3;
+}
+
+// NodeStatus is periodic telemetry.
+message NodeStatus {
+  string node_id = 1;
+  bool online = 2;
+  double cpu_percent = 3;
+  double memory_percent = 4;
+  double disk_percent = 5;
+  double battery_percent = 6;
+  int32 active_runs = 7;
+  google.protobuf.Timestamp last_seen = 8;
+}
+
+// NodeService is the client-facing view of nodes.
+service NodeService {
+  rpc ListNodes(ListNodesRequest) returns (ListNodesResponse);
+  rpc GetNode(GetNodeRequest) returns (GetNodeResponse);
+  rpc ListFiles(ListFilesRequest) returns (ListFilesResponse);
+  rpc WakeNode(WakeNodeRequest) returns (WakeNodeResponse);
+}
+
+message ListNodesRequest {}
+
+message ListNodesResponse {
+  repeated Node nodes = 1;
+}
+
+message GetNodeRequest {
+  string id = 1;
+}
+
+message GetNodeResponse {
+  Node node = 1;
+}
+
+message ListFilesRequest {
+  string node_id = 1;
+  string path = 2;
+}
+
+message FileEntry {
+  string name = 1;
+  string path = 2;
+  bool is_dir = 3;
+  int64 size_bytes = 4;
+  google.protobuf.Timestamp modified_at = 5;
+}
+
+message ListFilesResponse {
+  repeated FileEntry entries = 1;
+}
+
+message WakeNodeRequest {
+  string id = 1;
+}
+
+message WakeNodeResponse {}

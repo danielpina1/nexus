@@ -1,0 +1,147 @@
+syntax = "proto3";
+
+package nexus.v1;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "nexus/v1/common.proto";
+
+// Note is a vault note.
+message Note {
+  NoteRef ref = 1;
+  string type = 2;
+  repeated string tags = 3;
+  google.protobuf.Struct frontmatter = 4;
+  string body = 5;
+  repeated NoteRef links = 6;
+  repeated NoteRef backlinks = 7;
+  google.protobuf.Timestamp updated_at = 8;
+  string commit = 9;
+}
+
+message SearchHit {
+  NoteRef note = 1;
+  string snippet = 2;
+  float score = 3;
+}
+
+message GraphEdge {
+  string source_id = 1;
+  string target_id = 2;
+  string relation = 3; // links_to | works_at | prefers | ...
+}
+
+// VaultService reads/writes the knowledge vault and exposes search and graph.
+service VaultService {
+  rpc Search(SearchRequest) returns (SearchResponse);
+  // Ask answers a question from the vault with cited sources.
+  rpc Ask(AskRequest) returns (AskResponse);
+  rpc GetNote(GetNoteRequest) returns (GetNoteResponse);
+  rpc WriteNote(WriteNoteRequest) returns (WriteNoteResponse);
+  rpc Capture(CaptureRequest) returns (CaptureResponse);
+  rpc Graph(GraphRequest) returns (GraphResponse);
+  rpc ListFacts(ListFactsRequest) returns (ListFactsResponse);
+  rpc ReviewFact(ReviewFactRequest) returns (ReviewFactResponse);
+}
+
+message SearchRequest {
+  string query = 1;
+  repeated string types = 2;
+  int32 limit = 3;
+}
+
+message SearchResponse {
+  repeated SearchHit hits = 1;
+}
+
+message AskRequest {
+  string question = 1;
+}
+
+message AskResponse {
+  string answer = 1;
+  repeated NoteRef sources = 2;
+}
+
+message GetNoteRequest {
+  string id = 1;
+  string path = 2;
+}
+
+message GetNoteResponse {
+  Note note = 1;
+}
+
+message WriteNoteRequest {
+  string path = 1;
+  string markdown = 2;
+  string base_commit = 3; // optimistic concurrency
+  string commit_message = 4;
+}
+
+message WriteNoteResponse {
+  Note note = 1;
+}
+
+message CaptureRequest {
+  string text = 1;
+  string url = 2;
+  repeated Attachment attachments = 3;
+  string source = 4;
+  string idempotency_key = 5;
+}
+
+message CaptureResponse {
+  NoteRef note = 1;
+}
+
+message GraphRequest {
+  string center_id = 1; // empty = whole graph (filtered)
+  int32 depth = 2;
+  repeated string types = 3;
+  int32 limit = 4;
+}
+
+message GraphResponse {
+  repeated NoteRef nodes = 1;
+  repeated GraphEdge edges = 2;
+}
+
+enum FactStatus {
+  FACT_STATUS_UNSPECIFIED = 0;
+  FACT_STATUS_PROPOSED = 1;
+  FACT_STATUS_CONFIRMED = 2;
+  FACT_STATUS_REJECTED = 3;
+}
+
+message Fact {
+  string id = 1;
+  NoteRef subject = 2;
+  string predicate = 3;
+  string object = 4;
+  float confidence = 5;
+  FactStatus status = 6;
+  NoteRef source = 7;
+  google.protobuf.Timestamp valid_from = 8;
+  google.protobuf.Timestamp valid_to = 9;
+}
+
+message ListFactsRequest {
+  FactStatus status = 1;
+  PageRequest page = 2;
+}
+
+message ListFactsResponse {
+  repeated Fact facts = 1;
+  string next_page_token = 2;
+}
+
+message ReviewFactRequest {
+  string id = 1;
+  FactStatus status = 2;
+  string corrected_object = 3;
+}
+
+message ReviewFactResponse {
+  Fact fact = 1;
+}

@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package nexus.v1;
+
+import "google/protobuf/struct.proto";
+import "nexus/v1/common.proto";
+import "nexus/v1/task.proto";
+
+enum CommandKind {
+  COMMAND_KIND_UNSPECIFIED = 0;
+  COMMAND_KIND_SEARCH = 1; // question about my stuff
+  COMMAND_KIND_CAPTURE = 2; // remember this
+  COMMAND_KIND_TASK = 3; // do something
+  COMMAND_KIND_WORKFLOW = 4; // start a workflow
+}
+
+// Route is the router's decision.
+message Route {
+  CommandKind kind = 1;
+  string agent_id = 2;
+  string workflow_id = 3;
+  Tier tier = 4;
+  float confidence = 5;
+  google.protobuf.Struct params = 6;
+  string reason = 7;
+  repeated string alternatives = 8;
+}
+
+// CommandContext gives the router hints about where the command came from.
+message CommandContext {
+  string source = 1; // command-bar | siri | share | widget | nfc | location
+  string focus = 2; // iOS Focus mode name
+  double latitude = 3;
+  double longitude = 4;
+  string share_type = 5; // url | text | image | pdf | audio
+}
+
+// CommandService is the single entry point behind the command bar, Siri and the share sheet.
+service CommandService {
+  // Plan returns the route without executing (preview).
+  rpc Plan(PlanRequest) returns (PlanResponse);
+  // Execute routes and executes. Low confidence returns a question instead of a task.
+  rpc Execute(ExecuteRequest) returns (ExecuteResponse);
+  // CorrectRoute records that the user overrode a routing decision (training data).
+  rpc CorrectRoute(CorrectRouteRequest) returns (CorrectRouteResponse);
+}
+
+message PlanRequest {
+  string input = 1;
+  repeated Attachment attachments = 2;
+  CommandContext context = 3;
+}
+
+message PlanResponse {
+  Route route = 1;
+}
+
+message ExecuteRequest {
+  string input = 1;
+  repeated Attachment attachments = 2;
+  CommandContext context = 3;
+  // Optional: force a route (e.g. user picked an agent in the share sheet).
+  Route route = 4;
+  string idempotency_key = 5;
+}
+
+message ExecuteResponse {
+  Route route = 1;
+  Task task = 2; // for TASK / WORKFLOW
+  string answer = 3; // for SEARCH
+  repeated NoteRef sources = 4; // for SEARCH / CAPTURE
+  string question = 5; // set when the router needs the user to choose
+  repeated string choices = 6;
+}
+
+message CorrectRouteRequest {
+  string task_id = 1;
+  string agent_id = 2;
+  string comment = 3;
+}
+
+message CorrectRouteResponse {
+  Task task = 1;
+}

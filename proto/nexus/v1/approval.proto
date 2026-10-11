@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package nexus.v1;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "nexus/v1/common.proto";
+
+enum ApprovalState {
+  APPROVAL_STATE_UNSPECIFIED = 0;
+  APPROVAL_STATE_PENDING = 1;
+  APPROVAL_STATE_APPROVED = 2;
+  APPROVAL_STATE_DENIED = 3;
+  APPROVAL_STATE_EXPIRED = 4;
+}
+
+// Approval is a pending human decision on an action.
+message Approval {
+  string id = 1;
+  string task_id = 2;
+  string run_id = 3;
+  string agent_id = 4;
+  ActionClass action_class = 5;
+  TrustLevel level = 6;
+  string title = 7; // "Checkout €84.30 at Continente"
+  string summary = 8;
+  google.protobuf.Struct payload = 9; // exact action preview
+  repeated Attachment previews = 10; // screenshots, diffs
+  // SHA-256 of the canonical payload; biometric approvals sign this.
+  bytes payload_hash = 11;
+  // Random challenge for biometric signatures.
+  bytes challenge = 12;
+  ApprovalState state = 13;
+  google.protobuf.Timestamp expires_at = 14;
+  google.protobuf.Timestamp created_at = 15;
+}
+
+// ApprovalService lists and decides approvals.
+service ApprovalService {
+  rpc ListApprovals(ListApprovalsRequest) returns (ListApprovalsResponse);
+  rpc Decide(DecideRequest) returns (DecideResponse);
+}
+
+message ListApprovalsRequest {
+  repeated ApprovalState states = 1;
+}
+
+message ListApprovalsResponse {
+  repeated Approval approvals = 1;
+}
+
+message DecideRequest {
+  string approval_id = 1;
+  bool approve = 2;
+  string comment = 3;
+  // Required for TRUST_LEVEL_BIOMETRIC: signature over (challenge || payload_hash)
+  // with the device's Secure Enclave key.
+  bytes signature = 4;
+  // Remember this decision for this agent + action pattern (earned autonomy suggestion).
+  bool remember = 5;
+}
+
+message DecideResponse {
+  Approval approval = 1;
+}

@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package nexus.v1;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+// Tier is the cost/difficulty class used for routing and escalation.
+enum Tier {
+  TIER_UNSPECIFIED = 0;
+  TIER_SIMPLE = 1; // local models
+  TIER_MEDIUM = 2; // cloud models via Unify Gateway
+  TIER_HEAVY = 3; // Claude Code, Codex, long autonomous work
+}
+
+// ActionClass classifies every tool call for policy evaluation.
+enum ActionClass {
+  ACTION_CLASS_UNSPECIFIED = 0;
+  ACTION_CLASS_READ = 1;
+  ACTION_CLASS_WRITE_INTERNAL = 2;
+  ACTION_CLASS_COMPUTE = 3;
+  ACTION_CLASS_WRITE_EXTERNAL = 4;
+  ACTION_CLASS_CODE_PUSH = 5;
+  ACTION_CLASS_SPEND = 6;
+  ACTION_CLASS_DESTRUCTIVE = 7;
+  ACTION_CLASS_DEVICE_CONTROL = 8;
+}
+
+// TrustLevel is how much human involvement an action needs.
+enum TrustLevel {
+  TRUST_LEVEL_UNSPECIFIED = 0;
+  TRUST_LEVEL_AUTO = 1;
+  TRUST_LEVEL_NOTIFY = 2;
+  TRUST_LEVEL_APPROVE = 3;
+  TRUST_LEVEL_BIOMETRIC = 4;
+}
+
+// Attachment is a file, image, audio or link sent with a command or produced by a run.
+message Attachment {
+  string id = 1;
+  string name = 2;
+  string mime_type = 3;
+  int64 size_bytes = 4;
+  // Either inline bytes (small) or a blob URL issued by the Hub.
+  bytes data = 5;
+  string url = 6;
+}
+
+// Money is an amount in minor units (cents).
+message Money {
+  string currency = 1; // ISO 4217, e.g. "EUR"
+  int64 minor_units = 2;
+}
+
+// Cost records LLM/runtime spend.
+message Cost {
+  Money amount = 1;
+  int64 input_tokens = 2;
+  int64 output_tokens = 3;
+  string model = 4;
+  string runtime = 5;
+}
+
+// Page is a cursor-based pagination request.
+message PageRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+
+// Ref points at a vault note.
+message NoteRef {
+  string id = 1;
+  string path = 2;
+  string title = 3;
+}
+
+// Meta is a free-form structured payload.
+message Meta {
+  google.protobuf.Struct fields = 1;
+  google.protobuf.Timestamp at = 2;
+}

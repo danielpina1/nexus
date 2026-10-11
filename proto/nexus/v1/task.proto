@@ -1,0 +1,130 @@
+syntax = "proto3";
+
+package nexus.v1;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "nexus/v1/common.proto";
+
+enum TaskState {
+  TASK_STATE_UNSPECIFIED = 0;
+  TASK_STATE_QUEUED = 1;
+  TASK_STATE_ROUTING = 2;
+  TASK_STATE_NEEDS_INPUT = 3;
+  TASK_STATE_ASSIGNED = 4;
+  TASK_STATE_RUNNING = 5;
+  TASK_STATE_WAITING_APPROVAL = 6;
+  TASK_STATE_WAITING_INPUT = 7;
+  TASK_STATE_ESCALATING = 8;
+  TASK_STATE_SUCCEEDED = 9;
+  TASK_STATE_FAILED = 10;
+  TASK_STATE_CANCELLED = 11;
+}
+
+// Task is a unit of intent. Runs are attempts at it.
+message Task {
+  string id = 1;
+  string parent_id = 2;
+  string root_id = 3;
+  string title = 4;
+  string prompt = 5;
+  string agent_id = 6;
+  string workflow_id = 7;
+  TaskState state = 8;
+  Tier tier = 9;
+  string current_run_id = 10;
+  string node_id = 11;
+  string summary = 12; // final result summary
+  google.protobuf.Struct result = 13;
+  Cost cost = 14;
+  NoteRef episode = 15;
+  google.protobuf.Timestamp created_at = 16;
+  google.protobuf.Timestamp updated_at = 17;
+  string source = 18; // ios-chat | ios-share | siri | web | cli | workflow | trigger
+}
+
+// TaskService creates and steers tasks.
+service TaskService {
+  rpc CreateTask(CreateTaskRequest) returns (CreateTaskResponse);
+  rpc GetTask(GetTaskRequest) returns (GetTaskResponse);
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+  // SendMessage sends a user message or answers a question in a running task.
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+  rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse);
+  // EscalateTask retries the task on the next tier ("Try harder").
+  rpc EscalateTask(EscalateTaskRequest) returns (EscalateTaskResponse);
+  // StopAll is the kill switch.
+  rpc StopAll(StopAllRequest) returns (StopAllResponse);
+}
+
+message CreateTaskRequest {
+  string prompt = 1;
+  string agent_id = 2; // empty = route automatically
+  repeated Attachment attachments = 3;
+  google.protobuf.Struct params = 4;
+  string idempotency_key = 5;
+  bool dry_run = 6;
+  string source = 7;
+}
+
+message CreateTaskResponse {
+  Task task = 1;
+}
+
+message GetTaskRequest {
+  string id = 1;
+  bool include_children = 2;
+}
+
+message GetTaskResponse {
+  Task task = 1;
+  repeated Task children = 2;
+}
+
+message ListTasksRequest {
+  PageRequest page = 1;
+  repeated TaskState states = 2;
+  string agent_id = 3;
+  string node_id = 4;
+  bool roots_only = 5;
+}
+
+message ListTasksResponse {
+  repeated Task tasks = 1;
+  string next_page_token = 2;
+}
+
+message SendMessageRequest {
+  string task_id = 1;
+  string text = 2;
+  repeated Attachment attachments = 3;
+  // Set when answering an ask_user question.
+  string question_id = 4;
+  string choice = 5;
+  string idempotency_key = 6;
+}
+
+message SendMessageResponse {}
+
+message CancelTaskRequest {
+  string id = 1;
+}
+
+message CancelTaskResponse {}
+
+message EscalateTaskRequest {
+  string id = 1;
+  string hint = 2;
+}
+
+message EscalateTaskResponse {
+  Task task = 1;
+}
+
+message StopAllRequest {
+  bool pause_triggers = 1;
+}
+
+message StopAllResponse {
+  int32 cancelled = 1;
+}

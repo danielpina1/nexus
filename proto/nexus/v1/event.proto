@@ -1,0 +1,114 @@
+syntax = "proto3";
+
+package nexus.v1;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "nexus/v1/approval.proto";
+import "nexus/v1/common.proto";
+import "nexus/v1/node.proto";
+import "nexus/v1/task.proto";
+
+// Event is one entry of the Hub's ordered event log.
+message Event {
+  int64 seq = 1; // monotonically increasing, global
+  google.protobuf.Timestamp at = 2;
+  string task_id = 3;
+  string run_id = 4;
+  string actor = 5; // device:<id> | agent:<id> | node:<id> | hub
+
+  oneof body {
+    TaskUpdated task_updated = 10;
+    RunOutput run_output = 11;
+    ToolCall tool_call = 12;
+    ToolResult tool_result = 13;
+    Question question = 14;
+    Approval approval = 15;
+    CostRecorded cost = 16;
+    ArtifactAdded artifact = 17;
+    NodeStatus node_status = 18;
+    Notice notice = 19;
+    UserMessage user_message = 20;
+  }
+}
+
+message TaskUpdated {
+  Task task = 1;
+}
+
+// RunOutput is a streamed chunk of agent text.
+message RunOutput {
+  string text = 1;
+  bool is_final = 2;
+}
+
+message ToolCall {
+  string call_id = 1;
+  string tool = 2;
+  google.protobuf.Struct input = 3;
+  ActionClass action_class = 4;
+}
+
+message ToolResult {
+  string call_id = 1;
+  google.protobuf.Struct output = 2;
+  string error = 3;
+  int64 duration_ms = 4;
+}
+
+// Question is an ask_user request.
+message Question {
+  string question_id = 1;
+  string text = 2;
+  repeated string choices = 3;
+  bool allow_free_text = 4;
+}
+
+message CostRecorded {
+  Cost cost = 1;
+}
+
+message ArtifactAdded {
+  Attachment attachment = 1;
+}
+
+message UserMessage {
+  string text = 1;
+  repeated Attachment attachments = 2;
+}
+
+enum NoticeKind {
+  NOTICE_KIND_UNSPECIFIED = 0;
+  NOTICE_KIND_RESULT = 1;
+  NOTICE_KIND_ALERT = 2;
+  NOTICE_KIND_SUGGESTION = 3;
+  NOTICE_KIND_FACT_REVIEW = 4;
+  NOTICE_KIND_BRIEF = 5;
+}
+
+// Notice is an Inbox card that needs no immediate response.
+message Notice {
+  string id = 1;
+  NoticeKind kind = 2;
+  string title = 3;
+  string body = 4;
+  google.protobuf.Struct data = 5;
+  repeated NoteRef notes = 6;
+}
+
+// EventService streams the event log to clients.
+service EventService {
+  // Subscribe replays events after since_seq, then streams live events.
+  rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
+}
+
+message SubscribeRequest {
+  int64 since_seq = 1;
+  // Optional filters; empty = everything the device may see.
+  repeated string task_ids = 2;
+  bool inbox_only = 3;
+}
+
+message SubscribeResponse {
+  Event event = 1;
+}

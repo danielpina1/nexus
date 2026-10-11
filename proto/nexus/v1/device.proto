@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package nexus.v1;
+
+import "google/protobuf/timestamp.proto";
+
+enum DeviceKind {
+  DEVICE_KIND_UNSPECIFIED = 0;
+  DEVICE_KIND_IOS = 1;
+  DEVICE_KIND_WATCH = 2;
+  DEVICE_KIND_WEB = 3;
+  DEVICE_KIND_CLI = 4;
+}
+
+message Device {
+  string id = 1;
+  string name = 2;
+  DeviceKind kind = 3;
+  bytes public_key = 4; // P-256, Secure Enclave on iOS
+  string push_token = 5;
+  google.protobuf.Timestamp paired_at = 6;
+  google.protobuf.Timestamp last_seen = 7;
+}
+
+// DeviceService handles pairing and session tokens.
+service DeviceService {
+  // Pair exchanges a one-time pairing token (from the QR code) for a device registration.
+  rpc Pair(PairRequest) returns (PairResponse);
+  // GetChallenge + Authenticate obtain a short-lived access token by signing a challenge.
+  rpc GetChallenge(GetChallengeRequest) returns (GetChallengeResponse);
+  rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse);
+  rpc RegisterPushToken(RegisterPushTokenRequest) returns (RegisterPushTokenResponse);
+  rpc ListDevices(ListDevicesRequest) returns (ListDevicesResponse);
+  rpc RevokeDevice(RevokeDeviceRequest) returns (RevokeDeviceResponse);
+}
+
+message PairRequest {
+  string pairing_token = 1;
+  string name = 2;
+  DeviceKind kind = 3;
+  bytes public_key = 4;
+}
+
+message PairResponse {
+  Device device = 1;
+}
+
+message GetChallengeRequest {
+  string device_id = 1;
+}
+
+message GetChallengeResponse {
+  bytes challenge = 1;
+}
+
+message AuthenticateRequest {
+  string device_id = 1;
+  bytes challenge = 2;
+  bytes signature = 3;
+}
+
+message AuthenticateResponse {
+  string access_token = 1;
+  google.protobuf.Timestamp expires_at = 2;
+}
+
+message RegisterPushTokenRequest {
+  string push_token = 1;
+  string environment = 2; // sandbox | production
+}
+
+message RegisterPushTokenResponse {}
+
+message ListDevicesRequest {}
+
+message ListDevicesResponse {
+  repeated Device devices = 1;
+}
+
+message RevokeDeviceRequest {
+  string id = 1;
+}
+
+message RevokeDeviceResponse {}
