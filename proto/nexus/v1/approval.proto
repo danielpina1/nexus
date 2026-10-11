@@ -5,6 +5,7 @@ package nexus.v1;
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 import "nexus/v1/common.proto";
+import "nexus/v1/security.proto";
 
 enum ApprovalState {
   APPROVAL_STATE_UNSPECIFIED = 0;
@@ -33,6 +34,10 @@ message Approval {
   ApprovalState state = 13;
   google.protobuf.Timestamp expires_at = 14;
   google.protobuf.Timestamp created_at = 15;
+  // Exact action preview sealed by the executing Node to the device; the phone
+  // recomputes action hash from it (what you see is what you sign).
+  SealedEnvelope sealed_preview = 16;
+  string node_id = 17;
 }
 
 // ApprovalService lists and decides approvals.
@@ -50,14 +55,11 @@ message ListApprovalsResponse {
 }
 
 message DecideRequest {
-  string approval_id = 1;
-  bool approve = 2;
-  string comment = 3;
-  // Required for TRUST_LEVEL_BIOMETRIC: signature over (challenge || payload_hash)
-  // with the device's Secure Enclave key.
-  bytes signature = 4;
+  // Signed decision, forwarded unchanged to the Node, which verifies it itself.
+  SignedApproval decision = 1;
+  string comment = 2;
   // Remember this decision for this agent + action pattern (earned autonomy suggestion).
-  bool remember = 5;
+  bool remember = 3;
 }
 
 message DecideResponse {

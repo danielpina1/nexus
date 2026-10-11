@@ -16,10 +16,13 @@ message Device {
   string id = 1;
   string name = 2;
   DeviceKind kind = 3;
-  bytes public_key = 4; // P-256, Secure Enclave on iOS
+  bytes public_key = 4; // auth key: P-256, Secure Enclave on iOS
   string push_token = 5;
   google.protobuf.Timestamp paired_at = 6;
   google.protobuf.Timestamp last_seen = 7;
+  bytes approval_public_key = 8; // biometry-bound Secure Enclave key
+  bytes encryption_public_key = 9; // X25519 for sealed envelopes
+  bool primary = 10; // holds the owner root key
 }
 
 // DeviceService handles pairing and session tokens.
@@ -30,6 +33,8 @@ service DeviceService {
   rpc GetChallenge(GetChallengeRequest) returns (GetChallengeResponse);
   rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse);
   rpc RegisterPushToken(RegisterPushTokenRequest) returns (RegisterPushTokenResponse);
+  // RegisterLiveActivityToken stores push-to-start and per-activity update tokens.
+  rpc RegisterLiveActivityToken(RegisterLiveActivityTokenRequest) returns (RegisterLiveActivityTokenResponse);
   rpc ListDevices(ListDevicesRequest) returns (ListDevicesResponse);
   rpc RevokeDevice(RevokeDeviceRequest) returns (RevokeDeviceResponse);
 }
@@ -39,10 +44,22 @@ message PairRequest {
   string name = 2;
   DeviceKind kind = 3;
   bytes public_key = 4;
+  bytes approval_public_key = 5;
+  bytes encryption_public_key = 6;
+  // MAC over the public keys with a key derived from the QR pairing secret, so
+  // only someone who scanned the QR can pair.
+  bytes pairing_proof = 7;
+  // App Attest attestation object (iOS) proving a genuine app on a genuine device.
+  bytes app_attestation = 8;
+  string app_attest_key_id = 9;
 }
 
 message PairResponse {
   Device device = 1;
+  // Emoji safety code derived from both parties' public keys; shown on both screens.
+  string safety_code = 2;
+  // PEM client certificate for mTLS issued by the Hub CA.
+  bytes client_certificate = 3;
 }
 
 message GetChallengeRequest {
@@ -70,6 +87,23 @@ message RegisterPushTokenRequest {
 }
 
 message RegisterPushTokenResponse {}
+
+enum LiveActivityTokenKind {
+  LIVE_ACTIVITY_TOKEN_KIND_UNSPECIFIED = 0;
+  LIVE_ACTIVITY_TOKEN_KIND_PUSH_TO_START = 1;
+  LIVE_ACTIVITY_TOKEN_KIND_UPDATE = 2;
+}
+
+message RegisterLiveActivityTokenRequest {
+  LiveActivityTokenKind kind = 1;
+  string activity_type = 2; // pulse | run | incident | workflow
+  string activity_id = 3; // for UPDATE tokens
+  string task_id = 4; // for UPDATE tokens of run activities
+  bytes token = 5;
+  string environment = 6; // sandbox | production
+}
+
+message RegisterLiveActivityTokenResponse {}
 
 message ListDevicesRequest {}
 

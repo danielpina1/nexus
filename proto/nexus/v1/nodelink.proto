@@ -8,6 +8,7 @@ import "nexus/v1/approval.proto";
 import "nexus/v1/common.proto";
 import "nexus/v1/event.proto";
 import "nexus/v1/node.proto";
+import "nexus/v1/security.proto";
 
 // NodeLinkService is used only by nexus-node. The node dials out and keeps one
 // bidirectional stream open (HTTP/2 + mTLS).
@@ -23,6 +24,8 @@ message ConnectRequest {
     RunEvent run_event = 3;
     ToolRequest tool_request = 4; // node asks hub to run a hub-side tool (memory, vault, ask_user...)
     Ack ack = 5;
+    SealedEnvelope envelope = 6; // opaque node -> phone payload (approval previews, files)
+    AuditCheckpoint audit_checkpoint = 7;
   }
 }
 
@@ -36,6 +39,8 @@ message ConnectResponse {
     RunCancel cancel = 5;
     ToolResponse tool_response = 6;
     Ack ack = 7;
+    SealedEnvelope envelope = 8; // opaque phone -> node payload (commands, files, secrets)
+    OwnerStatement owner_statement = 9; // enrolments, revocations, policy, lock/unlock
   }
 }
 
@@ -61,6 +66,8 @@ message RunAssignment {
   repeated Attachment attachments = 6;
   google.protobuf.Struct context = 7; // memory snippets, params
   string run_token = 8; // scoped token for hub-side tools
+  // Owner-signed policy the agent must not exceed; nodes reject looser specs.
+  OwnerStatement policy = 9;
 }
 
 message RunInput {
@@ -73,6 +80,16 @@ message RunInput {
 message ApprovalResolution {
   string run_id = 1;
   Approval approval = 2;
+  // The device-signed decision; the Node MUST verify it against owner-enrolled
+  // device keys and the action hash before executing.
+  SignedApproval decision = 3;
+}
+
+// AuditCheckpoint is the head of the node's local hash-chained audit log.
+message AuditCheckpoint {
+  uint64 sequence = 1;
+  bytes head_sha256 = 2;
+  bytes signature = 3; // by node identity key
 }
 
 message RunCancel {

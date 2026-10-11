@@ -7,7 +7,10 @@
 - [ ] Go module layout, CI (lint, test, build), release binaries
 - [ ] `nexusd`: SQLite store + migrations, event log, Connect handlers skeleton
 - [ ] `nexus-node`: NodeLink stream, heartbeat, telemetry
-- [ ] Pairing (devices + nodes)
+- [ ] Security core: private CA + mTLS 1.3, owner root key, device/node enrolment with safety
+      codes, signed requests, sealed envelopes, edge-verified approvals, hash-chained audit log
+- [ ] Pairing (devices + nodes) with App Attest
+- [ ] Tailscale-based "Fortress" deployment guide
 
 **Demo:** pair a node and see it online from `nexus` CLI.
 
@@ -18,7 +21,9 @@
 - [ ] Router v1: rules + local LLM classifier
 - [ ] Approvals (approve + biometric) and APNs
 - [ ] Web: Overview, Inbox, Chat with live run view, Tasks, Machines
-- [ ] iOS: pairing, Home, Chat, Tasks, Machines, interactive notifications, Face ID approvals, Share extension
+- [ ] iOS: pairing, Home, Chat, Tasks, Machines, Face ID approvals, Share extension
+- [ ] iOS live: notifications (approve/deny/reply, thread per task, collapse), Run Live Activity
+      with Hub updates, encrypted notification payloads
 - [ ] Episode note per task
 
 **Demo:** from the iPhone, ask Claude Code on the Mac to fix a bug, watch it live, approve the push.
@@ -42,7 +47,9 @@
 
 ## Phase 4 — iOS power features
 - [ ] App Intents / Siri / Shortcuts
-- [ ] Live Activities + Dynamic Island, widgets
+- [ ] Push-to-start, Pulse activity, Follow from web, StandBy
+- [ ] Rich notifications (attachments, custom content UI), agents as contacts
+- [ ] Widgets, Control Center controls, Action Button, Watch
 - [ ] Voice mode, document scanner
 - [ ] Offline queue and cache hardening
 

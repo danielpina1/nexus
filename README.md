@@ -11,7 +11,9 @@ knowledge — driven from an iPhone app and a web dashboard.
   search. Every task leaves a note; agents learn from them.
 - 📱 **iPhone first** — chat with agents, watch runs live, approve with Face ID from the lock screen,
   share anything to Nexus, Siri and Shortcuts, widgets and Live Activities.
-- 🛡️ **Human in the loop by policy** — trust levels per action, budgets, audit log, kill switch.
+- 🛡️ **Zero-trust security** — private network, mTLS, end-to-end encrypted phone ↔ machine
+  envelopes; machines only obey Face ID-signed approvals from your iPhone, even if the Hub is
+  compromised. Trust levels, budgets, audit log, kill switch.
 
 > Status: **architecture phase**. Nothing runs yet — see the roadmap.
 
@@ -22,6 +24,7 @@ knowledge — driven from an iPhone app and a web dashboard.
 | [Architecture](docs/ARCHITECTURE.md) | Components, data model, flows, protocols, storage |
 | [Features](docs/FEATURES.md) | Full feature catalogue with priorities |
 | [Clients](docs/CLIENTS.md) | iOS app and web dashboard |
+| [iOS live surfaces](docs/IOS_LIVE.md) | Live Activities, Dynamic Island, notifications, widgets |
 | [Agents](docs/AGENTS.md) | Agent definitions, runtimes, router, escalation, trust |
 | [Vault](docs/VAULT.md) | Knowledge vault, graph, memory pipeline |
 | [Workflows](docs/WORKFLOWS.md) | Workflow format and catalogue |

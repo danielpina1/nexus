@@ -290,16 +290,21 @@ SQLite driver: pure-Go / no-cgo preferred so binaries cross-compile cleanly — 
 
 ## 7. Security model (summary)
 
-Full details in [SECURITY.md](SECURITY.md).
+Full details in [SECURITY.md](SECURITY.md). The connection is designed so that **no single
+compromised component — network, APNs, or even the Hub — can take control of a machine**.
 
-- **Pairing:** the Hub shows a QR code (hub URL + one-time token + cert fingerprint). The device
-  creates a key pair (iOS: Secure Enclave) and registers its public key.
-- **Transport:** TLS everywhere; mTLS for Nodes.
-- **Trust levels** per action class: `auto` → `notify` → `approve` → `biometric`.
-  Biometric approvals are signed on-device by a Secure Enclave key after Face ID and verified by the Hub.
-- **Budgets** per agent / per day / per run; hard stop.
-- **Kill switch:** one action stops every run on every Node.
-- **Audit:** the event log is the audit log.
+1. **Private network:** WireGuard/Tailscale; the Hub has no public port in the recommended mode.
+2. **mTLS 1.3** with a pinned private CA and hybrid post-quantum key exchange.
+3. **Signed requests** (Secure Enclave keys, nonces, timestamps, counters) — no replay.
+4. **End-to-end sealed envelopes** (HPKE + signatures) between phone and Node; the Hub only routes.
+5. **Edge verification:** Nodes trust the **owner root key** (in the iPhone's Secure Enclave), not
+   the Hub, and verify Face ID-signed approvals bound to the exact action hash before executing.
+6. **Least privilege:** scoped run tokens, tool allow-lists, sandboxes, secrets stay on Nodes.
+7. **Tamper-evident audit** (hash-chained, signed, mirrored) and instant alerts.
+
+Pairing is in person (QR + App Attest + emoji safety code); encrypted notification payloads keep
+content away from APNs; kill switch and remote revoke are owner-signed so Nodes obey them directly.
+See [ADR-0008](decisions/0008-zero-trust-hub-edge-verification.md).
 
 ---
 
@@ -341,8 +346,9 @@ nexus/
 
 | Topology | When |
 |---|---|
-| **Hub on a small VPS**, Nodes at home/office dial out, phone connects over public HTTPS | Reachable from anywhere, no home ports. Recommended default. |
-| **Hub on a home machine** behind Tailscale | Everything private; phone uses Tailscale. |
+| **Fortress:** Hub on a home machine, reachable only over Tailscale/WireGuard | Recommended. Nothing public. |
+| **Blind relay:** Hub at home, a VPS only relays sealed traffic and sends APNs | When Tailscale on the phone is not wanted. |
+| **Cloud Hub:** Hub on a VPS behind strict mTLS | Simplest to reach; Nodes still verify everything (edge verification). |
 | **Hub + Node in one process** (`nexusd --with-node`) | Development and single-machine setups. |
 
 ---
@@ -351,6 +357,7 @@ nexus/
 
 - [FEATURES.md](FEATURES.md) — full feature catalogue (iOS, web, platform)
 - [CLIENTS.md](CLIENTS.md) — iOS app and web dashboard information architecture
+- [IOS_LIVE.md](IOS_LIVE.md) — Live Activities, Dynamic Island, notifications, widgets
 - [AGENTS.md](AGENTS.md) — agent definitions, runtimes, router, escalation
 - [VAULT.md](VAULT.md) — knowledge vault format, graph, memory pipeline
 - [WORKFLOWS.md](WORKFLOWS.md) — workflow format and catalogue of workflows

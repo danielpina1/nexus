@@ -55,6 +55,8 @@ service TaskService {
   rpc EscalateTask(EscalateTaskRequest) returns (EscalateTaskResponse);
   // StopAll is the kill switch.
   rpc StopAll(StopAllRequest) returns (StopAllResponse);
+  // FollowTask shows a Run Live Activity for the task on the given devices (push-to-start).
+  rpc FollowTask(FollowTaskRequest) returns (FollowTaskResponse);
 }
 
 message CreateTaskRequest {
@@ -123,8 +125,17 @@ message EscalateTaskResponse {
 
 message StopAllRequest {
   bool pause_triggers = 1;
+  // Owner-signed KIND_LOCK statement so Nodes lock themselves even if the Hub misbehaves.
+  bytes owner_lock_statement = 2;
 }
 
 message StopAllResponse {
   int32 cancelled = 1;
 }
+
+message FollowTaskRequest {
+  string task_id = 1;
+  repeated string device_ids = 2; // empty = all iOS devices
+}
+
+message FollowTaskResponse {}

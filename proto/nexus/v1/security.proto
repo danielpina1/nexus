@@ -1,0 +1,88 @@
+syntax = "proto3";
+
+package nexus.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Purpose binds an envelope to its intended use so it cannot be replayed elsewhere.
+enum EnvelopePurpose {
+  ENVELOPE_PURPOSE_UNSPECIFIED = 0;
+  ENVELOPE_PURPOSE_COMMAND = 1; // phone -> node command (shell, files, terminal)
+  ENVELOPE_PURPOSE_APPROVAL_PREVIEW = 2; // node -> phone exact action preview
+  ENVELOPE_PURPOSE_APPROVAL_DECISION = 3; // phone -> node signed decision
+  ENVELOPE_PURPOSE_NOTIFICATION = 4; // hub/node -> phone notification content
+  ENVELOPE_PURPOSE_FILE = 5; // file transfer
+  ENVELOPE_PURPOSE_SECRET = 6; // secret entry from phone to a node
+}
+
+// EnvelopeHeader is authenticated as HPKE AAD and covered by the signature.
+message EnvelopeHeader {
+  string sender_key_id = 1;
+  string recipient_key_id = 2;
+  EnvelopePurpose purpose = 3;
+  google.protobuf.Timestamp created_at = 4;
+  bytes nonce = 5; // 16+ random bytes, replay protection
+  uint64 counter = 6; // per-sender monotonic counter
+  string correlation_id = 7; // task / run / approval id
+}
+
+// SealedEnvelope is an end-to-end encrypted, signed payload. The Hub routes it
+// but cannot read or forge it.
+//
+// ciphertext = HPKE.Seal(recipient_pub, info="nexus/v1/envelope", aad=header_bytes, plaintext)
+// signature  = Sign(sender_signing_key, SHA256(header_bytes || encapsulated_key || ciphertext))
+message SealedEnvelope {
+  bytes header = 1; // serialized EnvelopeHeader (signed and used as AAD verbatim)
+  bytes encapsulated_key = 2; // HPKE enc
+  bytes ciphertext = 3;
+  bytes signature = 4;
+  string suite = 5; // e.g. "hpke-x25519-sha256-chacha20poly1305+p256-ecdsa"
+}
+
+// RequestSignature authenticates a state-changing request (sent as headers or
+// embedded). Covers method, path, body hash, timestamp and nonce.
+message RequestSignature {
+  string device_id = 1;
+  google.protobuf.Timestamp timestamp = 2;
+  bytes nonce = 3;
+  uint64 counter = 4;
+  bytes body_sha256 = 5;
+  bytes signature = 6;
+}
+
+// SignedApproval is verifiable by the Node itself (edge verification): it does
+// not rely on the Hub being honest.
+message SignedApproval {
+  string approval_id = 1;
+  bool approve = 2;
+  bytes challenge = 3;
+  bytes action_sha256 = 4; // hash of the canonical action the node will execute
+  google.protobuf.Timestamp expires_at = 5;
+  string device_id = 6;
+  // ECDSA P-256 signature with the device approval key (Secure Enclave, biometry-bound)
+  // over SHA256(approval_id || approve || challenge || action_sha256 || expires_at).
+  bytes signature = 7;
+}
+
+// OwnerStatement is signed by the owner root key and distributed to every Node:
+// device/node enrolment, revocation, policy changes, update approvals.
+message OwnerStatement {
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    KIND_ENROL_DEVICE = 1;
+    KIND_ENROL_NODE = 2;
+    KIND_REVOKE_KEY = 3;
+    KIND_POLICY = 4;
+    KIND_APPROVE_UPDATE = 5;
+    KIND_LOCK = 6; // kill switch
+    KIND_UNLOCK = 7;
+  }
+  Kind kind = 1;
+  uint64 sequence = 2; // monotonic, prevents rollback
+  google.protobuf.Timestamp issued_at = 3;
+  bytes subject_public_key = 4;
+  string subject_id = 5;
+  bytes policy_sha256 = 6;
+  bytes payload = 7;
+  bytes signature = 8; // by owner root key
+}
