@@ -100,7 +100,7 @@ struct KillSwitchConfirmation: ViewModifier {
 /// Lets `.sheet(item:)` present a non-Identifiable optional payload.
 struct IdentifiedPairing: Identifiable {
     let payload: PairingPayload
-    var id: String { payload.token + "|" + payload.secret }
+    var id: String { payload.token }
 }
 
 extension Binding where Value == PairingPayload? {

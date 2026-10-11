@@ -132,7 +132,7 @@ public struct NexusActions: Sendable {
         public var errorDescription: String? {
             switch self {
             case .notFound: return "This approval is no longer pending."
-            case .requiresBiometric: return "This approval needs Face ID in the app."
+            case .requiresBiometric: return "This decision needs Face ID in the Nexus app."
             }
         }
     }
@@ -151,7 +151,8 @@ public struct NexusActions: Sendable {
         allowBiometric: Bool,
         actionSHA256: Data? = nil
     ) async throws -> Nexus_V1_Approval {
-        if approve && approval.level == .biometric && !allowBiometric {
+        if !allowBiometric && ApprovalSignature.keyKind(level: approval.level, approve: approve) == .approval {
+            // Needs Face ID (see ApprovalSigner.swift): the caller deep-links to the in-app sheet.
             throw DecideError.requiresBiometric
         }
         guard let deviceID = hub.configuration.deviceID else { throw HubError.notPaired }

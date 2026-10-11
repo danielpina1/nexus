@@ -143,7 +143,7 @@ struct PairingView: View {
                 }
                 if let ca = payload.caFingerprint {
                     LabeledContent("CA fingerprint") {
-                        Text(ca.prefix(16) + "…").font(.caption.monospaced())
+                        Text(String(ca.prefix(16)) + "…").font(.caption.monospaced())
                     }
                 } else {
                     Label("No CA fingerprint — development Hub", systemImage: "exclamationmark.triangle")

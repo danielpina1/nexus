@@ -108,7 +108,7 @@ public enum MockData {
         a.title = "Checkout €84.30 at Continente"
         a.summary = "22 items · 2 substitutions · delivery Sat 9–11"
         a.payload = (try? Google_Protobuf_Struct(jsonString: #"{"store":"Continente","items":22,"total":"84.30 EUR","slot":"Sat 09:00-11:00"}"#)) ?? Google_Protobuf_Struct()
-        a.payloadHash = Data(repeating: 0xAB, count: 32)
+        a.payloadHash = (try? CanonicalJSON.actionHash(of: a.payload)) ?? Data()
         a.challenge = Data(repeating: 0x01, count: 32)
         a.state = .pending
         a.createdAt = ts(120)
@@ -125,7 +125,7 @@ public enum MockData {
         b.title = "Push branch fix/flaky-tests"
         b.summary = "+42 −13 · 3 files → origin/fix/flaky-tests"
         b.payload = (try? Google_Protobuf_Struct(jsonString: #"{"remote":"origin","branch":"fix/flaky-tests","commit":"9f2c1ab"}"#)) ?? Google_Protobuf_Struct()
-        b.payloadHash = Data(repeating: 0xCD, count: 32)
+        b.payloadHash = (try? CanonicalJSON.actionHash(of: b.payload)) ?? Data()
         b.challenge = Data(repeating: 0x02, count: 32)
         b.state = .pending
         b.createdAt = ts(60)

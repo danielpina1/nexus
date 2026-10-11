@@ -145,7 +145,7 @@ public final class HubClient: @unchecked Sendable {
         }.challenge
 
         let key = try KeyManager.shared.authKey()
-        let signature = try key.signature(for: WireFormat.authenticationMessage(challenge: challenge))
+        let signature = try key.signature(for: WireFormat.authenticationMessage(deviceID: deviceID, challenge: challenge))
 
         var authRequest = Nexus_V1_AuthenticateRequest()
         authRequest.deviceID = deviceID

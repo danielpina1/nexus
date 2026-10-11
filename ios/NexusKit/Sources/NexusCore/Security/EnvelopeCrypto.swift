@@ -4,7 +4,8 @@ import NexusAPI
 import SwiftProtobuf
 
 // ╔══════════════════════════════════════════════════════════════════════════════════════════╗
-// ║  SEALED ENVELOPE FORMAT — MUST MATCH backend/internal/security                           ║
+// ║  SEALED ENVELOPE FORMAT — MUST MATCH backend/internal/security/envelope                  ║
+// ║  (docs/WIRE_FORMATS.md "Sealed envelope")                                                ║
 // ║                                                                                          ║
 // ║  From proto/nexus/v1/security.proto:                                                     ║
 // ║    ciphertext = HPKE.Seal(recipient_pub, info="nexus/v1/envelope", aad=header_bytes, pt) ║
@@ -12,6 +13,9 @@ import SwiftProtobuf
 // ║                                                                                          ║
 // ║  • HPKE mode BASE, suite X25519 / HKDF-SHA256 / ChaCha20-Poly1305 (RFC 9180).            ║
 // ║  • header_bytes = serialized `EnvelopeHeader` (protobuf binary), used verbatim as AAD.   ║
+// ║  • Receiver checks: purpose, recipient key id (hex of first 16 bytes of SHA256(our       ║
+// ║    X25519 pub)), nonce ≥ 16 bytes and not seen before. Timestamp: the spec says ±60 s;   ║
+// ║    APNs can deliver late, so notifications allow `maxAge` instead (deliberate deviation).║
 // ║  • Notification push: APNs payload key `nexus_envelope` (top level, next to `aps`).      ║
 // ║    Value = base64 (std, padded) of the protobuf-binary `SealedEnvelope`.                 ║
 // ║    Also accepted: base64 of protojson, or an inline protojson object.                    ║
@@ -22,8 +26,11 @@ public enum EnvelopeFormat {
     public static let ciphersuite = HPKE.Ciphersuite.Curve25519_SHA256_ChachaPoly
     public static let suiteName = "hpke-x25519-sha256-chacha20poly1305+p256-ecdsa"
     public static let pushPayloadKey = "nexus_envelope"
-    /// Envelopes older than this are rejected (replay protection for notifications).
-    public static let maxAge: TimeInterval = 7 * 24 * 3600
+    /// Notifications older than this are rejected (APNs may hold pushes while offline).
+    public static let maxAge: TimeInterval = 24 * 3600
+    /// Allowed clock skew into the future.
+    public static let maxSkew: TimeInterval = 60
+    public static let minNonceLength = 16
 }
 
 /// Decrypted notification content (JSON inside the envelope).
@@ -65,6 +72,8 @@ public enum EnvelopeCrypto {
         case wrongPurpose
         case expired
         case badSignature
+        case wrongRecipient
+        case replayed
     }
 
     /// Parses the `nexus_envelope` value from a push `userInfo`.
@@ -105,9 +114,15 @@ public enum EnvelopeCrypto {
     ) throws -> (header: Nexus_V1_EnvelopeHeader, plaintext: Data) {
         let header = try Nexus_V1_EnvelopeHeader(serializedBytes: envelope.header)
         guard header.purpose == expectedPurpose else { throw EnvelopeError.wrongPurpose }
-        if header.hasCreatedAt, now.timeIntervalSince(header.createdAt.date) > EnvelopeFormat.maxAge {
-            throw EnvelopeError.expired
+        let ownKeyID = WireFormat.keyID(WireFormat.encodeX25519PublicKey(recipientKey.publicKey))
+        if !header.recipientKeyID.isEmpty && header.recipientKeyID.lowercased() != ownKeyID {
+            throw EnvelopeError.wrongRecipient
         }
+        if header.hasCreatedAt {
+            let age = now.timeIntervalSince(header.createdAt.date)
+            if age > EnvelopeFormat.maxAge || age < -EnvelopeFormat.maxSkew { throw EnvelopeError.expired }
+        }
+        guard header.nonce.count >= EnvelopeFormat.minNonceLength else { throw EnvelopeError.replayed }
 
         if let senderPublicKey {
             var signed = Data()
@@ -127,6 +142,8 @@ public enum EnvelopeCrypto {
             encapsulatedKey: envelope.encapsulatedKey
         )
         let plaintext = try recipient.open(envelope.ciphertext, authenticating: envelope.header)
+        // Record the nonce only after successful authentication.
+        guard NonceCache.insert(header.nonce) else { throw EnvelopeError.replayed }
         return (header, plaintext)
     }
 
@@ -137,5 +154,26 @@ public enum EnvelopeCrypto {
         let key = try KeyManager.shared.encryptionKey()
         let opened = try open(envelope, expectedPurpose: .notification, recipientKey: key)
         return try JSONDecoder().decode(NotificationPlaintext.self, from: opened.plaintext)
+    }
+}
+
+/// Small persistent set of recently seen envelope nonces (App Group, shared by the app and
+/// the notification service extension).
+enum NonceCache {
+    private static let key = "nexus.envelope.nonces"
+    private static let capacity = 500
+    private static let lock = NSLock()
+
+    /// Returns false if the nonce was already seen.
+    static func insert(_ nonce: Data) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        let hex = WireFormat.hex(nonce)
+        var seen = AppGroup.defaults.stringArray(forKey: key) ?? []
+        if seen.contains(hex) { return false }
+        seen.append(hex)
+        if seen.count > capacity { seen.removeFirst(seen.count - capacity) }
+        AppGroup.defaults.set(seen, forKey: key)
+        return true
     }
 }

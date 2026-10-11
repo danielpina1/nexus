@@ -105,6 +105,15 @@ struct ApprovalSheet: View {
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
+                    if (try? ApprovalSigner.verifiedActionHash(for: approval)) != nil {
+                        Label("Hash recomputed on this iPhone from the action above", systemImage: "checkmark.shield.fill")
+                            .font(.caption)
+                            .foregroundStyle(.green)
+                    } else {
+                        Label("Action hash does not match the preview — do not approve", systemImage: "exclamationmark.shield.fill")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.red)
+                    }
                     Text("Action hash").font(.caption.weight(.semibold))
                     Text(WireFormat.hex(approval.payloadHash))
                         .font(.caption2.monospaced())

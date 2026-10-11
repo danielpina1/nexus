@@ -40,9 +40,14 @@ enum NotificationCategories {
         func action(_ id: String, _ title: String, _ icon: String, _ options: UNNotificationActionOptions = []) -> UNNotificationAction {
             UNNotificationAction(identifier: id, title: title, options: options, icon: UNNotificationActionIcon(systemImageName: icon))
         }
-        // All approval actions require an unlocked device.
-        let approve = action(Action.approve, "Approve", "checkmark", [.authenticationRequired])
-        let deny = action(Action.deny, "Deny", "xmark", [.authenticationRequired, .destructive])
+        // All approval actions require an unlocked device. While the Hub verifies every decision
+        // with the Face ID-bound approval key (ApprovalSigner.swift), they must also bring the
+        // app to the foreground so the approval sheet can run Face ID.
+        let decisionOptions: UNNotificationActionOptions = ApprovalSignature.backgroundDecisionsSupported
+            ? [.authenticationRequired]
+            : [.authenticationRequired, .foreground]
+        let approve = action(Action.approve, "Approve", "checkmark", decisionOptions)
+        let deny = action(Action.deny, "Deny", "xmark", decisionOptions.union(.destructive))
         let details = action(Action.details, "Details", "doc.text.magnifyingglass", [.foreground, .authenticationRequired])
         let reviewFaceID = action(Action.reviewFaceID, "Review & Face ID", "faceid", [.foreground, .authenticationRequired])
         let reply = UNTextInputNotificationAction(

@@ -179,12 +179,14 @@ struct RunActionButtons: View {
 
             case .waitingApproval:
                 if let approvalID = state.approvalId {
-                    if state.isBiometric {
+                    // Face ID approvals — and, while the Hub verifies every decision with the
+                    // biometric approval key, all decisions — must open the in-app sheet.
+                    if state.isBiometric || !ApprovalSignature.backgroundDecisionsSupported {
                         Link(destination: DeepLink.task(attributes.taskId)) {
                             pill("Review", systemImage: "doc.text.magnifyingglass")
                         }
                         Link(destination: DeepLink.approval(approvalID)) {
-                            pill("Approve with Face ID", systemImage: "faceid")
+                            pill(state.isBiometric ? "Approve with Face ID" : "Approve", systemImage: "faceid")
                         }
                     } else {
                         Button(intent: ApproveIntent(approvalID: approvalID, approve: false)) {
