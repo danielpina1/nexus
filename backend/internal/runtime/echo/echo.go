@@ -101,6 +101,11 @@ func (r *run) Events() <-chan *nexusv1.Event { return r.events }
 
 func (r *run) Send(ctx context.Context, in *nexusv1.RunInput) error {
 	select {
+	case <-r.done:
+		return errCancelled
+	default:
+	}
+	select {
 	case r.inputs <- in:
 		return nil
 	case <-r.done:
@@ -111,6 +116,11 @@ func (r *run) Send(ctx context.Context, in *nexusv1.RunInput) error {
 }
 
 func (r *run) Resolve(ctx context.Context, res *nexusv1.ApprovalResolution) error {
+	select {
+	case <-r.done:
+		return errCancelled
+	default:
+	}
 	select {
 	case r.results <- res:
 		return nil
