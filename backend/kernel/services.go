@@ -2,6 +2,7 @@ package kernel
 
 import (
 	"context"
+	"net/http"
 
 	nexusv1 "github.com/danielpina1/nexus/backend/gen/nexus/v1"
 )
@@ -171,4 +172,17 @@ type LLM interface {
 type HubToolClient interface {
 	CallHubTool(ctx context.Context, runID, tool string, input []byte) ([]byte, error)
 	HubTools() []ToolSpec
+}
+
+// SvcAuth is provided by the security module. The hub server wraps every
+// handler with it when present.
+const SvcAuth = "auth"
+
+// Authenticator authenticates API requests.
+type Authenticator interface {
+	// Middleware wraps the API handler (mTLS identity, signed requests, tokens).
+	Middleware(next http.Handler) http.Handler
+	// Public reports whether a path is reachable without authentication
+	// (e.g. pairing endpoints).
+	Public(path string) bool
 }
