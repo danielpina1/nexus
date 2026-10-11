@@ -196,6 +196,7 @@ func (r *run) handleLine(line []byte) {
 		}
 	case "turn.completed":
 		r.completed = true
+		r.failure = ""
 		if l.Usage != nil {
 			r.recordCost(&nexusv1.Cost{InputTokens: l.Usage.InputTokens, OutputTokens: l.Usage.OutputTokens})
 		}
