@@ -1,0 +1,22 @@
+// Nexus build configuration — edit these (or create Config/Local.xcconfig, git-ignored)
+// to use your own bundle identifiers and team.
+
+// Base bundle identifier. Extensions append .widgets / .notification-service / .notification-content.
+NEXUS_BUNDLE_ID = com.example.nexus
+
+// App Group shared by the app, widgets, intents and notification extensions. Also used as
+// the shared keychain access group. Must match the identifier registered in your Apple
+// Developer account.
+NEXUS_APP_GROUP = group.com.example.nexus
+
+// Your Apple Developer Team ID (e.g. ABCDE12345). Required for push, App Groups, Live Activity push.
+DEVELOPMENT_TEAM =
+
+// APNs environment written into the entitlements: development | production
+NEXUS_APS_ENVIRONMENT = development
+
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1
+
+// Optional local overrides (not committed).
+#include? "Local.xcconfig"

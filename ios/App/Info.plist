@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Nexus</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>nexus</string>
+			</array>
+		</dict>
+	</array>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>NexusAppGroup</key>
+	<string>$(NEXUS_APP_GROUP)</string>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+	</dict>
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+		<string>fetch</string>
+	</array>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
+	<true/>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Nexus uses Face ID to unlock the app and to sign approvals for sensitive actions.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Nexus uses the camera to scan the pairing QR code shown by your Hub.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Nexus uses the microphone for voice commands to your agents.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Nexus transcribes your voice commands into text.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Nexus attaches the photos you choose to messages for your agents.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Nexus connects to your Hub on your local or private network.</string>
+	<key>NSUserActivityTypes</key>
+	<array>
+		<string>INSendMessageIntent</string>
+		<string>AskNexusIntent</string>
+		<string>RunWorkflowIntent</string>
+		<string>CaptureIntent</string>
+	</array>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<!-- Development hubs on the LAN / Tailscale (IP addresses, .local) over plain HTTP.
+		     Production hubs must use HTTPS with the pinned Hub CA. -->
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+</dict>
+</plist>

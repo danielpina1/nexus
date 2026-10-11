@@ -1,0 +1,137 @@
+# XcodeGen spec for the Nexus iOS app. Generate with `make ios-project` (or `xcodegen generate`
+# in this directory). Bundle ids, App Group and team come from Config/Nexus.xcconfig.
+name: Nexus
+
+options:
+  deploymentTarget:
+    iOS: "18.0"
+  xcodeVersion: "16.3"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+configFiles:
+  Debug: Config/Nexus.xcconfig
+  Release: Config/Nexus.xcconfig
+
+settings:
+  base:
+    # Swift 6 toolchain, Swift 5 language mode (avoids strict-concurrency noise).
+    SWIFT_VERSION: "5.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "18.0"
+    TARGETED_DEVICE_FAMILY: "1"
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    GENERATE_INFOPLIST_FILE: NO
+    SWIFT_EMIT_LOC_STRINGS: YES
+
+packages:
+  NexusKit:
+    path: NexusKit
+  # Declared here for visibility/pinning; NexusKit depends on them (same identities).
+  Connect:
+    url: https://github.com/connectrpc/connect-swift
+    from: 1.0.0
+  SwiftProtobuf:
+    url: https://github.com/apple/swift-protobuf
+    from: 1.31.0
+
+targets:
+  Nexus:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+        excludes:
+          - Info.plist
+          - Nexus.entitlements
+      # App Intents are compiled into both the app and the widget extension
+      # (Button(intent:) in widgets / Live Activities needs the type; perform runs in the app).
+      - path: Intents
+    settings:
+      base:
+        PRODUCT_NAME: Nexus
+        PRODUCT_BUNDLE_IDENTIFIER: $(NEXUS_BUNDLE_ID)
+        INFOPLIST_FILE: App/Info.plist
+        CODE_SIGN_ENTITLEMENTS: App/Nexus.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    dependencies:
+      - package: NexusKit
+        product: NexusCore
+      - target: NexusWidgets
+      - target: NexusNotificationService
+      - target: NexusNotificationContent
+
+  NexusWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Widgets
+        excludes:
+          - Info.plist
+          - NexusWidgets.entitlements
+      - path: Intents
+    settings:
+      base:
+        PRODUCT_NAME: NexusWidgets
+        PRODUCT_BUNDLE_IDENTIFIER: $(NEXUS_BUNDLE_ID).widgets
+        INFOPLIST_FILE: Widgets/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Widgets/NexusWidgets.entitlements
+        SKIP_INSTALL: YES
+    dependencies:
+      - package: NexusKit
+        product: NexusCore
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+
+  NexusNotificationService:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: NotificationService
+        excludes:
+          - Info.plist
+          - NexusNotificationService.entitlements
+    settings:
+      base:
+        PRODUCT_NAME: NexusNotificationService
+        PRODUCT_BUNDLE_IDENTIFIER: $(NEXUS_BUNDLE_ID).notification-service
+        INFOPLIST_FILE: NotificationService/Info.plist
+        CODE_SIGN_ENTITLEMENTS: NotificationService/NexusNotificationService.entitlements
+        SKIP_INSTALL: YES
+    dependencies:
+      - package: NexusKit
+        product: NexusCore
+
+  NexusNotificationContent:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: NotificationContent
+        excludes:
+          - Info.plist
+          - NexusNotificationContent.entitlements
+    settings:
+      base:
+        PRODUCT_NAME: NexusNotificationContent
+        PRODUCT_BUNDLE_IDENTIFIER: $(NEXUS_BUNDLE_ID).notification-content
+        INFOPLIST_FILE: NotificationContent/Info.plist
+        CODE_SIGN_ENTITLEMENTS: NotificationContent/NexusNotificationContent.entitlements
+        SKIP_INSTALL: YES
+    dependencies:
+      - package: NexusKit
+        product: NexusCore
+      - sdk: UserNotificationsUI.framework
+
+schemes:
+  Nexus:
+    build:
+      targets:
+        Nexus: all
+        NexusWidgets: all
+        NexusNotificationService: all
+        NexusNotificationContent: all
+    run:
+      config: Debug
+    archive:
+      config: Release

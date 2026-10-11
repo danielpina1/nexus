@@ -1,0 +1,24 @@
+# nexus-node configuration (copy to node.yaml).
+data_dir: ./data-node
+
+modules:
+  # enable: [runtime.openai]
+  # disable: [runtime.shell]
+
+node:
+  # http:// uses HTTP/2 cleartext (h2c, private network/dev); https:// uses TLS 1.3.
+  hub_url: http://127.0.0.1:7700
+  node_id: my-laptop
+  token: change-me            # must match nodelink.tokens.my-laptop on the hub (or env NEXUS_NODE_TOKEN)
+  tags: [laptop, shell]       # os:<goos> and arch:<goarch> are added automatically
+  workspaces_dir: ./data-node/workspaces
+  # ca_file: /etc/nexus/hub-ca.pem
+  status_interval: 15s
+  # Reject approvals unless a real edge verifier (security module) is installed.
+  strict_approvals: false
+
+runtime.echo:
+  delay: 50ms
+
+runtime.shell:
+  timeout: 10m
