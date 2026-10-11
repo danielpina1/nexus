@@ -70,8 +70,12 @@ flowchart LR
 
 ### Design principles
 
-1. **One brain, many hands.** The Hub owns state, policy and memory. Nodes are stateless executors
-   that can be added or wiped at any time.
+1. **Nexus is the brain; clients only talk to Nexus.** The iOS app, the web dashboard and the CLI
+   have exactly one counterpart: the Hub API. They never connect to Nodes, models or integrations
+   directly — files on a machine, agent runs, memory and status all go through Hub services
+   (end-to-end sealed payloads included). The only other inbound channel to the phone is APNs,
+   sent by the Hub. The Hub owns state, policy and memory; Nodes are stateless executors that can be
+   added or wiped at any time.
 2. **Files are the source of truth for knowledge.** The vault is plain Markdown in git; every index
    is disposable and rebuildable. You can always open it in Obsidian.
 3. **Configuration is knowledge.** Agents, workflows and policies are vault notes too — editable

@@ -2,7 +2,8 @@
 
 > Status: draft v0.1
 
-Both clients are views over the same API and event stream. The rule: **anything you can do on the
+Both clients are views over the same API and event stream. **They talk only to the Nexus Hub** —
+never directly to Nodes, models or third-party services; the Hub is the single brain and gateway. The rule: **anything you can do on the
 web you can at least see and approve on the phone; anything quick you can do on the phone without
 opening the web.**
 
