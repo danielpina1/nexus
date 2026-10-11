@@ -238,6 +238,9 @@ var publicProcedures = map[string]bool{
 	nexusv1connect.DeviceServicePairProcedure:         true,
 	nexusv1connect.DeviceServiceGetChallengeProcedure: true,
 	nexusv1connect.DeviceServiceAuthenticateProcedure: true,
+	// The node link authenticates nodes itself (nodelink calls
+	// AuthenticateNode), so the generic middleware lets it through.
+	nexusv1connect.NodeLinkServiceConnectProcedure: true,
 }
 
 // Public implements kernel.Authenticator: the pairing / challenge endpoints
@@ -337,9 +340,11 @@ func (s *Security) authenticate(r *http.Request) (Principal, error) {
 		p = Principal{Kind: PrincipalDev}
 	default:
 		matched := false
+		nodeID := r.Header.Get(HeaderNodeID)
 		for _, nt := range s.cfg.NodeTokens {
-			if nt != "" && ctEq(tok, nt) {
-				p = Principal{Kind: PrincipalNode, ID: r.Header.Get(HeaderNodeID)}
+			id, t, ok := strings.Cut(nt, ":")
+			if ok && id == nodeID && t != "" && ctEq(tok, t) {
+				p = Principal{Kind: PrincipalNode, ID: nodeID}
 				matched = true
 			}
 		}
@@ -571,7 +576,10 @@ func (s *Security) AuthenticateNode(ctx context.Context, nodeID, token string) e
 		return errors.New("missing node id or token")
 	}
 	for _, nt := range s.cfg.NodeTokens {
-		if nt != "" && ctEq(token, nt) {
+		// Entries are "node-id:token" so a token only authenticates its own
+		// node; bare tokens (legacy) are rejected.
+		id, tok, ok := strings.Cut(nt, ":")
+		if ok && id == nodeID && tok != "" && ctEq(token, tok) {
 			return nil
 		}
 	}

@@ -49,6 +49,9 @@ security:
   # Development bearer token: clients send `Authorization: Bearer <dev_token>`.
   # `nexusd init` generates a random one. Remove once device pairing is set up.
   dev_token: CHANGE_ME
+  # Static node credentials as "node-id:token" (prefer pairing + mTLS).
+  node_tokens:
+    # - mac-studio:CHANGE_ME
 
 # --- Vault (module: vault) ---------------------------------------------------
 vault:

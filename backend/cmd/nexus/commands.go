@@ -211,10 +211,32 @@ func cmdDecide(ctx context.Context, c *client, args []string, approve bool) erro
 		return fmt.Errorf("usage: nexus %s <approval-id> [-comment text]", verb)
 	}
 	// The CLI has no device key: decisions are unsigned and only accepted for
-	// trust levels that do not require a biometric signature.
+	// trust levels that do not require a biometric signature. The decision
+	// still echoes the approval's challenge and action hash so it is bound to
+	// exactly the action that was shown.
+	list, err := c.approvals.ListApprovals(ctx, connect.NewRequest(&nexusv1.ListApprovalsRequest{}))
+	if err != nil {
+		return err
+	}
+	var target *nexusv1.Approval
+	for _, a := range list.Msg.GetApprovals() {
+		if a.GetId() == pos[0] {
+			target = a
+			break
+		}
+	}
+	if target == nil {
+		return fmt.Errorf("approval %s not found", pos[0])
+	}
 	resp, err := c.approvals.Decide(ctx, connect.NewRequest(&nexusv1.DecideRequest{
-		Decision: &nexusv1.SignedApproval{ApprovalId: pos[0], Approve: approve},
-		Comment:  *comment,
+		Decision: &nexusv1.SignedApproval{
+			ApprovalId:   target.GetId(),
+			Approve:      approve,
+			Challenge:    target.GetChallenge(),
+			ActionSha256: target.GetPayloadHash(),
+			ExpiresAt:    target.GetExpiresAt(),
+		},
+		Comment: *comment,
 	}))
 	if err != nil {
 		return err

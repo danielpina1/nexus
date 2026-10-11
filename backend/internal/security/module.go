@@ -56,7 +56,7 @@ func init() {
 // Config is the "security" section of nexus.yaml.
 type Config struct {
 	DevToken              string        `yaml:"dev_token"`
-	NodeTokens            []string      `yaml:"node_tokens"`
+	NodeTokens            []string      `yaml:"node_tokens"` // "node-id:token" entries
 	HubURLs               []string      `yaml:"hub_urls"`
 	ServerNames           []string      `yaml:"server_names"`
 	SessionTTL            time.Duration `yaml:"session_ttl"`

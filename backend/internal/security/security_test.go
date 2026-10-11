@@ -65,7 +65,7 @@ func newHarness(t *testing.T, extraYAML string) *harness {
 	}
 	t.Cleanup(func() { db.Close() })
 	h := kerneltest.New(t)
-	h.ConfigYAML = "dev_token: " + devToken + "\nnode_tokens: [" + nodeToken + "]\nhub_urls: [\"https://hub.test:7700\"]\n" + extraYAML
+	h.ConfigYAML = "dev_token: " + devToken + "\nnode_tokens: [\"node_static:" + nodeToken + "\"]\nhub_urls: [\"https://hub.test:7700\"]\n" + extraYAML
 	h.Provide(kernel.SvcStore, kernel.Store(memStore{db}))
 	m := &Module{}
 	if err := m.Init(context.Background(), h); err != nil {
@@ -209,7 +209,8 @@ func TestPairingAndSessions(t *testing.T) {
 	if _, err := hs.client.ListDevices(ctx, authed(&nexusv1.ListDevicesRequest{}, devToken)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := hs.client.ListDevices(ctx, authed(&nexusv1.ListDevicesRequest{}, nodeToken)); code(err) != connect.CodePermissionDenied {
+	// Static node tokens are bound to X-Nexus-Node-Id; without it the token is not a credential.
+	if _, err := hs.client.ListDevices(ctx, authed(&nexusv1.ListDevicesRequest{}, nodeToken)); code(err) != connect.CodeUnauthenticated {
 		t.Fatalf("node ListDevices: %v", err)
 	}
 
@@ -585,8 +586,11 @@ func TestNodePairingAndTokens(t *testing.T) {
 	if err := hs.sec.AuthenticateNode(ctx, "node_2", np.Token); err == nil {
 		t.Fatal("token accepted for another node id")
 	}
-	if err := hs.sec.AuthenticateNode(ctx, "anything", nodeToken); err != nil {
+	if err := hs.sec.AuthenticateNode(ctx, "node_static", nodeToken); err != nil {
 		t.Fatal(err)
+	}
+	if err := hs.sec.AuthenticateNode(ctx, "anything", nodeToken); err == nil {
+		t.Fatal("static token accepted for another node id")
 	}
 	if err := hs.sec.RevokeNode(ctx, "node_1"); err != nil {
 		t.Fatal(err)

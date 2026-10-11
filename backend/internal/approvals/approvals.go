@@ -19,11 +19,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
+	secapproval "github.com/danielpina1/nexus/backend/internal/security/approval"
 	"log/slog"
 	"strings"
 	"sync"
@@ -119,30 +118,23 @@ func NewBroker(h kernel.Host, st kernel.Store, bus kernel.EventBus, cfg Config) 
 	return &Broker{h: h, log: h.Logger(), db: st.DB(), bus: bus, cfg: cfg, now: time.Now}, nil
 }
 
-// PayloadHash is SHA-256 over the canonical JSON of payload: object keys
-// sorted, no insignificant whitespace, no HTML escaping, numbers formatted
-// as by Go's encoding/json (ES6 style), nil payload = "{}". Phones and nodes
-// must use the same canonicalisation (it matches RFC 8785 for the value types
-// a google.protobuf.Struct can hold, except for float edge cases).
+// PayloadHash is SHA-256 over the RFC 8785 (JCS) canonical JSON of payload
+// (nil payload = "{}"). It delegates to the security package so the hub,
+// nodes (owner.EdgeVerifier) and phones all hash identically; see
+// docs/WIRE_FORMATS.md.
 func PayloadHash(payload *structpb.Struct) ([]byte, error) {
-	b, err := CanonicalJSON(payload)
-	if err != nil {
-		return nil, err
+	if payload == nil {
+		payload = &structpb.Struct{}
 	}
-	h := sha256.Sum256(b)
-	return h[:], nil
+	return secapproval.ActionHash(payload)
 }
 
-// CanonicalJSON renders payload deterministically (see PayloadHash).
+// CanonicalJSON renders payload as RFC 8785 canonical JSON (see PayloadHash).
 func CanonicalJSON(payload *structpb.Struct) ([]byte, error) {
-	m := payload.AsMap()
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	enc.SetEscapeHTML(false)
-	if err := enc.Encode(m); err != nil {
-		return nil, err
+	if payload == nil {
+		payload = &structpb.Struct{}
 	}
-	return bytes.TrimRight(buf.Bytes(), "\n"), nil
+	return secapproval.CanonicalJSON(payload)
 }
 
 // ---------------------------------------------------------------- lazy services
@@ -169,7 +161,13 @@ func (b *Broker) Request(ctx context.Context, in *nexusv1.Approval) (*nexusv1.Ap
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("payload_hash does not match the canonical payload"))
 	}
 	a.PayloadHash = hash
-	a.Id = "apr_" + ulid.Make().String()
+	// Keep a well-formed id chosen by the node/runtime so its pending
+	// approval matches the resolution it receives; otherwise mint one.
+	if !strings.HasPrefix(a.Id, "apr_") || len(a.Id) > 64 {
+		a.Id = "apr_" + ulid.Make().String()
+	} else if _, err := b.Get(ctx, a.Id); err == nil {
+		return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("approval %s already exists", a.Id))
+	}
 	a.Challenge = make([]byte, 32)
 	if _, err := rand.Read(a.Challenge); err != nil {
 		return nil, err

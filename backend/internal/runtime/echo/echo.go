@@ -11,9 +11,9 @@ package echo
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"errors"
 	"fmt"
+	secapproval "github.com/danielpina1/nexus/backend/internal/security/approval"
 	"strings"
 	"sync"
 	"time"
@@ -234,8 +234,13 @@ func (r *run) loop(ctx context.Context) {
 }
 
 func (r *run) approval(ctx context.Context) (bool, error) {
-	payload, _ := structpb.NewStruct(map[string]any{"action": "echo", "prompt": r.a.Prompt})
-	hash := sha256.Sum256([]byte("echo\x00" + r.a.RunId + "\x00" + r.a.Prompt))
+	payload, _ := structpb.NewStruct(map[string]any{"action": "echo", "run_id": r.a.RunId, "prompt": r.a.Prompt})
+	// The action hash must be the RFC 8785 hash of the payload so the hub,
+	// this node's edge verifier and the phone all agree (WIRE_FORMATS.md).
+	hash, err := secapproval.ActionHash(payload)
+	if err != nil {
+		return false, err
+	}
 	challenge := make([]byte, 32)
 	_, _ = rand.Read(challenge)
 	apr := &nexusv1.Approval{
@@ -244,7 +249,7 @@ func (r *run) approval(ctx context.Context) (bool, error) {
 		ActionClass: nexusv1.ActionClass_ACTION_CLASS_COMPUTE,
 		Level:       nexusv1.TrustLevel_TRUST_LEVEL_APPROVE,
 		Title:       "Echo wants approval", Summary: "The echo runtime asks to continue.",
-		Payload: payload, PayloadHash: hash[:], Challenge: challenge,
+		Payload: payload, PayloadHash: hash, Challenge: challenge,
 		State: nexusv1.ApprovalState_APPROVAL_STATE_PENDING, CreatedAt: timestamppb.Now(),
 		ExpiresAt: timestamppb.New(time.Now().Add(time.Hour)),
 	}

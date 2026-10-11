@@ -33,6 +33,8 @@ type Config struct {
 	Watch       *bool  `yaml:"watch"`
 	Embeddings  bool   `yaml:"embeddings"`
 	EmbedModel  string `yaml:"embed_model"`
+	// Episodes writes an episode note per finished top-level task (default true).
+	Episodes *bool `yaml:"episodes"`
 }
 
 // Module is the "vault" hub module.
@@ -125,6 +127,9 @@ func (m *Module) Start(ctx context.Context) error {
 	}
 	bg, cancel := context.WithCancel(context.Background())
 	m.cancel = cancel
+	if m.cfg.Episodes == nil || *m.cfg.Episodes {
+		m.startEpisodes(bg)
+	}
 	if m.cfg.Embeddings {
 		m.startVectors(bg)
 	}
