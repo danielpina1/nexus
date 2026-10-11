@@ -120,7 +120,7 @@ function NoteView({ noteKey, known, onOpen }: { noteKey: string; known: Set<stri
   const lnodes: GraphNode[] = (graph.data?.nodes ?? []).map((r) => ({ id: r.id, title: r.title, group: noteGroup(r.path) }));
   const llinks = (graph.data?.edges ?? []).map((e) => ({ source: e.sourceId, target: e.targetId }));
   return (
-    <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_320px]">
+    <div className="grid grid-cols-1 gap-5 2xl:grid-cols-[minmax(0,1fr)_320px]">
       <Card className="min-w-0 p-5 sm:p-7">
         <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-muted">
           <span className="inline-flex items-center gap-1">
@@ -246,7 +246,7 @@ export default function Vault() {
           />
         }
       />
-      <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
         <Card className="h-fit overflow-hidden lg:sticky lg:top-0">
           <div className="border-b border-border p-2.5">
             <div className="relative">

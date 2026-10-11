@@ -105,8 +105,9 @@ function TreeNode({ task, all, current, depth }: { task: Task; all: Task[]; curr
       >
         {depth > 0 && <span className="text-border-strong">└</span>}
         <AgentIcon agentId={task.agentId} workflow={!!task.workflowId} size="sm" />
-        <span className="min-w-0 flex-1 truncate text-fg">{task.title}</span>
-        <span className="hidden text-xs text-muted sm:inline">{agentName(agents, task.agentId, task.workflowId)}</span>
+        <span className="min-w-0 flex-1 truncate text-fg" title={`${task.title} — ${agentName(agents, task.agentId, task.workflowId)}`}>
+          {task.title}
+        </span>
         <StateIcon state={task.state} className="size-3.5 text-muted" />
       </Link>
       {kids.map((k) => (
@@ -199,7 +200,7 @@ export default function TaskDetail() {
         </div>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
         <Card className="min-w-0 overflow-hidden">
           <div className="border-b border-border px-3 py-2">
             <Tabs<"run" | "events">

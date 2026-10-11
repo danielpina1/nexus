@@ -169,13 +169,13 @@ export default function AgentDetail() {
           <h1 className="truncate text-xl font-semibold tracking-tight text-fg">{local.name || (isNew ? "New agent" : id)}</h1>
           <div className="font-mono text-xs text-muted">{server?.note?.path || `agents/${local.id || "…"}.md`}</div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2">
           {dirty && !isNew && (
             <Button variant="ghost" icon={<RotateCcw className="size-3.5" />} onClick={() => setMd(null)}>
               Revert
             </Button>
           )}
-          <Input value={commitMsg} onChange={(e) => setCommitMsg(e.target.value)} placeholder="Commit message (optional)" className="w-56" />
+          <Input value={commitMsg} onChange={(e) => setCommitMsg(e.target.value)} placeholder="Commit message (optional)" className="w-44 sm:w-56" />
           <Button variant="primary" icon={<Save className="size-3.5" />} loading={save.isPending} disabled={!dirty} onClick={() => save.mutate()}>
             {isNew ? "Create" : "Save"}
           </Button>
@@ -208,7 +208,7 @@ export default function AgentDetail() {
       />
 
       {tab === "edit" && (
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
           <Card className="overflow-hidden">
             <CardHeader title="Markdown" subtitle="Frontmatter + instructions. Saved to the vault as a git commit." actions={dirty ? <Badge tone="warn">unsaved</Badge> : <Badge tone="ok"><CheckCircle2 className="size-3" />saved</Badge>} />
             <Textarea

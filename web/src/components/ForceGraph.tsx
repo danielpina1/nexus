@@ -113,7 +113,7 @@ export function ForceGraph({
             dy = Math.random() - 0.5;
             d2 = 1;
           }
-          const f = (2400 * a) / d2;
+          const f = (5200 * a) / d2;
           const d = Math.sqrt(d2);
           const fx = (dx / d) * f;
           const fy = (dy / d) * f;
@@ -131,7 +131,7 @@ export function ForceGraph({
         const dx = q.x - p.x;
         const dy = q.y - p.y;
         const d = Math.sqrt(dx * dx + dy * dy) || 1;
-        const target = 70 + 6 * Math.min(6, (deg.get(l.source) ?? 0) + (deg.get(l.target) ?? 0));
+        const target = 95 + 8 * Math.min(6, (deg.get(l.source) ?? 0) + (deg.get(l.target) ?? 0));
         const f = ((d - target) / d) * 0.06 * a;
         p.vx += dx * f;
         p.vy += dy * f;
@@ -140,8 +140,8 @@ export function ForceGraph({
       }
       // gravity + integrate
       for (const [, p] of arr) {
-        p.vx -= p.x * 0.012 * a;
-        p.vy -= p.y * 0.012 * a;
+        p.vx -= p.x * 0.008 * a;
+        p.vy -= p.y * 0.008 * a;
         if (p.fx != null) {
           p.x = p.fx;
           p.y = p.fy!;
@@ -207,9 +207,9 @@ export function ForceGraph({
     const r = svgRef.current.getBoundingClientRect();
     const xs = pts.map((p) => p.x);
     const ys = pts.map((p) => p.y);
-    const w = Math.max(...xs) - Math.min(...xs) + 120;
-    const h = Math.max(...ys) - Math.min(...ys) + 80;
-    const k = Math.max(0.3, Math.min(1.6, Math.min(r.width / w, r.height / h)));
+    const w = Math.max(...xs) - Math.min(...xs) + 200;
+    const h = Math.max(...ys) - Math.min(...ys) + 120;
+    const k = Math.max(0.3, Math.min(1.1, Math.min(r.width / w, r.height / h)));
     const cxm = (Math.max(...xs) + Math.min(...xs)) / 2;
     const cym = (Math.max(...ys) + Math.min(...ys)) / 2;
     setView({ k, x: -cxm * k, y: -cym * k });
@@ -302,10 +302,10 @@ export function ForceGraph({
           {nodes.map((n) => {
             const p = pos.get(n.id);
             if (!p) return null;
-            const r = 4.5 + Math.min(8, Math.sqrt(degree.get(n.id) ?? 0) * 2.2);
+            const r = (4.5 + Math.min(8, Math.sqrt(degree.get(n.id) ?? 0) * 2.2)) / Math.sqrt(Math.max(1, view.k));
             const sel = n.id === selectedId;
             const dim = neighbors && !neighbors.has(n.id);
-            const label = showLabels && (view.k > 0.75 || sel || (degree.get(n.id) ?? 0) > 3 || neighbors?.has(n.id));
+            const label = showLabels && (view.k > 0.9 || sel || (degree.get(n.id) ?? 0) >= 3 || neighbors?.has(n.id));
             return (
               <g
                 key={n.id}
@@ -317,9 +317,9 @@ export function ForceGraph({
                 onPointerLeave={() => setHover(null)}
               >
                 <circle r={r + 6} fill="transparent" />
-                <circle r={r} fill={groupColor(n.group)} stroke={sel ? "var(--fg)" : "var(--surface)"} strokeWidth={sel ? 2.5 : 2} />
+                <circle r={r} fill={groupColor(n.group)} stroke={sel ? "var(--fg)" : "var(--surface)"} strokeWidth={(sel ? 2.5 : 2) / Math.max(1, view.k)} />
                 {label && (
-                  <text y={r + 12} textAnchor="middle" fontSize={11} fill="var(--fg-2)" stroke="var(--bg)" strokeWidth={3} paintOrder="stroke" style={{ pointerEvents: "none" }}>
+                  <text y={r + 12 / view.k} textAnchor="middle" fontSize={11 / view.k} fill="var(--fg-2)" stroke="var(--bg)" strokeWidth={3 / view.k} paintOrder="stroke" style={{ pointerEvents: "none" }}>
                     {n.title.length > 26 ? n.title.slice(0, 25) + "…" : n.title}
                   </text>
                 )}

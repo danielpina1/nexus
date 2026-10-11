@@ -30,7 +30,7 @@ function TaskChip({ taskId, active, onClick }: { taskId: string; active: boolean
     <button
       onClick={onClick}
       className={cx(
-        "mt-2 flex w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition-colors",
+        "mt-1 flex w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition-colors",
         active ? "border-accent/50 bg-accent-soft" : "border-border bg-surface hover:border-border-strong",
       )}
     >
@@ -85,7 +85,7 @@ function Message({ m, activeTaskId }: { m: ChatMessage; activeTaskId?: string })
             <AlertCircle className="mt-0.5 size-4 shrink-0" />
             <span className="break-words">{m.error}</span>
           </div>
-        ) : (
+        ) : m.text || m.choices?.length || m.sources?.length ? (
           <div className="rounded-2xl rounded-tl-md border border-border bg-surface px-3.5 py-2 text-[13.5px] shadow-card">
             <Markdown>{m.text}</Markdown>
             {m.choices && m.choices.length > 0 && (
@@ -108,7 +108,7 @@ function Message({ m, activeTaskId }: { m: ChatMessage; activeTaskId?: string })
               </div>
             )}
           </div>
-        )}
+        ) : null}
         {m.taskId && <TaskChip taskId={m.taskId} active={m.taskId === activeTaskId} onClick={() => setActive(m.taskId)} />}
       </div>
     </div>

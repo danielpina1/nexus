@@ -163,7 +163,7 @@ export default function MachineDetail() {
       />
 
       {tab === "overview" && (
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <Card className="p-5">
             <div className="mb-4 text-[13px] font-semibold text-fg">Health</div>
             <NodeMetrics status={st} />

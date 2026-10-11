@@ -10,6 +10,7 @@ import { useUI } from "../../lib/ui";
 import { useAgents, useNodes, usePendingApprovalsSeed, useTaskList } from "../../lib/queries";
 import { useInboxCount } from "../../lib/selectors";
 import { ConnectionIndicator } from "./ConnectionIndicator";
+import { OfflineBanner } from "./OfflineBanner";
 import { cx } from "../../lib/format";
 import { Skeleton } from "../ui/Skeleton";
 
@@ -17,7 +18,7 @@ function PageFallback() {
   return (
     <div className="space-y-4">
       <Skeleton className="h-8 w-48" />
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Skeleton className="h-32" />
         <Skeleton className="h-32" />
         <Skeleton className="h-32" />
@@ -75,6 +76,7 @@ export function AppShell() {
             {inbox > 0 && <span className="absolute top-1 right-1 min-w-4 rounded-full bg-danger px-1 text-center text-[10px] leading-4 font-semibold text-white">{inbox}</span>}
           </Link>
         </header>
+        <OfflineBanner />
         <main className={cx("min-h-0 flex-1", fullBleed ? "overflow-hidden" : "overflow-y-auto scrollbar-thin")}>
           <div className={cx("mx-auto w-full", fullBleed ? "h-full" : "max-w-7xl px-4 py-5 sm:px-6 lg:px-8 lg:py-7")}>
             <Suspense fallback={<div className="p-6"><PageFallback /></div>}>

@@ -278,7 +278,7 @@ export function RunView({ task, embedded, showHeader = true }: { task: Task; emb
           switch (it.k) {
             case "text":
               return (
-                <div key={it.key} className={cx("text-[13.5px]", last && active && it.streaming && "caret")}>
+                <div key={it.key} className={cx("text-[13.5px]", last && active && it.streaming && "caret-md")}>
                   <Markdown>{it.text}</Markdown>
                 </div>
               );

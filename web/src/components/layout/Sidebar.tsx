@@ -41,7 +41,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         className="mb-2 flex h-9 items-center gap-2 rounded-lg border border-border bg-surface px-2.5 text-[13px] text-muted shadow-card transition-colors hover:border-border-strong hover:text-fg"
       >
         <Search className="size-4" />
-        <span className="flex-1 text-left">Search or command…</span>
+        <span className="min-w-0 flex-1 truncate text-left whitespace-nowrap">Search…</span>
         <Kbd>{isMac ? "⌘" : "Ctrl"}</Kbd>
         <Kbd>K</Kbd>
       </button>

@@ -127,6 +127,8 @@ export function useDecide() {
           approvalId: approval.id,
           approve,
           challenge: approval.challenge,
+          // Bind the decision to exactly the action shown (the Hub rejects mismatches).
+          actionSha256: approval.payloadHash,
           expiresAt: approval.expiresAt,
           deviceId,
           // The web client cannot sign with a Secure Enclave key; the Hub only accepts unsigned

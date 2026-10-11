@@ -50,7 +50,7 @@ export default function Settings() {
 
       <Card>
         <CardHeader icon={<PlugZap className="size-4" />} title="Hub connection" subtitle="The dashboard only ever talks to your Nexus Hub (Connect RPC under /nexus.v1.*)." />
-        <div className="grid gap-4 p-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2">
           <div>
             <Label hint="Leave empty when nexusd serves this dashboard (same origin).">Hub URL</Label>
             <Input value={hubUrl} onChange={(e) => setHubUrl(e.target.value)} placeholder={window.location.origin} />

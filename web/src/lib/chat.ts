@@ -108,7 +108,7 @@ export const useChat = create<ChatState>((set, get) => ({
         route: res.route,
         taskId: res.task?.id,
         sources: res.sources,
-        text: res.question || res.answer || (res.task ? res.task.title || "Working on it" : "Done."),
+        text: res.question || res.answer || (res.task ? "" : "Done."),
         choices: res.question ? res.choices : undefined,
         originalInput: res.question ? text : undefined,
       };

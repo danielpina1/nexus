@@ -31,7 +31,7 @@ tags: [shopping, preferences]
 # Shopping preferences
 
 - Store:: [[Continente]] (home delivery, Saturday morning slots)
-- Budget per order:: €90, alert above €110
+- Budget per order:: €160, alert above €180
 - Dietary rules:: lactose-free for [[Ana Pina]]; no palm oil
 - Preferred brands:: [[Leite Mimosa meio-gordo]], [[Café Delta Lote Chávena]], [[Pão de forma Bimbo]]
 - Substitutions allowed:: same brand other size; otherwise ask
@@ -312,7 +312,7 @@ export function linksOf(n: MockNote): MockNote[] {
 }
 
 export function backlinksOf(n: MockNote): MockNote[] {
-  return notes.filter((o) => o.id !== n.id && linksOf(o).some((l) => l.id === n.id));
+  return notes.filter((o) => o.id !== n.id && !o.path.startsWith("templates/") && linksOf(o).some((l) => l.id === n.id));
 }
 
 export function upsertNote(path: string, raw: string): MockNote {

@@ -50,8 +50,8 @@ export function NodeCard({ node, status }: { node: Node; status?: NodeStatus }) 
             <span className="truncate text-[14px] font-semibold text-fg">{node.name}</span>
             <OnlineDot online={online} />
           </div>
-          <div className="truncate text-xs text-muted">
-            {node.os} · {node.arch} · {online ? `seen ${timeAgo(tsMs(st?.lastSeen), now)}` : "offline"}
+          <div className="truncate text-xs text-muted" title={online ? `seen ${timeAgo(tsMs(st?.lastSeen), now)}` : "offline"}>
+            {node.os} · {node.arch}
           </div>
         </div>
         {(st?.activeRuns ?? 0) > 0 && (

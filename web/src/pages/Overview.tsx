@@ -111,7 +111,7 @@ export default function Overview() {
   );
   const recent = useMemo(() => all.filter((t) => !isActive(t.state) && !t.parentId).slice(0, 6), [all]);
   const online = (nodes.data ?? []).filter((n) => (nodeStatus[n.id] ?? n.status)?.online).length;
-  const loadingTasks = Object.keys(tasksById).length === 0 && connection !== "live";
+  const loadingTasks = Object.keys(tasksById).length === 0 && (connection === "connecting" || connection === "idle");
 
   return (
     <div className="space-y-6">
@@ -127,7 +127,7 @@ export default function Overview() {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat icon={<Loader2 />} tone="text-info" label="Running" value={running.length} sub={`${running.filter((t) => t.state === TaskState.RUNNING).length} active · ${running.filter((t) => t.state !== TaskState.RUNNING).length} waiting`} to="/tasks?status=active" />
-        <Stat icon={<InboxIcon />} tone="text-danger" label="Needs you" value={inbox.length} sub={`${inbox.filter((i) => i.kind === "approval").length} approvals · ${inbox.filter((i) => i.kind === "question").length} questions`} to="/inbox" />
+        <Stat icon={<InboxIcon />} tone="text-danger" label="Needs you" value={inbox.length} sub={`${inbox.filter((i) => i.kind === "approval").length} approvals · ${inbox.filter((i) => i.kind === "question").length} questions · ${inbox.filter((i) => i.kind === "notice").length} notices`} to="/inbox" />
         <Link to="/costs">
           <Card className="h-full p-4 hover:border-border-strong">
             <div className="flex items-center gap-2 text-xs font-medium text-muted">
@@ -149,13 +149,13 @@ export default function Overview() {
         <Stat icon={<Cpu />} tone="text-ok" label="Machines" value={nodes.data ? `${online}/${nodes.data.length}` : "—"} sub="online" to="/machines" />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-3">
-        <div className="space-y-6 xl:col-span-2">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="min-w-0 space-y-6 xl:col-span-2">
           <section>
             <div className="mb-3 flex items-center gap-2">
               <span className="relative flex size-2">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-ok opacity-60" />
-                <span className="relative inline-flex size-2 rounded-full bg-ok" />
+                {connection === "live" && <span className="absolute inline-flex size-full animate-ping rounded-full bg-ok opacity-60" />}
+                <span className={cx("relative inline-flex size-2 rounded-full", connection === "live" ? "bg-ok" : "bg-muted")} />
               </span>
               <h2 className="text-[14px] font-semibold text-fg">Live</h2>
               <span className="text-xs text-muted">{wall.length} tasks</span>
@@ -165,7 +165,7 @@ export default function Overview() {
               </Link>
             </div>
             {loadingTasks ? (
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <Skeleton className="h-36" />
                 <Skeleton className="h-36" />
               </div>
@@ -174,7 +174,7 @@ export default function Overview() {
                 <EmptyState compact icon={<CheckCircle2 />} title="Nothing running" body="Agents are idle. Ask Nexus for something above." />
               </Card>
             ) : (
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {wall.map((t) => (
                   <LiveTaskCard key={t.id} task={t} />
                 ))}
@@ -198,7 +198,7 @@ export default function Overview() {
           </Card>
         </div>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <section>
             <div className="mb-3 flex items-center gap-2">
               <h2 className="text-[14px] font-semibold text-fg">Inbox</h2>

@@ -1,15 +1,20 @@
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { Download, FileText, Image as ImageIcon, FileDiff } from "lucide-react";
 import type { Attachment } from "../gen/nexus/v1/common_pb";
 import { cx, formatBytes } from "../lib/format";
 import { hubBaseUrl } from "../lib/api";
 
+function toDataUrl(bytes: Uint8Array, mime: string): string {
+  let bin = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  return `data:${mime};base64,${btoa(bin)}`;
+}
+
 function useObjectUrl(att: Attachment): string | undefined {
-  const url = useMemo(
-    () => (att.data.length ? URL.createObjectURL(new Blob([att.data as BlobPart], { type: att.mimeType || "application/octet-stream" })) : undefined),
-    [att],
-  );
-  useEffect(() => () => (url ? URL.revokeObjectURL(url) : undefined), [url]);
+  // Inline artifacts are small (the Hub issues blob URLs for big ones), so a data: URL is fine and
+  // needs no lifecycle management.
+  const url = useMemo(() => (att.data.length ? toDataUrl(att.data, att.mimeType || "application/octet-stream") : undefined), [att]);
   if (!att.data.length && att.url) {
     // Blob URLs issued by the Hub are relative to it.
     return att.url.startsWith("http") ? att.url : `${hubBaseUrl()}${att.url.startsWith("/") ? "" : "/"}${att.url}`;

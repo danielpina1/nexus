@@ -72,7 +72,7 @@ export default function Security() {
         </div>
       </Card>
 
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Card>
           <CardHeader title="Devices" subtitle="Revoking removes the device's keys from the Hub and all nodes" actions={<PairDeviceButton />} />
           <DeviceList allowRevoke />

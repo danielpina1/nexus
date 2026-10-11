@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Coins, Leaf, Table2, BarChart3, Zap } from "lucide-react";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Card, CardHeader } from "../components/ui/Card";
@@ -26,8 +26,18 @@ function niceMax(v: number): number {
 
 function StackedBars({ data, agents, names }: { data: DayStack[]; agents: string[]; names: (id: string) => string }) {
   const [hover, setHover] = useState<number | null>(null);
-  const W = 760;
-  const H = 260;
+  const box = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(760);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setWidth(Math.max(320, el.clientWidth)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  // Draw at 1:1 so axis text stays at its real size at any width.
+  const W = width;
+  const H = 280;
   const pad = { l: 48, r: 8, t: 12, b: 28 };
   const max = niceMax(Math.max(...data.map((d) => d.total)));
   const iw = W - pad.l - pad.r;
@@ -38,8 +48,8 @@ function StackedBars({ data, agents, names }: { data: DayStack[]; agents: string
   const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => f * max);
   const h = hover != null ? data[hover] : null;
   return (
-    <div className="relative">
-      <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label="Daily spend by agent" onMouseLeave={() => setHover(null)}>
+    <div className="relative" ref={box}>
+      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} className="block max-w-full" role="img" aria-label="Daily spend by agent" onMouseLeave={() => setHover(null)}>
         {ticks.map((t) => (
           <g key={t}>
             <line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} stroke="var(--border)" strokeDasharray={t === 0 ? undefined : "2 4"} />
@@ -68,7 +78,7 @@ function StackedBars({ data, agents, names }: { data: DayStack[]; agents: string
                   return <rect key={p.agentId} x={x} y={y1} width={barW} height={hgt} fill={agentColor(p.agentId)} />;
                 })}
               </g>
-              {(i % 2 === data.length % 2 || data.length <= 8) && (
+              {(data.length <= 8 || (bw >= 56 ? true : (data.length - 1 - i) % Math.ceil(56 / bw) === 0)) && (
                 <text x={x + barW / 2} y={H - 8} textAnchor="middle" fontSize={11} fill="var(--muted)">
                   {new Date(d.day).toLocaleDateString(undefined, { day: "numeric", month: "short" })}
                 </text>
@@ -288,7 +298,7 @@ export default function Costs() {
             </div>
           </Card>
 
-          <div className="grid gap-5 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
             <Card className="overflow-hidden">
               <CardHeader title="By agent" />
               <table className="w-full text-[13px] tabular">

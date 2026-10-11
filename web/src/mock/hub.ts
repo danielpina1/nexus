@@ -413,7 +413,7 @@ export class MockHub {
     this.setTask(usual.id, { state: TaskState.SUCCEEDED, summary: `${GROCERY_ITEMS.length} items from the last 4 orders` }, t0 + 55_000);
 
     const g0 = now - 7.5 * MIN;
-    const g = this.newTask({ title: "Fill Continente cart", prompt: "List: the usual (22 items). Guidelines: budget €90, lactose-free milk.", agentId: "grocery-continente", parentId: wf.id, tier: Tier.MEDIUM, source: "workflow" }, g0);
+    const g = this.newTask({ title: "Fill Continente cart", prompt: "List: the usual (22 items). Guidelines: budget €160, lactose-free milk.", agentId: "grocery-continente", parentId: wf.id, tier: Tier.MEDIUM, source: "workflow" }, g0);
     this.setTask(g.id, { state: TaskState.ASSIGNED, nodeId: "mac-studio" }, g0 + 1500);
     this.setTask(g.id, { state: TaskState.RUNNING }, g0 + 3000);
     this.out(g.id, "Opening continente.pt with the saved session…\n", g0 + 5000);

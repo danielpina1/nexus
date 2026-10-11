@@ -150,6 +150,7 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
 }
+.caret-md .prose-nexus > :last-child::after,
 .caret::after {
   content: "▍";
   margin-left: 1px;
