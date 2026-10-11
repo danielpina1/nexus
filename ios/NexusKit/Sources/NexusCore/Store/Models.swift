@@ -78,7 +78,7 @@ public enum InboxItem: Identifiable, Hashable, Sendable {
 }
 
 /// One entry of a task's timeline / live run view.
-public struct TimelineEntry: Identifiable, Sendable {
+public struct TimelineItem: Identifiable, Sendable {
     public enum Kind: Sendable {
         case userMessage(String)
         case output(String, isFinal: Bool)

@@ -21,7 +21,7 @@ public final class NexusStore {
     public private(set) var approvals: [String: Nexus_V1_Approval] = [:]
     public private(set) var questions: [String: QuestionItem] = [:]
     public private(set) var notices: [NoticeItem] = []
-    public private(set) var timelines: [String: [TimelineEntry]] = [:]
+    public private(set) var timelines: [String: [TimelineItem]] = [:]
     public private(set) var devices: [Nexus_V1_Device] = []
     public var lastError: String?
 
@@ -263,7 +263,7 @@ public final class NexusStore {
             let previous = tasks[task.id]
             tasks[task.id] = task
             if previous?.state != task.state {
-                append(TimelineEntry(id: entryID, at: at, runID: event.runID, kind: .status(task.state, summary: task.summary)), to: task.id)
+                append(TimelineItem(id: entryID, at: at, runID: event.runID, kind: .status(task.state, summary: task.summary)), to: task.id)
             }
             if task.state != .waitingInput && task.state != .needsInput {
                 questions = questions.filter { $0.value.taskID != task.id }
@@ -274,14 +274,14 @@ public final class NexusStore {
             appendOutput(output, taskID: event.taskID, runID: event.runID, at: at, entryID: entryID)
 
         case .toolCall(let call):
-            append(TimelineEntry(id: entryID, at: at, runID: event.runID, kind: .toolCall(call, result: nil)), to: event.taskID)
+            append(TimelineItem(id: entryID, at: at, runID: event.runID, kind: .toolCall(call, result: nil)), to: event.taskID)
 
         case .toolResult(let result):
             attach(result, taskID: event.taskID)
 
         case .question(let question):
             questions[question.questionID] = QuestionItem(taskID: event.taskID, question: question, at: at)
-            append(TimelineEntry(id: entryID, at: at, runID: event.runID, kind: .question(question)), to: event.taskID)
+            append(TimelineItem(id: entryID, at: at, runID: event.runID, kind: .question(question)), to: event.taskID)
 
         case .approval(let approval):
             if approval.state == .pending {
@@ -289,14 +289,14 @@ public final class NexusStore {
             } else {
                 approvals.removeValue(forKey: approval.id)
             }
-            append(TimelineEntry(id: entryID, at: at, runID: event.runID, kind: .approval(approval)), to: event.taskID)
+            append(TimelineItem(id: entryID, at: at, runID: event.runID, kind: .approval(approval)), to: event.taskID)
             onApprovalChanged?(approval)
 
         case .cost(let cost):
-            append(TimelineEntry(id: entryID, at: at, runID: event.runID, kind: .cost(cost.cost)), to: event.taskID)
+            append(TimelineItem(id: entryID, at: at, runID: event.runID, kind: .cost(cost.cost)), to: event.taskID)
 
         case .artifact(let artifact):
-            append(TimelineEntry(id: entryID, at: at, runID: event.runID, kind: .artifact(artifact.attachment)), to: event.taskID)
+            append(TimelineItem(id: entryID, at: at, runID: event.runID, kind: .artifact(artifact.attachment)), to: event.taskID)
 
         case .nodeStatus(let status):
             nodeStatus[status.nodeID] = status
@@ -305,11 +305,11 @@ public final class NexusStore {
             notices.removeAll { $0.id == notice.id }
             notices.insert(NoticeItem(taskID: event.taskID, notice: notice, at: at), at: 0)
             if !event.taskID.isEmpty {
-                append(TimelineEntry(id: entryID, at: at, runID: event.runID, kind: .notice(notice)), to: event.taskID)
+                append(TimelineItem(id: entryID, at: at, runID: event.runID, kind: .notice(notice)), to: event.taskID)
             }
 
         case .userMessage(let message):
-            append(TimelineEntry(id: entryID, at: at, runID: event.runID, kind: .userMessage(message.text)), to: event.taskID)
+            append(TimelineItem(id: entryID, at: at, runID: event.runID, kind: .userMessage(message.text)), to: event.taskID)
 
         case .none:
             break
@@ -317,7 +317,7 @@ public final class NexusStore {
         scheduleSnapshot()
     }
 
-    private func append(_ entry: TimelineEntry, to taskID: String) {
+    private func append(_ entry: TimelineItem, to taskID: String) {
         guard !taskID.isEmpty else { return }
         var entries = timelines[taskID] ?? []
         entries.append(entry)
@@ -335,7 +335,7 @@ public final class NexusStore {
             entries[entries.count - 1].kind = .output(text + output.text, isFinal: output.isFinal)
             timelines[taskID] = entries
         } else {
-            append(TimelineEntry(id: entryID, at: at, runID: runID, kind: .output(output.text, isFinal: output.isFinal)), to: taskID)
+            append(TimelineItem(id: entryID, at: at, runID: runID, kind: .output(output.text, isFinal: output.isFinal)), to: taskID)
         }
     }
 
@@ -372,7 +372,7 @@ public final class NexusStore {
             task.createdAt = Google_Protobuf_Timestamp(date: Date())
             task.updatedAt = task.createdAt
             tasks[task.id] = task
-            timelines[task.id] = [TimelineEntry(id: UUID().uuidString, at: Date(), runID: "", kind: .userMessage(input))]
+            timelines[task.id] = [TimelineItem(id: UUID().uuidString, at: Date(), runID: "", kind: .userMessage(input))]
             var response = Nexus_V1_ExecuteResponse()
             response.task = task
             return response
@@ -380,7 +380,7 @@ public final class NexusStore {
         let response = try await requireActions().execute(input, attachments: attachments, agentID: agentID, source: source)
         if response.hasTask {
             tasks[response.task.id] = response.task
-            append(TimelineEntry(id: "local_\(UUID().uuidString)", at: Date(), runID: response.task.currentRunID, kind: .userMessage(input)), to: response.task.id)
+            append(TimelineItem(id: "local_\(UUID().uuidString)", at: Date(), runID: response.task.currentRunID, kind: .userMessage(input)), to: response.task.id)
         }
         return response
     }
@@ -388,7 +388,7 @@ public final class NexusStore {
     public func sendMessage(taskID: String, text: String, questionID: String? = nil, choice: String? = nil, attachments: [Nexus_V1_Attachment] = []) async throws {
         if let questionID { questions.removeValue(forKey: questionID) }
         if isDemo {
-            append(TimelineEntry(id: UUID().uuidString, at: Date(), runID: "", kind: .userMessage(choice ?? text)), to: taskID)
+            append(TimelineItem(id: UUID().uuidString, at: Date(), runID: "", kind: .userMessage(choice ?? text)), to: taskID)
             return
         }
         try await requireActions().sendMessage(taskID: taskID, text: text, questionID: questionID, choice: choice, attachments: attachments)

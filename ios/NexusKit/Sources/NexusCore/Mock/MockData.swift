@@ -160,7 +160,7 @@ public enum MockData {
         ]
     }()
 
-    public static func timeline(for taskID: String) -> [TimelineEntry] {
+    public static func timeline(for taskID: String) -> [TimelineItem] {
         let now = Date()
         var call = Nexus_V1_ToolCall()
         call.callID = "call_1"
@@ -178,12 +178,12 @@ public enum MockData {
         cost.outputTokens = 2_100
         let run = "run_" + taskID
         return [
-            TimelineEntry(id: "1", at: now.addingTimeInterval(-300), runID: run, kind: .userMessage("Fix the flaky tests in nexus")),
-            TimelineEntry(id: "2", at: now.addingTimeInterval(-290), runID: run, kind: .status(.running, summary: "")),
-            TimelineEntry(id: "3", at: now.addingTimeInterval(-280), runID: run, kind: .output("Looking at the failing tests. `TestEventReplay` is timing-dependent; I'll make the clock injectable.", isFinal: false)),
-            TimelineEntry(id: "4", at: now.addingTimeInterval(-200), runID: run, kind: .toolCall(call, result: result)),
-            TimelineEntry(id: "5", at: now.addingTimeInterval(-100), runID: run, kind: .cost(cost)),
-            TimelineEntry(id: "6", at: now.addingTimeInterval(-60), runID: run, kind: .output("4 of 5 passing. Fixing the last one now…", isFinal: false)),
+            TimelineItem(id: "1", at: now.addingTimeInterval(-300), runID: run, kind: .userMessage("Fix the flaky tests in nexus")),
+            TimelineItem(id: "2", at: now.addingTimeInterval(-290), runID: run, kind: .status(.running, summary: "")),
+            TimelineItem(id: "3", at: now.addingTimeInterval(-280), runID: run, kind: .output("Looking at the failing tests. `TestEventReplay` is timing-dependent; I'll make the clock injectable.", isFinal: false)),
+            TimelineItem(id: "4", at: now.addingTimeInterval(-200), runID: run, kind: .toolCall(call, result: result)),
+            TimelineItem(id: "5", at: now.addingTimeInterval(-100), runID: run, kind: .cost(cost)),
+            TimelineItem(id: "6", at: now.addingTimeInterval(-60), runID: run, kind: .output("4 of 5 passing. Fixing the last one now…", isFinal: false)),
         ]
     }
 
