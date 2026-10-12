@@ -35,6 +35,18 @@ public protocol Nexus_V1_DeviceServiceClientInterface: Sendable {
 
     @available(iOS 13, *)
     func `revokeDevice`(request: Nexus_V1_RevokeDeviceRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_RevokeDeviceResponse>
+
+    /// CreatePairing enables pairing for 5 minutes and returns the nexus://pair
+    /// URL to render as a QR (device) or to pass to `nexus-node pair` (node).
+    /// Requires a paired device session or the dev token; nodes are denied.
+    @available(iOS 13, *)
+    func `createPairing`(request: Nexus_V1_CreatePairingRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_CreatePairingResponse>
+
+    /// PairNode redeems a node pairing token (public; authenticated by the
+    /// pairing proof). The node receives a bearer token, an mTLS client
+    /// certificate for its identity key and the Hub CA.
+    @available(iOS 13, *)
+    func `pairNode`(request: Nexus_V1_PairNodeRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_PairNodeResponse>
 }
 
 /// Concrete implementation of `Nexus_V1_DeviceServiceClientInterface`.
@@ -80,6 +92,16 @@ public final class Nexus_V1_DeviceServiceClient: Nexus_V1_DeviceServiceClientInt
         return await self.client.unary(path: "/nexus.v1.DeviceService/RevokeDevice", idempotencyLevel: .unknown, request: request, headers: headers)
     }
 
+    @available(iOS 13, *)
+    public func `createPairing`(request: Nexus_V1_CreatePairingRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_CreatePairingResponse> {
+        return await self.client.unary(path: "/nexus.v1.DeviceService/CreatePairing", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `pairNode`(request: Nexus_V1_PairNodeRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_PairNodeResponse> {
+        return await self.client.unary(path: "/nexus.v1.DeviceService/PairNode", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
     public enum Metadata {
         public enum Methods {
             public static let pair = Connect.MethodSpec(name: "Pair", service: "nexus.v1.DeviceService", type: .unary)
@@ -89,6 +111,8 @@ public final class Nexus_V1_DeviceServiceClient: Nexus_V1_DeviceServiceClientInt
             public static let registerLiveActivityToken = Connect.MethodSpec(name: "RegisterLiveActivityToken", service: "nexus.v1.DeviceService", type: .unary)
             public static let listDevices = Connect.MethodSpec(name: "ListDevices", service: "nexus.v1.DeviceService", type: .unary)
             public static let revokeDevice = Connect.MethodSpec(name: "RevokeDevice", service: "nexus.v1.DeviceService", type: .unary)
+            public static let createPairing = Connect.MethodSpec(name: "CreatePairing", service: "nexus.v1.DeviceService", type: .unary)
+            public static let pairNode = Connect.MethodSpec(name: "PairNode", service: "nexus.v1.DeviceService", type: .unary)
         }
     }
 }

@@ -8,6 +8,14 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             List {
+                if store.reachability.isUnavailable && !store.isDemo {
+                    Section {
+                        HubUnreachableBanner()
+                    }
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
+                }
+
                 if let error = store.lastError {
                     Section {
                         ErrorBanner(message: error) { store.lastError = nil }
@@ -289,8 +297,13 @@ struct FavouritesGrid: View {
     private func run(_ agent: Nexus_V1_Agent) {
         Task {
             do {
-                let response = try await store.execute("Run \(agent.name)", agentID: agent.id, source: "ios-favourite")
-                if response.hasTask { router.openTask(response.task.id) }
+                switch try await store.submit("Run \(agent.name)", agentID: agent.id, source: "ios-favourite") {
+                case .sent(let response):
+                    status = nil
+                    if response.hasTask { router.openTask(response.task.id) }
+                case .queued:
+                    status = "Queued — \(agent.name) runs when your Nexus is reachable."
+                }
             } catch {
                 status = error.localizedDescription
             }

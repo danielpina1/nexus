@@ -365,7 +365,7 @@ func (e *Engine) assign(ctx context.Context, id, agentID string, o assignOpts) (
 	if !ok {
 		return e.fail(ctx, id, "no agent catalog available (is the vault/agents module enabled?)")
 	}
-	agent, instructions, _, err := cat.GetAgent(ctx, agentID)
+	agent, instructions, markdown, err := cat.GetAgent(ctx, agentID)
 	if err != nil {
 		return e.fail(ctx, id, fmt.Sprintf("unknown agent %q: %v", agentID, err))
 	}
@@ -403,6 +403,9 @@ func (e *Engine) assign(ctx context.Context, id, agentID string, o assignOpts) (
 	runCtx, err := e.assignmentContext(r, tier, o)
 	if err != nil {
 		return nil, err
+	}
+	if err := mergeAgentConfig(runCtx, markdown); err != nil {
+		e.log.Warn("agent note config not forwarded", "agent", agentID, "err", err)
 	}
 	a := &nexusv1.RunAssignment{
 		RunId:        runID,

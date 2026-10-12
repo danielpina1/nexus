@@ -47,7 +47,10 @@ const (
 
 // toolkit is the per-run set of browser tools over one session.
 type toolkit struct {
-	s         *session
+	s         *session     // fixed session (tests); nil when pool is set
+	pool      *sessionPool // per-profile sessions of the run
+	shops     *shopRegistry
+	domains   DomainPolicy // the run's allow-list (browser.allow_domain extends it)
 	cls       *Classifier
 	gate      *approvalgate.Gate   // checkout/payment clicks; nil = always refuse
 	emit      func(*nexusv1.Event) // run event stream (artifacts taken by the gate)
@@ -64,6 +67,25 @@ type toolkit struct {
 }
 
 func schema(s string) json.RawMessage { return json.RawMessage(s) }
+
+var writeExternal = nexusv1.ActionClass_ACTION_CLASS_WRITE_EXTERNAL
+
+// cur returns the session tools act on.
+func (k *toolkit) cur() *session {
+	if k.pool != nil {
+		return k.pool.current()
+	}
+	return k.s
+}
+
+// matchSpend reports whether one of labels is a checkout/payment label
+// (default patterns, node config, or a known store's checkout_labels).
+func (k *toolkit) matchSpend(labels ...string) (label, pattern string, ok bool) {
+	if label, pattern, ok = k.cls.Match(labels...); ok {
+		return
+	}
+	return k.shops.match(labels...)
+}
 
 // tools returns the browser tools.
 func (k *toolkit) tools() []kernel.Tool {
@@ -83,7 +105,7 @@ func (k *toolkit) tools() []kernel.Tool {
 			},
 		}
 	}
-	return []kernel.Tool{
+	tools := []kernel.Tool{
 		mk(ToolNavigate, "Open a URL in the browser (http/https, allowed domains only). Then call browser.snapshot.",
 			`{"type":"object","properties":{"url":{"type":"string"}},"required":["url"]}`, read, k.navigate),
 		mk(ToolSnapshot, "Text view of the current page: title, URL, numbered interactive elements [ref] with role/name/value, and visible text. Refs are used by click/type/select and change after navigation.",
@@ -104,6 +126,10 @@ func (k *toolkit) tools() []kernel.Tool {
 		mk(ToolExtract, "Visible text of element [ref], or of the whole page when ref is omitted (max_chars, default 8000).",
 			`{"type":"object","properties":{"ref":{"type":"integer"},"max_chars":{"type":"integer"}}}`, read, k.extract),
 	}
+	if k.domains.Restricted() {
+		tools = append(tools, allowDomainTool(k.domains, k.log))
+	}
+	return tools
 }
 
 // pageState is returned by actions.
@@ -117,9 +143,9 @@ type pageState struct {
 	Checkout           bool     `json:"checkout_click,omitempty"`
 }
 
-func (k *toolkit) stateLocked(ctx context.Context, hint string) pageState {
-	u, t := k.s.locationLocked(ctx)
-	d, b := k.s.drainNotices()
+func (k *toolkit) stateLocked(ctx context.Context, s *session, hint string) pageState {
+	u, t := s.locationLocked(ctx)
+	d, b := s.drainNotices()
 	return pageState{OK: true, URL: u, Title: t, Hint: hint, Dialogs: d, BlockedNavigations: b}
 }
 
@@ -136,27 +162,34 @@ func (k *toolkit) navigate(ctx context.Context, c kernel.ToolCall) (any, error) 
 	if in.URL != "" && !strings.Contains(in.URL, "://") && in.URL != "about:blank" {
 		in.URL = "https://" + in.URL
 	}
-	if err := k.s.cfg.Domains.CheckURL(in.URL); err != nil {
+	s := k.cur()
+	if err := s.cfg.Domains.CheckURL(in.URL); err != nil {
 		return nil, err
 	}
-	if !k.s.cfg.Domains.Restricted() {
+	if k.pool != nil {
+		var profile string
+		s, profile = k.pool.forHost(hostOf(in.URL))
+		k.log.Debug("browser: navigate", "url", in.URL, "profile", profile)
+	}
+	if !s.cfg.Domains.Restricted() {
 		k.log.Info("browser: navigate (no domain allow-list)", "url", in.URL)
 	}
-	k.s.mu.Lock()
-	defer k.s.mu.Unlock()
-	if err := k.s.doLocked(ctx, k.s.cfg.NavTimeout, chromedp.Navigate(in.URL)); err != nil {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.doLocked(ctx, s.cfg.NavTimeout, chromedp.Navigate(in.URL)); err != nil {
 		if strings.Contains(err.Error(), "ERR_BLOCKED_BY_CLIENT") {
 			return nil, fmt.Errorf("navigation to %s was blocked: domain not allowed for this agent", in.URL)
 		}
 		return nil, fmt.Errorf("navigate: %w", err)
 	}
-	return k.stateLocked(ctx, snapHint), nil
+	return k.stateLocked(ctx, s, snapHint), nil
 }
 
 func (k *toolkit) snapshot(ctx context.Context, _ kernel.ToolCall) (any, error) {
-	k.s.mu.Lock()
-	defer k.s.mu.Unlock()
-	raw, err := k.s.evalLocked(ctx, snapshotExpr(snapshotMaxElements, snapshotMaxText))
+	s := k.cur()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	raw, err := s.evalLocked(ctx, snapshotExpr(snapshotMaxElements, snapshotMaxText))
 	if err != nil {
 		return nil, fmt.Errorf("snapshot: %w", err)
 	}
@@ -164,7 +197,7 @@ func (k *toolkit) snapshot(ctx context.Context, _ kernel.ToolCall) (any, error) 
 	if err != nil {
 		return nil, err
 	}
-	d, b := k.s.drainNotices()
+	d, b := s.drainNotices()
 	return map[string]any{
 		"url": snap.URL, "title": snap.Title, "snapshot": snap.Format(k.maxChars),
 		"dialogs": d, "blocked_navigations": b,
@@ -172,12 +205,12 @@ func (k *toolkit) snapshot(ctx context.Context, _ kernel.ToolCall) (any, error) 
 }
 
 // describeLocked fetches element metadata for ref.
-func (k *toolkit) describeLocked(ctx context.Context, ref int) (elementInfo, error) {
+func (k *toolkit) describeLocked(ctx context.Context, s *session, ref int) (elementInfo, error) {
 	var info elementInfo
 	if ref <= 0 {
 		return info, errors.New("ref must be a positive element number from browser.snapshot")
 	}
-	raw, err := k.s.evalLocked(ctx, elementExpr("describe", ref, ""))
+	raw, err := s.evalLocked(ctx, elementExpr("describe", ref, ""))
 	if err != nil {
 		return info, err
 	}
@@ -202,12 +235,12 @@ func (e *SpendError) Error() string {
 // approveSpendLocked asks the user (through the run's approval gate) before a
 // checkout/payment click. The approval shows exactly what will happen: the
 // page, the button, a fresh screenshot and the page text (the cart). The
-// screenshot is emitted as an artifact first. Caller holds k.s.mu.
-func (k *toolkit) approveSpendLocked(ctx context.Context, ref int, label, pattern, how string) error {
+// screenshot is emitted as an artifact first. Caller holds s.mu.
+func (k *toolkit) approveSpendLocked(ctx context.Context, s *session, ref int, label, pattern, how string) error {
 	if k.gate == nil {
 		return &SpendError{Label: label, Reason: "no approval channel in this run"}
 	}
-	u, title := k.s.locationLocked(ctx)
+	u, title := s.locationLocked(ctx)
 	payload := map[string]any{
 		"tool":    ToolClick,
 		"action":  how,
@@ -217,15 +250,32 @@ func (k *toolkit) approveSpendLocked(ctx context.Context, ref int, label, patter
 		"ref":     ref,
 		"matched": pattern,
 	}
-	if raw, err := k.s.evalLocked(ctx, elementExpr("extract", 0, "")); err == nil {
+	host := hostOf(u)
+	if shop, ok := k.shops.forHost(host); ok {
+		payload["store"] = map[string]any{"id": shop.ID, "name": shop.Name, "host": host}
+	} else {
+		payload["store"] = map[string]any{"host": host}
+	}
+	if raw, err := s.evalLocked(ctx, elementExpr("extract", 0, "")); err == nil {
 		var ex struct {
 			Text string `json:"text"`
 		}
 		if json.Unmarshal([]byte(raw), &ex) == nil && ex.Text != "" {
 			payload["page_text"] = cutUTF8(ex.Text, 3000)
+			total, items := CartSummary(ex.Text)
+			if total != "" {
+				payload["total"] = total
+			}
+			if len(items) > 0 {
+				list := make([]any, len(items))
+				for i, it := range items {
+					list[i] = it
+				}
+				payload["items"] = list
+			}
 		}
 	}
-	if att, err := k.captureLocked(ctx, true); err == nil {
+	if att, err := k.captureLocked(ctx, s, true); err == nil {
 		payload["screenshot"] = att.Id
 		if k.emit != nil {
 			k.emit(&nexusv1.Event{TaskId: k.taskID, RunId: k.runID, Body: &nexusv1.Event_Artifact{Artifact: &nexusv1.ArtifactAdded{Attachment: att}}})
@@ -237,11 +287,10 @@ func (k *toolkit) approveSpendLocked(ctx context.Context, ref int, label, patter
 	if who == "" {
 		who = "Browser agent"
 	}
-	host := hostOf(u)
 	out, err := k.gate.Check(ctx, approvalgate.Request{
 		Class:   nexusv1.ActionClass_ACTION_CLASS_SPEND,
 		Title:   fmt.Sprintf("%s wants to %s on %s", who, strings.ToLower(oneLine(label, 60)), host),
-		Summary: fmt.Sprintf("Click %q on %s (%s). Check the attached screenshot and cart before approving.", label, title, u),
+		Summary: spendSummary(label, title, u, payload),
 		Payload: payload,
 	})
 	if err != nil {
@@ -259,65 +308,80 @@ func (k *toolkit) approveSpendLocked(ctx context.Context, ref int, label, patter
 	return nil
 }
 
+func spendSummary(label, title, u string, payload map[string]any) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Click %q on %s (%s).", label, title, u)
+	if t, ok := payload["total"].(string); ok && t != "" {
+		fmt.Fprintf(&b, " Total on the page: %s.", t)
+	}
+	if it, ok := payload["items"].([]any); ok && len(it) > 0 {
+		fmt.Fprintf(&b, " %d item line(s) detected.", len(it))
+	}
+	b.WriteString(" Check the attached screenshot and cart before approving.")
+	return b.String()
+}
+
 func refSel(ref int) string { return fmt.Sprintf(`[data-nexus-ref="%d"]`, ref) }
 
 func (k *toolkit) click(ctx context.Context, c kernel.ToolCall) (any, error) {
+	s := k.cur()
 	var in struct {
 		Ref int `json:"ref"`
 	}
 	if err := kernel.ToolInput(c, &in); err != nil {
 		return nil, err
 	}
-	k.s.mu.Lock()
-	defer k.s.mu.Unlock()
-	info, err := k.describeLocked(ctx, in.Ref)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	info, err := k.describeLocked(ctx, s, in.Ref)
 	if err != nil {
 		return nil, err
 	}
 	if info.Disabled {
 		return nil, fmt.Errorf("element [%d] %q is disabled", in.Ref, info.label())
 	}
-	label, pattern, spend := k.cls.Match(info.Labels...)
+	label, pattern, spend := k.matchSpend(info.Labels...)
 	if spend {
-		if err := k.approveSpendLocked(ctx, in.Ref, oneLine(label, 80), pattern, "click"); err != nil {
+		if err := k.approveSpendLocked(ctx, s, in.Ref, oneLine(label, 80), pattern, "click"); err != nil {
 			return nil, err
 		}
 	}
-	if _, err := k.s.evalLocked(ctx, elementExpr("prepare", in.Ref, "")); err != nil {
+	if _, err := s.evalLocked(ctx, elementExpr("prepare", in.Ref, "")); err != nil {
 		return nil, err
 	}
-	if err := k.s.doLocked(ctx, 5*time.Second, chromedp.Click(refSel(in.Ref), chromedp.ByQuery, chromedp.NodeVisible)); err != nil {
+	if err := s.doLocked(ctx, 5*time.Second, chromedp.Click(refSel(in.Ref), chromedp.ByQuery, chromedp.NodeVisible)); err != nil {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
 		// Not visible to the mouse (covered, zero-size): fall back to a DOM click.
 		k.log.Debug("browser: mouse click failed, using DOM click", "ref", in.Ref, "err", err)
-		if _, err := k.s.evalLocked(ctx, elementExpr("click", in.Ref, "")); err != nil {
+		if _, err := s.evalLocked(ctx, elementExpr("click", in.Ref, "")); err != nil {
 			return nil, fmt.Errorf("click [%d]: %w", in.Ref, err)
 		}
 	}
-	k.s.settleLocked(ctx)
-	st := k.stateLocked(ctx, snapHint)
+	s.settleLocked(ctx)
+	st := k.stateLocked(ctx, s, snapHint)
 	st.Checkout = spend
-	if err := k.checkHostLocked(ctx, st.URL); err != nil {
+	if err := k.checkHostLocked(ctx, s, st.URL); err != nil {
 		return nil, err
 	}
 	return st, nil
 }
 
 // checkHostLocked is a second line of defence behind request interception.
-func (k *toolkit) checkHostLocked(ctx context.Context, u string) error {
-	if !k.s.cfg.Domains.Restricted() || u == "" || strings.HasPrefix(u, "about:") || strings.HasPrefix(u, "chrome-error:") {
+func (k *toolkit) checkHostLocked(ctx context.Context, s *session, u string) error {
+	if !s.cfg.Domains.Restricted() || u == "" || strings.HasPrefix(u, "about:") || strings.HasPrefix(u, "chrome-error:") {
 		return nil
 	}
-	if h := hostOf(u); h != "" && !k.s.cfg.Domains.AllowHost(h) {
-		_ = k.s.doLocked(ctx, k.s.cfg.NavTimeout, chromedp.NavigateBack())
+	if h := hostOf(u); h != "" && !s.cfg.Domains.AllowHost(h) {
+		_ = s.doLocked(ctx, s.cfg.NavTimeout, chromedp.NavigateBack())
 		return fmt.Errorf("the page left the allowed domains (%s); went back", h)
 	}
 	return nil
 }
 
 func (k *toolkit) typeText(ctx context.Context, c kernel.ToolCall) (any, error) {
+	s := k.cur()
 	var in struct {
 		Ref    int    `json:"ref"`
 		Text   string `json:"text"`
@@ -330,9 +394,9 @@ func (k *toolkit) typeText(ctx context.Context, c kernel.ToolCall) (any, error) 
 	if LooksLikeCardNumber(in.Text) {
 		return nil, errors.New("refused: the text looks like a payment card number; agents never type card data (the saved payment method in the account is used)")
 	}
-	k.s.mu.Lock()
-	defer k.s.mu.Unlock()
-	info, err := k.describeLocked(ctx, in.Ref)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	info, err := k.describeLocked(ctx, s, in.Ref)
 	if err != nil {
 		return nil, err
 	}
@@ -344,21 +408,21 @@ func (k *toolkit) typeText(ctx context.Context, c kernel.ToolCall) (any, error) 
 	}
 	spend := false
 	if in.Submit {
-		if label, pattern, ok := k.cls.Match(info.SubmitLabels...); ok {
-			if err := k.approveSpendLocked(ctx, in.Ref, oneLine(label, 80), pattern, "submit form"); err != nil {
+		if label, pattern, ok := k.matchSpend(info.SubmitLabels...); ok {
+			if err := k.approveSpendLocked(ctx, s, in.Ref, oneLine(label, 80), pattern, "submit form"); err != nil {
 				return nil, err
 			}
 			spend = true
 		}
 	}
-	if _, err := k.s.evalLocked(ctx, elementExpr("prepare", in.Ref, "")); err != nil {
+	if _, err := s.evalLocked(ctx, elementExpr("prepare", in.Ref, "")); err != nil {
 		return nil, err
 	}
 	mode := ""
 	if in.Append {
 		mode = "keep"
 	}
-	if _, err := k.s.evalLocked(ctx, elementExpr("focus", in.Ref, mode)); err != nil {
+	if _, err := s.evalLocked(ctx, elementExpr("focus", in.Ref, mode)); err != nil {
 		return nil, err
 	}
 	acts := []chromedp.Action{}
@@ -370,23 +434,24 @@ func (k *toolkit) typeText(ctx context.Context, c kernel.ToolCall) (any, error) 
 	if in.Submit {
 		acts = append(acts, chromedp.KeyEvent(kb.Enter))
 	}
-	if err := k.s.doLocked(ctx, 0, acts...); err != nil {
+	if err := s.doLocked(ctx, 0, acts...); err != nil {
 		return nil, fmt.Errorf("type into [%d]: %w", in.Ref, err)
 	}
 	hint := ""
 	if in.Submit {
-		k.s.settleLocked(ctx)
+		s.settleLocked(ctx)
 		hint = snapHint
 	}
-	st := k.stateLocked(ctx, hint)
+	st := k.stateLocked(ctx, s, hint)
 	st.Checkout = spend
-	if err := k.checkHostLocked(ctx, st.URL); err != nil {
+	if err := k.checkHostLocked(ctx, s, st.URL); err != nil {
 		return nil, err
 	}
 	return st, nil
 }
 
 func (k *toolkit) selectOpt(ctx context.Context, c kernel.ToolCall) (any, error) {
+	s := k.cur()
 	var in struct {
 		Ref   int    `json:"ref"`
 		Value string `json:"value"`
@@ -394,12 +459,12 @@ func (k *toolkit) selectOpt(ctx context.Context, c kernel.ToolCall) (any, error)
 	if err := kernel.ToolInput(c, &in); err != nil {
 		return nil, err
 	}
-	k.s.mu.Lock()
-	defer k.s.mu.Unlock()
-	if _, err := k.describeLocked(ctx, in.Ref); err != nil {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, err := k.describeLocked(ctx, s, in.Ref); err != nil {
 		return nil, err
 	}
-	raw, err := k.s.evalLocked(ctx, elementExpr("select", in.Ref, in.Value))
+	raw, err := s.evalLocked(ctx, elementExpr("select", in.Ref, in.Value))
 	if err != nil {
 		return nil, err
 	}
@@ -416,12 +481,13 @@ func (k *toolkit) selectOpt(ctx context.Context, c kernel.ToolCall) (any, error)
 		}
 		return nil, errors.New(out.Error)
 	}
-	k.s.settleLocked(ctx)
-	st := k.stateLocked(ctx, "")
+	s.settleLocked(ctx)
+	st := k.stateLocked(ctx, s, "")
 	return map[string]any{"ok": true, "selected": out.Selected, "value": out.Value, "url": st.URL, "dialogs": st.Dialogs}, nil
 }
 
 func (k *toolkit) scroll(ctx context.Context, c kernel.ToolCall) (any, error) {
+	s := k.cur()
 	var in struct {
 		Direction string `json:"direction"`
 		Amount    int    `json:"amount"`
@@ -430,13 +496,13 @@ func (k *toolkit) scroll(ctx context.Context, c kernel.ToolCall) (any, error) {
 	if err := kernel.ToolInput(c, &in); err != nil {
 		return nil, err
 	}
-	k.s.mu.Lock()
-	defer k.s.mu.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if in.Ref > 0 {
-		if _, err := k.describeLocked(ctx, in.Ref); err != nil {
+		if _, err := k.describeLocked(ctx, s, in.Ref); err != nil {
 			return nil, err
 		}
-		if _, err := k.s.evalLocked(ctx, elementExpr("prepare", in.Ref, "")); err != nil {
+		if _, err := s.evalLocked(ctx, elementExpr("prepare", in.Ref, "")); err != nil {
 			return nil, err
 		}
 	} else {
@@ -454,7 +520,7 @@ func (k *toolkit) scroll(ctx context.Context, c kernel.ToolCall) (any, error) {
 		default:
 			return nil, fmt.Errorf("direction must be up, down, top or bottom")
 		}
-		if err := k.s.doLocked(ctx, 0, chromedp.Evaluate(js, nil)); err != nil {
+		if err := s.doLocked(ctx, 0, chromedp.Evaluate(js, nil)); err != nil {
 			return nil, err
 		}
 	}
@@ -462,7 +528,7 @@ func (k *toolkit) scroll(ctx context.Context, c kernel.ToolCall) (any, error) {
 		Y      int `json:"y"`
 		Height int `json:"height"`
 	}
-	_ = k.s.doLocked(ctx, 0, chromedp.Evaluate(`({y: Math.round(scrollY), height: document.documentElement.scrollHeight})`, &pos))
+	_ = s.doLocked(ctx, 0, chromedp.Evaluate(`({y: Math.round(scrollY), height: document.documentElement.scrollHeight})`, &pos))
 	return map[string]any{"ok": true, "scroll_y": pos.Y, "scroll_height": pos.Height, "hint": snapHint}, nil
 }
 
@@ -474,6 +540,7 @@ func scrollAmount(a int) int {
 }
 
 func (k *toolkit) wait(ctx context.Context, c kernel.ToolCall) (any, error) {
+	s := k.cur()
 	var in struct {
 		MS        int    `json:"ms"`
 		Text      string `json:"text"`
@@ -503,10 +570,10 @@ func (k *toolkit) wait(ctx context.Context, c kernel.ToolCall) (any, error) {
 	js := fmt.Sprintf(`(document.body ? document.body.innerText : '').toLowerCase().includes(%s)`, needle)
 	deadline := time.Now().Add(timeout)
 	for {
-		k.s.mu.Lock()
+		s.mu.Lock()
 		var found bool
-		err := k.s.doLocked(ctx, 3*time.Second, chromedp.Evaluate(js, &found))
-		k.s.mu.Unlock()
+		err := s.doLocked(ctx, 3*time.Second, chromedp.Evaluate(js, &found))
+		s.mu.Unlock()
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
@@ -528,19 +595,20 @@ func (k *toolkit) wait(ctx context.Context, c kernel.ToolCall) (any, error) {
 }
 
 func (k *toolkit) screenshot(ctx context.Context, c kernel.ToolCall) (any, error) {
+	s := k.cur()
 	var in struct {
 		FullPage bool `json:"full_page"`
 	}
 	if err := kernel.ToolInput(c, &in); err != nil {
 		return nil, err
 	}
-	k.s.mu.Lock()
-	att, err := k.captureLocked(ctx, in.FullPage)
+	s.mu.Lock()
+	att, err := k.captureLocked(ctx, s, in.FullPage)
 	var u, title string
 	if err == nil {
-		u, title = k.s.locationLocked(ctx)
+		u, title = s.locationLocked(ctx)
 	}
-	k.s.mu.Unlock()
+	s.mu.Unlock()
 	if err != nil {
 		return nil, err
 	}
@@ -557,14 +625,14 @@ func (k *toolkit) screenshot(ctx context.Context, c kernel.ToolCall) (any, error
 }
 
 // captureLocked takes a PNG screenshot and returns it as an attachment
-// (saved under <workdir>/screenshots, inline when small). Caller holds k.s.mu.
-func (k *toolkit) captureLocked(ctx context.Context, fullPage bool) (*nexusv1.Attachment, error) {
+// (saved under <workdir>/screenshots, inline when small). Caller holds s.mu.
+func (k *toolkit) captureLocked(ctx context.Context, s *session, fullPage bool) (*nexusv1.Attachment, error) {
 	var buf []byte
 	var act chromedp.Action = chromedp.CaptureScreenshot(&buf)
 	if fullPage {
 		act = chromedp.FullScreenshot(&buf, 100) // quality 100 = PNG
 	}
-	if err := k.s.doLocked(ctx, 0, act); err != nil {
+	if err := s.doLocked(ctx, 0, act); err != nil {
 		return nil, fmt.Errorf("screenshot: %w", err)
 	}
 	k.mu.Lock()
@@ -593,16 +661,18 @@ func (k *toolkit) captureLocked(ctx context.Context, fullPage bool) (*nexusv1.At
 }
 
 func (k *toolkit) back(ctx context.Context, _ kernel.ToolCall) (any, error) {
-	k.s.mu.Lock()
-	defer k.s.mu.Unlock()
-	if err := k.s.doLocked(ctx, k.s.cfg.NavTimeout, chromedp.NavigateBack()); err != nil {
+	s := k.cur()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.doLocked(ctx, s.cfg.NavTimeout, chromedp.NavigateBack()); err != nil {
 		return nil, fmt.Errorf("back: %w", err)
 	}
-	k.s.settleLocked(ctx)
-	return k.stateLocked(ctx, snapHint), nil
+	s.settleLocked(ctx)
+	return k.stateLocked(ctx, s, snapHint), nil
 }
 
 func (k *toolkit) extract(ctx context.Context, c kernel.ToolCall) (any, error) {
+	s := k.cur()
 	var in struct {
 		Ref      int `json:"ref"`
 		MaxChars int `json:"max_chars"`
@@ -615,14 +685,14 @@ func (k *toolkit) extract(ctx context.Context, c kernel.ToolCall) (any, error) {
 		max = defaultExtractMax
 	}
 	max = min(max, hardExtractMax)
-	k.s.mu.Lock()
-	defer k.s.mu.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if in.Ref > 0 {
-		if _, err := k.describeLocked(ctx, in.Ref); err != nil {
+		if _, err := k.describeLocked(ctx, s, in.Ref); err != nil {
 			return nil, err
 		}
 	}
-	raw, err := k.s.evalLocked(ctx, elementExpr("extract", max0(in.Ref), ""))
+	raw, err := s.evalLocked(ctx, elementExpr("extract", max0(in.Ref), ""))
 	if err != nil {
 		return nil, err
 	}

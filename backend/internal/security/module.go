@@ -136,7 +136,11 @@ func New(ctx context.Context, o Options) (*Security, error) {
 	if err != nil {
 		return nil, fmt.Errorf("security: hub identity key: %w", err)
 	}
-	al, err := audit.Open(filepath.Join(o.DataDir, "audit.log"))
+	auditPath := filepath.Join(o.DataDir, "audit.log")
+	if o.MemoryAudit {
+		auditPath = "" // CLI sharing the data dir with a running hub
+	}
+	al, err := audit.Open(auditPath)
 	if err != nil {
 		return nil, fmt.Errorf("security: audit log: %w", err)
 	}
@@ -176,6 +180,10 @@ type Options struct {
 	Logger  *slog.Logger
 	// Host is optional; used to resolve the notifier lazily for alerts.
 	Host kernel.Host
+	// MemoryAudit keeps the audit log in memory instead of appending to
+	// <DataDir>/audit.log. CLIs that share the data dir with a running hub
+	// (`nexusd pair`) set it so they don't fork the hub's hash chain.
+	MemoryAudit bool
 }
 
 var migrations = []string{

@@ -37,6 +37,14 @@ service DeviceService {
   rpc RegisterLiveActivityToken(RegisterLiveActivityTokenRequest) returns (RegisterLiveActivityTokenResponse);
   rpc ListDevices(ListDevicesRequest) returns (ListDevicesResponse);
   rpc RevokeDevice(RevokeDeviceRequest) returns (RevokeDeviceResponse);
+  // CreatePairing enables pairing for 5 minutes and returns the nexus://pair
+  // URL to render as a QR (device) or to pass to `nexus-node pair` (node).
+  // Requires a paired device session or the dev token; nodes are denied.
+  rpc CreatePairing(CreatePairingRequest) returns (CreatePairingResponse);
+  // PairNode redeems a node pairing token (public; authenticated by the
+  // pairing proof). The node receives a bearer token, an mTLS client
+  // certificate for its identity key and the Hub CA.
+  rpc PairNode(PairNodeRequest) returns (PairNodeResponse);
 }
 
 message PairRequest {
@@ -116,3 +124,38 @@ message RevokeDeviceRequest {
 }
 
 message RevokeDeviceResponse {}
+
+enum PairingKind {
+  PAIRING_KIND_UNSPECIFIED = 0; // = device
+  PAIRING_KIND_DEVICE = 1;
+  PAIRING_KIND_NODE = 2;
+}
+
+message CreatePairingRequest {
+  PairingKind kind = 1;
+  string label = 2; // free-form note recorded in the audit log
+}
+
+message CreatePairingResponse {
+  string url = 1; // nexus://pair?v=1&k=...
+  google.protobuf.Timestamp expires_at = 2;
+  PairingKind kind = 3;
+  repeated string hub_urls = 4;
+  string ca_fingerprint = 5; // lowercase hex SHA-256 of the Hub CA DER
+}
+
+message PairNodeRequest {
+  string pairing_token = 1; // "s" from the pairing URL
+  string node_id = 2; // requested id (e.g. hostname); empty = hub assigns one
+  bytes public_key = 3; // node identity key, P-256 (65-byte X9.63)
+  // HMAC-SHA256(HKDF(secret, "nexus/v1/pairing"), public_key) — WIRE_FORMATS.md.
+  bytes pairing_proof = 4;
+}
+
+message PairNodeResponse {
+  string node_id = 1;
+  string token = 2; // node bearer token (shown once; stored hashed on the hub)
+  bytes client_certificate = 3; // PEM, for public_key
+  bytes ca_certificate = 4; // PEM Hub CA
+  string safety_code = 5; // 6 emojis; compare with the hub log / dashboard
+}

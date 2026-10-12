@@ -118,11 +118,15 @@ public struct PairingPayload: Equatable, Sendable {
 
 public enum PairingError: Error, LocalizedError {
     case safetyCodeMismatch
+    case hubUnreachable(urls: [URL], reason: String)
 
     public var errorDescription: String? {
         switch self {
         case .safetyCodeMismatch:
             return "The Hub's safety code does not match the pairing code. Pairing was aborted — someone may be intercepting it."
+        case .hubUnreachable(let urls, let reason):
+            let list = urls.map(\.absoluteString).joined(separator: ", ")
+            return "Can't reach your Hub at \(list). \(reason) Pair at home on Wi-Fi (or with your home VPN on) and try again."
         }
     }
 }
@@ -132,6 +136,8 @@ public struct PairingResult: Sendable {
     public var device: Nexus_V1_Device
     public var safetyCode: String
     public var configuration: HubConfiguration
+    /// The Hub URL from the QR that answered during pairing.
+    public var workingURL: URL?
 }
 
 /// Phone ↔ Hub pairing (SECURITY.md §3):
@@ -169,7 +175,18 @@ public struct PairingService: Sendable {
             caFingerprint: payload.caFingerprint,
             deviceName: name
         )
-        let client = try HubClient(configuration: configuration)
+        // Pair at home on Wi-Fi: probe every Hub URL from the QR (`hub=` is repeatable) and
+        // pair through the first one that answers. If none answers, still try the first URL
+        // (the probe is advisory) and turn a transport failure into a clear message.
+        let probe = await HubProbe.firstReachable(payload.hubURLs, path: nil)
+        var probeReason = "It did not answer."
+        var baseURL = payload.hubURLs.first
+        switch probe {
+        case .reachable(let url): baseURL = url
+        case .unreachable(let reason): probeReason = reason
+        case .offline: probeReason = "This iPhone has no network connection."
+        }
+        let client = try HubClient(configuration: configuration, baseURL: baseURL)
 
         var request = Nexus_V1_PairRequest()
         request.pairingToken = payload.token
@@ -181,8 +198,14 @@ public struct PairingService: Sendable {
         request.pairingProof = Self.pairingProof(secret: payload.secret, keys: keys)
         // TODO(App Attest): DCAppAttestService attestation over SHA256(pairing_proof) on device.
 
-        let response = try await client.callUnauthenticated { headers in
-            await client.devices.pair(request: request, headers: headers)
+        let response: Nexus_V1_PairResponse
+        do {
+            response = try await client.callUnauthenticated { headers in
+                await client.devices.pair(request: request, headers: headers)
+            }
+        } catch let error where HubClient.isTransportFailure(error) {
+            KeyManager.shared.resetAll()
+            throw PairingError.hubUnreachable(urls: payload.hubURLs, reason: probeReason)
         }
 
         // Safety code from the QR's hub key (in-person channel) + our keys; must equal the
@@ -197,7 +220,7 @@ public struct PairingService: Sendable {
         configuration.deviceID = response.device.id
         configuration.pairedAt = Date()
         configuration.safetyCode = code
-        return PairingResult(device: response.device, safetyCode: code, configuration: configuration)
+        return PairingResult(device: response.device, safetyCode: code, configuration: configuration, workingURL: client.baseURL)
     }
 
     /// Persists the configuration once the user confirmed the safety code.
@@ -205,6 +228,9 @@ public struct PairingService: Sendable {
         var configuration = result.configuration
         configuration.safetyCode = result.safetyCode
         configuration.save()
+        if let url = result.workingURL {
+            HubRouteMemory.recordContact(url: url, viaVPN: nil)
+        }
         Keychain.delete(.accessToken)
         Keychain.delete(.accessTokenExpiry)
         AppGroup.defaults.removeObject(forKey: AppGroup.Key.lastEventSeq)

@@ -3,7 +3,7 @@ import { create } from "@bufbuild/protobuf";
 import { AgentService } from "../gen/nexus/v1/agent_pb";
 import { ApprovalService } from "../gen/nexus/v1/approval_pb";
 import { CommandKind, CommandService } from "../gen/nexus/v1/command_pb";
-import { DeviceService } from "../gen/nexus/v1/device_pb";
+import { DeviceService, PairingKind } from "../gen/nexus/v1/device_pb";
 import { EventService } from "../gen/nexus/v1/event_pb";
 import { NodeService } from "../gen/nexus/v1/node_pb";
 import { TaskService, type Task } from "../gen/nexus/v1/task_pb";
@@ -11,11 +11,14 @@ import { FactStatus, NoteSchema, VaultService } from "../gen/nexus/v1/vault_pb";
 import { MockHub, searchNotes } from "./hub";
 import { listFiles } from "./fixtures";
 import { backlinksOf, findNote, linksOf, notes, upsertNote, type MockNote } from "./vaultData";
-import { latency, ts } from "./util";
+import { latency, MIN, randomBytes, ts } from "./util";
 import { tsMs } from "../lib/format";
 import { NoticeKind } from "../gen/nexus/v1/event_pb";
 
 let hub: MockHub | null = null;
+
+/** Stable fake Hub CA fingerprint (SHA-256) for mock pairing codes. */
+const MOCK_CA = randomBytes(32);
 
 const ref = (n: MockNote) => ({ id: n.id, path: n.path, title: n.title });
 
@@ -207,6 +210,29 @@ export function createMockTransport(interceptors: Interceptor[] = []) {
         },
         async pair() {
           throw new ConnectError("Pairing happens from the iOS app by scanning the QR code.", Code.Unimplemented);
+        },
+        async createPairing(req) {
+          await latency();
+          const kind = req.kind === PairingKind.NODE ? PairingKind.NODE : PairingKind.DEVICE;
+          const b64url = (b: Uint8Array) => btoa(String.fromCharCode(...b)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+          const hex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+          const hubUrls = ["https://nexus.home.arpa:7700"];
+          const caFingerprint = hex(MOCK_CA);
+          const hubKey = new Uint8Array(65);
+          hubKey[0] = 4;
+          hubKey.set(randomBytes(64), 1);
+          const exp = Date.now() + 5 * MIN;
+          const q = new URLSearchParams({ v: "1", k: kind === PairingKind.NODE ? "node" : "device" });
+          for (const u of hubUrls) q.append("hub", u);
+          q.set("ca", caFingerprint);
+          q.set("s", b64url(randomBytes(32)));
+          q.set("hk", b64url(hubKey));
+          q.set("exp", String(Math.floor(exp / 1000)));
+          h.notice("", NoticeKind.ALERT, "Pairing enabled", `A ${kind === PairingKind.NODE ? "node" : "device"} pairing code was issued (valid 5 minutes).`);
+          return { url: `nexus://pair?${q.toString()}`, expiresAt: ts(exp), kind, hubUrls, caFingerprint };
+        },
+        async pairNode() {
+          throw new ConnectError("Node pairing needs a real Hub (nexus-node pair).", Code.Unimplemented);
         },
         async getChallenge() {
           throw new ConnectError("not available in mock mode", Code.Unimplemented);

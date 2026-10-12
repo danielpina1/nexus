@@ -16,6 +16,13 @@ struct ChatListView: View {
     var body: some View {
         NavigationStack(path: $path) {
             List {
+                if store.reachability.isUnavailable && !store.isDemo {
+                    Section {
+                        HubUnreachableBanner()
+                    }
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
+                }
                 Section {
                     NavigationLink(value: ChatThread(agentID: nil)) {
                         HStack(spacing: 12) {
@@ -72,11 +79,19 @@ struct ChatThreadView: View {
         store.chatTasks(forAgent: thread.agentID)
     }
 
+    /// Commands typed in this thread while the Hub was unreachable.
+    private var queuedCommands: [OutboxItem] {
+        store.outbox.filter { item in
+            if case .command(_, let agentID, _) = item.kind { return agentID == thread.agentID }
+            return false
+        }
+    }
+
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
-                    if tasks.isEmpty {
+                    if tasks.isEmpty && queuedCommands.isEmpty {
                         ContentUnavailableView(
                             "Start a conversation",
                             systemImage: "bubble.left.and.text.bubble.right",
@@ -92,6 +107,9 @@ struct ChatThreadView: View {
                         .id(task.id)
                         Divider()
                     }
+                    ForEach(queuedCommands) { item in
+                        QueuedBubble(text: item.summary)
+                    }
                 }
                 .padding()
             }
@@ -100,6 +118,13 @@ struct ChatThreadView: View {
             }
             .onChange(of: tasks.last?.id) { _, id in
                 if let id { withAnimation { proxy.scrollTo(id, anchor: .bottom) } }
+            }
+        }
+        .safeAreaInset(edge: .top) {
+            if store.reachability.isUnavailable && !store.isDemo {
+                HubUnreachableBanner()
+                    .padding(.horizontal)
+                    .padding(.top, 4)
             }
         }
         .safeAreaInset(edge: .bottom) {
@@ -162,7 +187,7 @@ struct RunControls: View {
                         let text = replyText
                         replyText = ""
                         showReply = false
-                        perform { try await store.sendMessage(taskID: task.id, text: text) }
+                        perform { _ = try await store.sendMessage(taskID: task.id, text: text) }
                     }
                     .disabled(replyText.isEmpty)
                 }
@@ -285,6 +310,22 @@ struct UserBubble: View {
                 .padding(10)
                 .background(Color.accentColor.opacity(0.15), in: RoundedRectangle(cornerRadius: 14))
         }
+    }
+}
+
+/// A command waiting in the outbox (typed while the Hub was unreachable).
+struct QueuedBubble: View {
+    let text: String
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 4) {
+            UserBubble(text: text)
+                .opacity(0.6)
+            Label("Waiting for your Nexus — sent when you're connected", systemImage: "clock")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .trailing)
     }
 }
 
@@ -427,16 +468,23 @@ struct ComposerView: View {
         attachments = loaded
     }
 
+    static let queuedInfo = "Queued — sent automatically when your Nexus is reachable."
+
     private func send() async {
         let input = text.trimmingCharacters(in: .whitespacesAndNewlines)
         isSending = true
         defer { isSending = false }
         do {
             if let replyTaskID {
-                try await store.sendMessage(taskID: replyTaskID, text: input, attachments: attachments)
-                info = nil
+                let delivery = try await store.sendMessage(taskID: replyTaskID, text: input, attachments: attachments)
+                info = delivery.isQueued ? Self.queuedInfo : nil
             } else {
-                let response = try await store.execute(input, attachments: attachments, agentID: agentID)
+                let delivery = try await store.submit(input, attachments: attachments, agentID: agentID)
+                guard case .sent(let response) = delivery else {
+                    info = Self.queuedInfo
+                    text = ""
+                    return
+                }
                 if !response.answer.isEmpty {
                     info = response.answer
                 } else if !response.question.isEmpty {

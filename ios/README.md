@@ -59,7 +59,7 @@ scheme `NexusKit-Package`, iOS Simulator destination).
 ## Running against a local Hub
 
 1. Start the Hub: `nexusd serve` (listens on `:7700`, HTTP/1.1 + h2c).
-2. Make the phone reach it: same Wi-Fi (use the Mac's LAN IP) or Tailscale (`100.x.y.z`).
+2. Make the phone reach it: same Wi-Fi (use the Mac's LAN IP), or away from home through the UniFi VPN (docs/NETWORK.md).
    ATS allows plain HTTP only for local networking (`NSAllowsLocalNetworking`).
 3. Either
    - **Pair (recommended):** `nexusd pair --device` (or web → Security → Pair device) shows a
@@ -67,6 +67,22 @@ scheme `NexusKit-Package`, iOS Simulator destination).
      confirm. The app creates Secure Enclave keys and authenticates with a signed challenge.
    - **Dev token:** onboarding → "Connect with a dev token" → Hub URL + `security.dev_token`
      from `nexus.yaml`. Good for UI work; approvals still need paired device keys.
+
+## Remote access (UniFi VPN — docs/NETWORK.md)
+
+- All `hub=` URLs from the pairing QR are kept (`HubConfiguration.hubURLs`). `HubProbe`
+  (`NexusCore/Networking/HubReachability.swift`) probes `GET /healthz` with a 3 s timeout, last
+  working URL first (`HubRouteMemory`, App Group), before the app ever declares the Hub unreachable.
+- `NWPathMonitor` (`NetworkMonitor`) re-probes on every path change (Wi-Fi ↔ cellular, VPN up/down;
+  VPN tunnels are `.other` interfaces — the "via VPN" flag is best effort).
+- `NexusStore.reachability`: `connected(url, viaVPN)`, `unreachable(reason)`, `offline`. Home and
+  Chat show a calm "Can't reach your Nexus at home" banner with Retry; Settings → Remote access
+  shows URL(s), route, last contact, the outbox and an offline WireGuard / Teleport how-to.
+- While unreachable, chat commands, replies, captures and **Face ID-signed decisions** go to the
+  `Outbox` (App Group, text only, idempotency keys) and are sent on reconnect; a signed decision
+  that expires first is dropped with a message. Pending approvals are cached in the App Group so
+  an approval notification can be reviewed and signed while away.
+- Pair at home on Wi-Fi (pairing probes each QR URL and explains when none answers).
 
 ## Demo mode
 

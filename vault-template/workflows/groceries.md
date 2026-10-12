@@ -27,5 +27,7 @@ steps:
 Thin wrapper so the share sheet and Siri can start a grocery run with or without a list.
 
 The `grocery-continente` agent runs on a node tagged `browser` with a persistent, logged-in
-Continente profile (log in once — see the agent note). Checkout always pauses for a biometric
+Continente profile `continente` (log in once — see the agent note; the general `shop` agent
+shares it). For another supermarket (Auchan, Pingo Doce…) use the `shop` workflow or agent with
+the store named; stores are the notes in `shops/` (docs/SHOPPING.md). Checkout always pauses for a biometric
 approval showing a screenshot of the final cart.

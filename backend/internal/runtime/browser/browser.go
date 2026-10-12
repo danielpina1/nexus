@@ -6,9 +6,9 @@
 // Each run gets the browser.* tools (registered per run, never globally) plus
 // the run's hub tools from RunSpec.Tools (memory.search, ask_user,
 // request_approval, vault.write…). Chrome starts lazily on the first browser
-// tool call with a persistent profile (user-data-dir) per agent, so a login
-// done once survives across runs; it is closed when the run ends and killed
-// on Cancel.
+// tool call with a persistent profile (user-data-dir) per agent — or per
+// store, see below — so a login done once survives across runs; it is
+// closed when the run ends and killed on Cancel.
 //
 // Action classes: navigate, snapshot, screenshot, extract, wait, scroll,
 // back → READ; click, type, select → COMPUTE (routine work inside a site).
@@ -38,6 +38,9 @@
 //	      headless: false
 //	  checkout_patterns: []      # replace the default spend patterns (regex, accent-insensitive)
 //	  extra_checkout_patterns: []
+//	  profile_per_shop: true     # one profile per store id once the run knows the store
+//	  shop_profiles: {}          # store id → profile name override
+//	  trust_shop_notes: true     # shops.get domains join the allow-list (false: browser.allow_domain only)
 //	  default_model: smart
 //	  max_steps: 80
 //	  max_tokens: 0
@@ -49,10 +52,25 @@
 //	  inline_screenshot_max_bytes: 1048576
 //
 // The allowed domains of a run come from the run context
-// (browser.allowed_domains, e.g. forwarded from the agent note's
+// (browser.allowed_domains, forwarded by the hub from the agent note's
 // `browser: { allowed_domains: [...] }`), else from agents.<id>, else from
 // allowed_domains; with none, every host is allowed and navigations are
-// logged.
+// logged — unless the run is a shopping run (it has the shops.get hub tool,
+// or browser.restrict_domains: true), which is restricted even with an empty
+// list.
+//
+// Shopping (shop.go, docs/SHOPPING.md): the run's shops.get tool is wrapped
+// so every store it returns is registered with the run — its domains join
+// the allow-list (trust_shop_notes), its checkout_labels join the SPEND
+// patterns, and navigations to it use the profile named after the store id
+// (profile_per_shop), one Chrome per profile (sessionPool). Context `shops`
+// / `shop` (ids, or {id, domains, checkout_labels} objects) are registered
+// the same way. Other domains need browser.allow_domain {domain, reason}, a
+// WRITE_EXTERNAL tool the agent loop gates (APPROVE by default). The run's
+// default profile is agents.<id>.profile, else the context's
+// browser.profile, else the agent id. The checkout approval payload carries
+// store, total and item lines (best effort, from the page text), page text
+// and the screenshot id.
 package browser
 
 import (
@@ -94,6 +112,15 @@ type Config struct {
 	Agents                map[string]AgentConfig `yaml:"agents"`
 	CheckoutPatterns      []string               `yaml:"checkout_patterns"`
 	ExtraCheckoutPatterns []string               `yaml:"extra_checkout_patterns"`
+	// ProfilePerShop (default true) gives each store its own persistent
+	// profile (profile key = store id) once the run knows the store.
+	ProfilePerShop *bool `yaml:"profile_per_shop"`
+	// ShopProfiles overrides the profile name of a store id.
+	ShopProfiles map[string]string `yaml:"shop_profiles"`
+	// TrustShopNotes (default true) adds the domains of stores fetched with
+	// shops.get to the run's allow-list; false = every new domain needs
+	// browser.allow_domain (user approval).
+	TrustShopNotes *bool `yaml:"trust_shop_notes"`
 
 	DefaultModel string `yaml:"default_model"`
 	MaxSteps     int    `yaml:"max_steps"`
@@ -117,6 +144,14 @@ func (c *Config) defaults(dataDir string) {
 	if c.Headless == nil {
 		t := true
 		c.Headless = &t
+	}
+	if c.ProfilePerShop == nil {
+		t := true
+		c.ProfilePerShop = &t
+	}
+	if c.TrustShopNotes == nil {
+		t := true
+		c.TrustShopNotes = &t
 	}
 	if c.NoSandbox == nil {
 		ns := os.Geteuid() == 0
@@ -276,8 +311,27 @@ func (r *Runtime) Start(ctx context.Context, spec kernel.RunSpec) (kernel.Run, e
 	if len(domains) == 0 {
 		domains = r.cfg.AllowedDomains
 	}
+	hubTools := dropBrowserNames(spec.Tools)
+	hasShopsGet := false
+	for _, t := range hubTools {
+		if t.Spec().Name == HubToolShopsGet {
+			hasShopsGet = true
+		}
+	}
+	// A shopping run (it can fetch stores) is restricted even before it
+	// knows any domain; browser.restrict_domains overrides.
+	strict := hasShopsGet
+	if v, set := restrictFromContext(a.GetContext()); set {
+		strict = v
+	}
 	policy := NewDomainPolicy(domains)
+	if strict {
+		policy = NewStrictDomainPolicy(domains)
+	}
 	profile := ac.Profile
+	if profile == "" {
+		profile = profileFromContext(a.GetContext())
+	}
 	if profile == "" {
 		profile = agent.GetId()
 	}
@@ -286,25 +340,48 @@ func (r *Runtime) Start(ctx context.Context, spec kernel.RunSpec) (kernel.Run, e
 		headless = *ac.Headless
 	}
 	log := r.host.Logger().With("runtime", "browser", "run_id", a.GetRunId(), "agent", agent.GetId())
+	shops := newShopRegistry(policy, *r.cfg.TrustShopNotes, log)
+	shopIDs, shopInfos := shopsFromContext(a.GetContext())
+	for _, si := range shopInfos {
+		if _, err := shops.register(si); err != nil {
+			log.Warn("browser: shop from context", "shop", si.ID, "err", err)
+		}
+	}
 	if !policy.Restricted() {
 		log.Warn("browser: agent has no allowed_domains; all sites allowed (navigations are logged)")
 	}
-	dir := ProfileDir(r.cfg.ProfilesDir, profile)
-	sess := newSession(sessionConfig{
-		ChromePath:    r.chrome(),
-		Headless:      headless,
-		NoSandbox:     *r.cfg.NoSandbox,
-		ProfileDir:    dir,
-		Width:         r.cfg.Viewport.Width,
-		Height:        r.cfg.Viewport.Height,
-		Domains:       policy,
-		LaunchTimeout: time.Duration(r.cfg.LaunchTimeoutSeconds) * time.Second,
-		NavTimeout:    time.Duration(r.cfg.NavigationTimeoutSeconds) * time.Second,
-		ActionTimeout: time.Duration(r.cfg.ActionTimeoutSeconds) * time.Second,
-		Log:           log,
-		Lock:          r.lock(dir),
-	})
-	run := &Run{sess: sess, events: make(chan *nexusv1.Event, 64), gateEv: make(chan *nexusv1.Event), fwdDone: make(chan struct{})}
+	mkSession := func(prof string) *session {
+		dir := ProfileDir(r.cfg.ProfilesDir, prof)
+		return newSession(sessionConfig{
+			ChromePath:    r.chrome(),
+			Headless:      headless,
+			NoSandbox:     *r.cfg.NoSandbox,
+			ProfileDir:    dir,
+			Width:         r.cfg.Viewport.Width,
+			Height:        r.cfg.Viewport.Height,
+			Domains:       policy,
+			LaunchTimeout: time.Duration(r.cfg.LaunchTimeoutSeconds) * time.Second,
+			NavTimeout:    time.Duration(r.cfg.NavigationTimeoutSeconds) * time.Second,
+			ActionTimeout: time.Duration(r.cfg.ActionTimeoutSeconds) * time.Second,
+			Log:           log.With("profile", prof),
+			Lock:          r.lock(dir),
+		})
+	}
+	profileFor := func(host string) string {
+		if !*r.cfg.ProfilePerShop {
+			return ""
+		}
+		s, ok := shops.forHost(host)
+		if !ok {
+			return ""
+		}
+		if p := r.cfg.ShopProfiles[s.ID]; p != "" {
+			return p
+		}
+		return s.ID
+	}
+	pool := newSessionPool(profile, mkSession, profileFor)
+	run := &Run{pool: pool, events: make(chan *nexusv1.Event, 64), gateEv: make(chan *nexusv1.Event), fwdDone: make(chan struct{})}
 	// One approval gate for the run, shared with the agent loop (which gates
 	// tools by their static class) and used by browser.click for checkout.
 	run.gate = approvalgate.New(approvalgate.Config{
@@ -312,11 +389,20 @@ func (r *Runtime) Start(ctx context.Context, spec kernel.RunSpec) (kernel.Run, e
 		Emit: run.emitGate, Log: log,
 	})
 	kit := &toolkit{
-		s: sess, cls: r.cls, gate: run.gate, emit: run.emitGate,
+		pool: pool, shops: shops, domains: policy, cls: r.cls, gate: run.gate, emit: run.emitGate,
 		agentName: agent.GetName(), taskID: a.GetTaskId(), runID: a.GetRunId(),
 		workdir: spec.Workdir, maxChars: r.cfg.SnapshotMaxChars, inlineMax: r.cfg.InlineScreenshotMaxBytes, log: log,
 	}
-	tools := append(selectBrowserTools(kit.tools(), agent.GetTools()), dropBrowserNames(spec.Tools)...)
+	for i, t := range hubTools {
+		if t.Spec().Name == HubToolShopsGet {
+			hubTools[i] = wrapShopsGet(t, shops)
+		}
+	}
+	instructions := Instructions(a.GetInstructions(), policy)
+	if hasShopsGet || len(shopIDs) > 0 {
+		instructions += ShopGuidance(shopIDs, hasShopsGet, policy)
+	}
+	tools := append(selectBrowserTools(kit.tools(), agent.GetTools()), hubTools...)
 
 	model := agent.GetModel()
 	if model == "" {
@@ -329,7 +415,7 @@ func (r *Runtime) Start(ctx context.Context, spec kernel.RunSpec) (kernel.Run, e
 	loop, err := agentloop.Start(ctx, agentloop.Config{
 		LLM:          l,
 		Model:        model,
-		Instructions: Instructions(a.GetInstructions(), policy),
+		Instructions: instructions,
 		Prompt:       agentloop.BuildPrompt(a),
 		Tools:        tools,
 		Limits:       limits,
@@ -345,7 +431,7 @@ func (r *Runtime) Start(ctx context.Context, spec kernel.RunSpec) (kernel.Run, e
 	})
 	if err != nil {
 		run.gate.Close()
-		sess.Close()
+		pool.Close()
 		return nil, err
 	}
 	run.loop = loop
@@ -353,7 +439,7 @@ func (r *Runtime) Start(ctx context.Context, spec kernel.RunSpec) (kernel.Run, e
 	go func() {
 		<-loop.Done()
 		run.gate.Close()
-		sess.Close()
+		pool.Close()
 	}()
 	return run, nil
 }
@@ -403,7 +489,7 @@ func dropBrowserNames(tools []kernel.Tool) []kernel.Tool {
 type Run struct {
 	loop    *agentloop.Run
 	gate    *approvalgate.Gate
-	sess    *session
+	pool    *sessionPool
 	events  chan *nexusv1.Event
 	gateEv  chan *nexusv1.Event
 	fwdDone chan struct{}
@@ -426,13 +512,13 @@ func (r *Run) Resolve(ctx context.Context, res *nexusv1.ApprovalResolution) erro
 func (r *Run) Cancel(ctx context.Context) error {
 	err := r.loop.Cancel(ctx)
 	r.gate.Close()
-	r.sess.Kill()
+	r.pool.Kill()
 	return err
 }
 
-// BrowserClosed is closed once Chrome has exited and the profile is free
-// (after the run ended or was cancelled).
-func (r *Run) BrowserClosed() <-chan struct{} { return r.sess.done }
+// BrowserClosed is closed once every Chrome of the run has exited and the
+// profiles are free (after the run ended or was cancelled).
+func (r *Run) BrowserClosed() <-chan struct{} { return r.pool.done }
 
 // emitGate sends an event produced during a tool call (approval, notice,
 // artifact). It returns once the forwarder has taken it, so it is ordered

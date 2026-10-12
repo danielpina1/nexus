@@ -15,7 +15,10 @@ import (
 //	  token: s3cret            # or env NEXUS_NODE_TOKEN
 //	  tags: [mac, browser]
 //	  workspaces_dir: ./data/workspaces
-//	  ca_file: ""              # extra CA bundle for the hub certificate
+//	  token_file: ""           # file holding the token (written by `nexus-node pair`)
+//	  ca_file: ""              # hub CA (PEM); when set it is the ONLY trusted root
+//	  cert_file: ""            # mTLS client certificate (from pairing)
+//	  key_file: ""             # node identity key (PKCS#8 PEM, 0600)
 //	  status_interval: 15s
 //	  strict_approvals: false  # true: reject approvals when no verifier is installed
 type Config struct {
@@ -24,7 +27,10 @@ type Config struct {
 	Token           string        `yaml:"token"`
 	Tags            []string      `yaml:"tags"`
 	WorkspacesDir   string        `yaml:"workspaces_dir"`
+	TokenFile       string        `yaml:"token_file"`
 	CAFile          string        `yaml:"ca_file"`
+	CertFile        string        `yaml:"cert_file"`
+	KeyFile         string        `yaml:"key_file"`
 	StatusInterval  time.Duration `yaml:"status_interval"`
 	BackoffMin      time.Duration `yaml:"backoff_min"`
 	BackoffMax      time.Duration `yaml:"backoff_max"`

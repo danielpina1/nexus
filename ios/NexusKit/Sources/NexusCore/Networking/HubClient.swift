@@ -51,13 +51,20 @@ public final class HubClient: @unchecked Sendable {
 
     private let tokens: TokenStore
 
-    public init(configuration: HubConfiguration) throws {
-        guard let url = configuration.primaryURL else { throw HubError.notConfigured }
+    /// The Hub URL this client talks to (one of `configuration.hubURLs`).
+    public let baseURL: URL
+
+    /// - Parameter baseURL: which of the paired Hub URLs to use; defaults to the one that
+    ///   answered last (`HubConfiguration.preferredURL`). `NexusStore` picks it with a
+    ///   `HubProbe` and builds a new client when the route changes (Wi-Fi ↔ VPN).
+    public init(configuration: HubConfiguration, baseURL: URL? = nil) throws {
+        guard let url = baseURL ?? configuration.preferredURL else { throw HubError.notConfigured }
         var host = url.absoluteString
         while host.hasSuffix("/") { host.removeLast() }
         guard url.scheme == "https" || url.scheme == "http" else { throw HubError.invalidURL }
 
         self.configuration = configuration
+        self.baseURL = url
         let codec: Codec = configuration.useJSONCodec ? JSONCodec() : ProtoCodec()
         self.protocolClient = ProtocolClient(
             httpClient: URLSessionHTTPClient(),
@@ -78,10 +85,38 @@ public final class HubClient: @unchecked Sendable {
         self.tokens = TokenStore()
     }
 
-    /// Client for the stored configuration (used by widgets, intents and extensions).
+    /// Client for the stored configuration (used by widgets, intents and extensions), pointed
+    /// at the Hub URL that answered last.
     public static func shared() throws -> HubClient {
         guard let configuration = HubConfiguration.load() else { throw HubError.notConfigured }
         return try HubClient(configuration: configuration)
+    }
+
+    /// Probes the paired Hub URLs (`GET /healthz`, 3 s each; last working URL first) and
+    /// returns a client for the first one that answers. Remembers the winner in the App Group.
+    public static func connect(
+        configuration: HubConfiguration,
+        path: NetworkPathInfo?
+    ) async -> (client: HubClient?, outcome: HubProbe.Outcome) {
+        let outcome = await HubProbe.firstReachable(configuration.orderedURLs, path: path)
+        guard case .reachable(let url) = outcome else { return (nil, outcome) }
+        HubRouteMemory.recordContact(url: url, viaVPN: path.map(\.hasVPNInterface))
+        return (try? HubClient(configuration: configuration, baseURL: url), outcome)
+    }
+
+    /// True when `error` looks like "could not reach the Hub" (as opposed to the Hub
+    /// answering with an error). Such failures are worth queueing and re-probing.
+    public static func isTransportFailure(_ error: Error) -> Bool {
+        if error is URLError { return true }
+        if case HubError.server(let connectError) = error {
+            switch connectError.code {
+            case .unavailable, .deadlineExceeded, .unknown, .canceled:
+                return true
+            default:
+                return false
+            }
+        }
+        return false
     }
 
     // MARK: Auth

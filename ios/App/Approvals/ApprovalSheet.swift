@@ -17,14 +17,31 @@ struct ApprovalSheet: View {
     @State private var comment = ""
     @State private var remember = false
     @State private var showRawPayload = false
+    /// Set when the signed decision was queued because the Hub is unreachable.
+    @State private var queued: (approve: Bool, expires: Date?)?
 
     var body: some View {
         NavigationStack {
             Group {
-                if let approval {
+                if let queued {
+                    queuedView(queued)
+                } else if let approval {
                     content(approval)
                 } else if isLoading {
                     ProgressView("Loading approval…")
+                } else if store.reachability.isUnavailable {
+                    ContentUnavailableView {
+                        Label("Can't reach your Nexus at home", systemImage: "house.and.flag")
+                    } description: {
+                        Text("Turn on your home VPN (WireGuard / WiFiman Teleport). This approval opens as soon as your Nexus answers.")
+                    } actions: {
+                        Button {
+                            store.retryConnection()
+                        } label: {
+                            if store.isProbing { ProgressView() } else { Text("Retry") }
+                        }
+                        .buttonStyle(.bordered)
+                    }
                 } else {
                     ContentUnavailableView(
                         "Approval not found",
@@ -41,8 +58,12 @@ struct ApprovalSheet: View {
                 }
             }
         }
-        .task {
-            approval = await store.approval(id: approvalID)
+        // Runs on appear and again when the Hub becomes reachable (e.g. the on-demand VPN came
+        // up after tapping the notification). Cached approvals load even while unreachable.
+        .task(id: store.reachability.phase) {
+            if approval == nil {
+                approval = await store.approval(id: approvalID)
+            }
             isLoading = false
         }
         .interactiveDismissDisabled(isSubmitting)
@@ -133,6 +154,16 @@ struct ApprovalSheet: View {
                     ErrorBanner(message: errorMessage) { self.errorMessage = nil }
                 }
 
+                if store.reachability.isUnavailable && !isExpired {
+                    Label {
+                        Text(Self.queueNote(expires: expires))
+                    } icon: {
+                        Image(systemName: "tray.and.arrow.up")
+                    }
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                }
+
                 VStack(spacing: 10) {
                     Button {
                         Task { await decide(approval, approve: true) }
@@ -162,6 +193,36 @@ struct ApprovalSheet: View {
             }
             .padding()
         }
+    }
+
+    static func queueNote(expires: Date?) -> String {
+        var note = "You're away from your Nexus. Your decision is signed now and sent automatically when it's reachable"
+        if let expires {
+            note += " — if that's before " + expires.formatted(date: .omitted, time: .shortened)
+        }
+        return note + "."
+    }
+
+    /// Shown after a decision was signed but could not be sent yet.
+    private func queuedView(_ queued: (approve: Bool, expires: Date?)) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "checkmark.seal.fill")
+                .font(.system(size: 48))
+                .foregroundStyle(queued.approve ? Color.green : Color.secondary)
+            Text(queued.approve ? "Approved — waiting to send" : "Denied — waiting to send")
+                .font(.title3.bold())
+            Text("Your Face ID–signed decision is stored on this iPhone and will be sent as soon as your Nexus at home is reachable. Turn on your home VPN to send it now.")
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+            if let expires = queued.expires {
+                Label("Valid until \(expires.formatted(date: .omitted, time: .shortened)). If it can't be delivered by then, it is dropped and nothing happens.", systemImage: "timer")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            Button("Done") { dismiss() }
+                .buttonStyle(.borderedProminent)
+        }
+        .padding(24)
     }
 
     @ViewBuilder
@@ -216,8 +277,12 @@ struct ApprovalSheet: View {
         errorMessage = nil
         defer { isSubmitting = false }
         do {
-            try await store.decide(approval, approve: approve, comment: comment, remember: remember)
-            dismiss()
+            let delivery = try await store.decide(approval, approve: approve, comment: comment, remember: remember)
+            if delivery.isQueued {
+                queued = (approve, approval.expiresDate)
+            } else {
+                dismiss()
+            }
         } catch {
             errorMessage = error.localizedDescription
         }

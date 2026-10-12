@@ -114,10 +114,20 @@ enum NotificationResponseHandler {
         switch response.actionIdentifier {
         case NotificationCategories.Action.approve, NotificationCategories.Action.deny:
             guard let approvalID else { return }
+            // Every decision is signed with the Face ID key today, so the button opens the
+            // sheet. The sheet also works while the Hub is unreachable (away, VPN off): it shows
+            // the cached approval, signs it, and queues the signed decision until the Hub answers
+            // or the decision expires.
+            guard ApprovalSignature.backgroundDecisionsSupported, !store.reachability.isUnavailable else {
+                router.openApproval(approvalID)
+                return
+            }
             let approve = response.actionIdentifier == NotificationCategories.Action.approve
             do {
                 try await actions?.decide(approvalID: approvalID, approve: approve, allowBiometric: false)
             } catch NexusActions.DecideError.requiresBiometric {
+                router.openApproval(approvalID)
+            } catch let error where HubClient.isTransportFailure(error) {
                 router.openApproval(approvalID)
             } catch {
                 await postFailure("Could not send decision: \(error.localizedDescription)")
@@ -128,10 +138,11 @@ enum NotificationResponseHandler {
 
         case NotificationCategories.Action.reply:
             guard let taskID, let text = (response as? UNTextInputNotificationResponse)?.userText, !text.isEmpty else { return }
-            try? await actions?.sendMessage(taskID: taskID, text: text, questionID: questionID)
+            // Queued in the outbox if the Hub is unreachable right now.
+            _ = try? await store.sendMessage(taskID: taskID, text: text, questionID: questionID)
 
         case NotificationCategories.Action.saveToVault:
-            try? await actions?.capture("\(content.title)\n\n\(content.body)", source: "ios-notification")
+            _ = try? await store.capture("\(content.title)\n\n\(content.body)")
 
         case NotificationCategories.Action.autoFix,
              NotificationCategories.Action.doIt,
@@ -160,7 +171,9 @@ enum NotificationResponseHandler {
         default:
             break
         }
-        await store.refresh()
+        if !store.reachability.isUnavailable {
+            await store.refresh()
+        }
     }
 
     private static func postFailure(_ message: String) async {

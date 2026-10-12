@@ -9,8 +9,6 @@ package node
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -69,6 +67,9 @@ type Options struct {
 // h.Runtimes() before Run; call RegisterTools to add node-local tools.
 func New(h kernel.Host, cfg Config, o Options) (*Daemon, error) {
 	cfg.Defaults(h.DataDir())
+	if err := cfg.ResolveFiles(h.DataDir()); err != nil {
+		return nil, err
+	}
 	if err := os.MkdirAll(cfg.WorkspacesDir, 0o700); err != nil {
 		return nil, err
 	}
@@ -132,17 +133,9 @@ func (d *Daemon) verifier() ApprovalVerifier {
 func httpClient(cfg Config) (*http.Client, error) {
 	tr := &http.Transport{Proxy: http.ProxyFromEnvironment, ForceAttemptHTTP2: true}
 	if strings.HasPrefix(cfg.HubURL, "https://") {
-		tc := &tls.Config{MinVersion: tls.VersionTLS13}
-		if cfg.CAFile != "" {
-			pem, err := os.ReadFile(cfg.CAFile)
-			if err != nil {
-				return nil, err
-			}
-			pool := x509.NewCertPool()
-			if !pool.AppendCertsFromPEM(pem) {
-				return nil, fmt.Errorf("no certificates in %s", cfg.CAFile)
-			}
-			tc.RootCAs = pool
+		tc, err := ClientTLSConfig(cfg)
+		if err != nil {
+			return nil, err
 		}
 		tr.TLSClientConfig = tc
 	} else {

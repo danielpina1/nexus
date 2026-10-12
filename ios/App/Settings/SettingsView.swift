@@ -17,12 +17,11 @@ struct SettingsView: View {
         @Bindable var lock = lock
         NavigationStack {
             Form {
+                RemoteAccessSection()
+
                 Section("Hub") {
                     if let configuration = store.configuration {
-                        ForEach(configuration.hubURLs, id: \.self) { url in
-                            Text(url.absoluteString).font(.footnote.monospaced())
-                        }
-                        LabeledContent("Connection", value: store.connection.label)
+                        LabeledContent("Event stream", value: store.connection.label)
                         if let deviceID = configuration.deviceID {
                             LabeledContent("Device ID", value: deviceID)
                         }
@@ -158,6 +157,174 @@ struct SettingsView: View {
         case .ephemeral: return "Ephemeral"
         case .notDetermined: return "Not asked"
         @unknown default: return "Unknown"
+        }
+    }
+}
+
+// MARK: - Remote access (docs/NETWORK.md)
+
+/// Hub URL(s), current route (home Wi-Fi / VPN / unreachable), last contact, the outbox, and
+/// a short offline how-to for the UniFi VPN.
+struct RemoteAccessSection: View {
+    @Environment(NexusStore.self) private var store
+
+    var body: some View {
+        Section {
+            if let configuration = store.configuration {
+                ForEach(configuration.hubURLs, id: \.self) { url in
+                    HStack {
+                        Text(url.absoluteString)
+                            .font(.footnote.monospaced())
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Spacer()
+                        if store.reachability.isConnected && url == store.currentHubURL {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                                .accessibilityLabel("In use")
+                        }
+                    }
+                }
+            }
+            LabeledContent("Route") {
+                Label(store.routeLabel, systemImage: routeSymbol)
+                    .foregroundStyle(routeColor)
+            }
+            LabeledContent("Network", value: store.networkPath?.label ?? "—")
+            LabeledContent("Last contact", value: store.lastContact.map { Format.relative($0) } ?? "Never")
+            if case .unreachable(let reason) = store.reachability {
+                Text(reason)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            if !store.outbox.isEmpty {
+                DisclosureGroup("Waiting to send (\(store.outbox.count))") {
+                    ForEach(store.outbox) { item in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.summary).lineLimit(2)
+                            Text("Queued \(Format.relative(item.createdAt))" + (item.attempts > 0 ? " · \(item.attempts) tries" : ""))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .swipeActions {
+                            Button("Discard", role: .destructive) {
+                                store.discardOutboxItem(item.id)
+                            }
+                        }
+                    }
+                }
+            }
+            Button {
+                store.retryConnection()
+            } label: {
+                HStack {
+                    Label("Test connection", systemImage: "antenna.radiowaves.left.and.right")
+                    if store.isProbing {
+                        Spacer()
+                        ProgressView()
+                    }
+                }
+            }
+            .disabled(store.isDemo || store.isProbing)
+            NavigationLink {
+                RemoteAccessHelpView()
+            } label: {
+                Label("How to connect away from home", systemImage: "questionmark.circle")
+            }
+        } header: {
+            Text("Remote access")
+        } footer: {
+            Text("Your Nexus is never exposed to the internet. Away from home the app reaches it through your UniFi VPN. Notifications and Live Activities arrive even with the VPN off.")
+        }
+    }
+
+    private var routeSymbol: String {
+        switch store.reachability {
+        case .connected(_, let viaVPN):
+            return viaVPN == true ? "lock.shield.fill" : "house.fill"
+        case .unreachable: return "house.and.flag"
+        case .offline: return "wifi.slash"
+        case .checking: return "arrow.triangle.2.circlepath"
+        case .unknown: return "questionmark.circle"
+        }
+    }
+
+    private var routeColor: Color {
+        switch store.reachability {
+        case .connected: return .green
+        case .unreachable: return .orange
+        default: return .secondary
+        }
+    }
+}
+
+/// Concise, offline how-to (links to the docs would not open while away from home).
+struct RemoteAccessHelpView: View {
+    var body: some View {
+        List {
+            Section {
+                Text("Your Nexus lives at home behind your UniFi gateway. On home Wi-Fi the app talks to it directly. Away from home, a VPN to your gateway makes it work exactly the same — no ports are opened to the internet.")
+                    .font(.subheadline)
+            }
+
+            Section {
+                HelpStep(1, "In the UniFi Network app or console: **Settings → VPN → VPN Server → Create → WireGuard**.")
+                HelpStep(2, "Add a client called **iPhone** and show its QR code.")
+                HelpStep(3, "Install the **WireGuard** app on this iPhone → **+** → **Create from QR code** → scan it.")
+                HelpStep(4, "Edit the tunnel → **On-Demand**: turn on **Cellular** and **Wi-Fi**, and choose **Except these SSIDs** → your home Wi-Fi.")
+                HelpStep(5, "Use your gateway as the tunnel's DNS so **nexus.home.arpa** resolves when you're away.")
+            } header: {
+                Text("WireGuard — recommended")
+            } footer: {
+                Text("With On-Demand the tunnel comes up by itself whenever you leave home, including when you tap an approval notification.")
+            }
+
+            Section {
+                HelpStep(1, "In UniFi: **Settings → VPN → Teleport** → enable it and create an invite link.")
+                HelpStep(2, "Install **WiFiman** on this iPhone and open the invite.")
+                HelpStep(3, "When you're away, open WiFiman and tap **Connect** before using Nexus.")
+            } header: {
+                Text("Teleport — simplest")
+            } footer: {
+                Text("Teleport has no per-network rules, so it doesn't connect automatically.")
+            }
+
+            Section("Check it works") {
+                HelpStep(1, "Turn Wi-Fi off (cellular only) with the VPN on.")
+                HelpStep(2, "Settings → Remote access → **Test connection**. Route should say **VPN**.")
+            }
+
+            Section("Good to know") {
+                Label("Pair at home on Wi-Fi. After that the same Hub address works everywhere.", systemImage: "house.fill")
+                Label("Notifications come from Apple, so they arrive even with the VPN off.", systemImage: "bell.badge")
+                Label("Commands, replies and Face ID–signed approvals made while your Nexus is unreachable are queued and sent when it's back. An approval that expires first is dropped — nothing happens.", systemImage: "tray.and.arrow.up")
+                Label("Lost your phone? Revoke its WireGuard client in UniFi and this device in Nexus.", systemImage: "iphone.slash")
+            }
+            .font(.subheadline)
+        }
+        .navigationTitle("Remote access")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct HelpStep: View {
+    let number: Int
+    let text: LocalizedStringKey
+
+    init(_ number: Int, _ text: LocalizedStringKey) {
+        self.number = number
+        self.text = text
+    }
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text("\(number)")
+                .font(.caption.weight(.bold).monospacedDigit())
+                .foregroundStyle(.white)
+                .frame(width: 20, height: 20)
+                .background(Circle().fill(Color.accentColor))
+            Text(text)
+                .font(.subheadline)
         }
     }
 }

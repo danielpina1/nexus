@@ -5,7 +5,11 @@
 // open one profile twice.
 //
 //	go run ./internal/runtime/browser/cmd/nexus-browser-login \
-//	    -data-dir ./data -profile grocery-continente -url https://www.continente.pt/
+//	    -data-dir ./data -profile continente -url https://www.continente.pt/
+//
+// Profiles are named after the store id for shopping runs (worten, fnac,
+// amazon-es… — runtime.browser.shop_profiles can rename them), else after the
+// agent's browser.profile or id (docs/SHOPPING.md).
 //
 // Log in, tick "remember me" if offered, then close the window.
 package main
@@ -23,12 +27,12 @@ import (
 func main() {
 	dataDir := flag.String("data-dir", "./data", "nexus-node data_dir (profiles live in <data_dir>/runtime.browser/profiles)")
 	profilesDir := flag.String("profiles-dir", "", "override runtime.browser.profiles_dir")
-	profile := flag.String("profile", "", "profile name: the agent id (e.g. grocery-continente) or runtime.browser.agents.<id>.profile")
+	profile := flag.String("profile", "", "profile name: a store id (e.g. worten, continente), an agent's browser.profile, or the agent id")
 	url := flag.String("url", "", "page to open (e.g. https://www.continente.pt/)")
 	chrome := flag.String("chrome", "", "Chrome/Chromium binary (default: auto-detect)")
 	flag.Parse()
 	if *profile == "" {
-		fmt.Fprintln(os.Stderr, "usage: nexus-browser-login -profile <agent-id> [-url URL] [-data-dir DIR | -profiles-dir DIR]")
+		fmt.Fprintln(os.Stderr, "usage: nexus-browser-login -profile <store-or-agent-id> [-url URL] [-data-dir DIR | -profiles-dir DIR]")
 		os.Exit(2)
 	}
 	dir := *profilesDir

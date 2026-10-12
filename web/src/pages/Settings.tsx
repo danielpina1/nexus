@@ -9,7 +9,8 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { Card, CardHeader } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Input, Label, Switch } from "../components/ui/Input";
-import { DeviceList, PairDeviceButton } from "../components/Devices";
+import { DeviceList } from "../components/Devices";
+import { PairDeviceButton, PairMachineButton } from "../components/Pairing";
 import { cx } from "../lib/format";
 
 export default function Settings() {
@@ -127,7 +128,16 @@ export default function Settings() {
       </Card>
 
       <Card>
-        <CardHeader title="Devices" subtitle="Phones, watches, browsers and CLIs paired with this Hub" actions={<PairDeviceButton />} />
+        <CardHeader
+          title="Devices"
+          subtitle="Phones, watches, browsers and CLIs paired with this Hub"
+          actions={
+            <div className="flex flex-wrap gap-2">
+              <PairMachineButton />
+              <PairDeviceButton />
+            </div>
+          }
+        />
         <DeviceList />
       </Card>
 

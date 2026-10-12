@@ -21,8 +21,11 @@ var DefaultCORSOrigins = []string{"http://localhost:5173", "http://127.0.0.1:517
 //	  cors:
 //	    allowed_origins: ["http://localhost:5173"]   # "*" allows any origin
 //	  tls:
-//	    cert: /path/cert.pem
+//	    auto: true            # certificate from the Hub's private CA (security module)
+//	    cert: /path/cert.pem  # or a certificate of your own
 //	    key: /path/key.pem
+//
+// Without TLS the server speaks HTTP/1.1 + h2c (development only).
 type Config struct {
 	Listen string `yaml:"listen"`
 	// WebDir holds the built dashboard (index.html + assets). Empty disables it.
@@ -32,6 +35,10 @@ type Config struct {
 		AllowedOrigins []string `yaml:"allowed_origins"`
 	} `yaml:"cors"`
 	TLS struct {
+		// Auto serves TLS 1.3 with a certificate issued by the Hub CA (SANs =
+		// security.server_names + the listen IP), renewed automatically.
+		// Requires Options.TLS (the security module).
+		Auto bool   `yaml:"auto"`
 		Cert string `yaml:"cert"`
 		Key  string `yaml:"key"`
 	} `yaml:"tls"`

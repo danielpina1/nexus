@@ -33,7 +33,7 @@ public nonisolated enum Nexus_V1_Tier: SwiftProtobuf.Enum, Swift.CaseIterable {
   /// local models
   case simple // = 1
 
-  /// cloud models via Unify Gateway
+  /// stronger models (local or cloud)
   case medium // = 2
 
   /// Claude Code, Codex, long autonomous work

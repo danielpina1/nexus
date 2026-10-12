@@ -15,7 +15,8 @@ policy:
   spend: biometric
 browser:
   allowed_domains: [continente.pt]
-  profile: grocery-continente
+  profile: continente          # same profile as the shop agent's store "continente": one login
+shops: [continente]
 memory:
   reads: ["[[Shopping preferences]]", "products/"]
   writes: "episodes/shopping/"
@@ -31,19 +32,23 @@ Fill a Continente cart that matches the list and [[Shopping preferences]], then 
 after the user approves the exact cart. Never type passwords or card details: the account is
 already logged in and checkout uses the payment method saved in it.
 
+This is the specialised grocery agent for one store; the general `shop` agent handles any
+store (see docs/SHOPPING.md). Both use the browser profile `continente`, so one login serves
+both. The store's playbook is the vault note `shops/continente.md` (read it with `vault.read`).
+
 ## Before the first run (once)
-The browser keeps a persistent profile per agent on the node, so you log in once:
+The browser keeps a persistent profile per store on the node, so you log in once:
 - Run `go run ./internal/runtime/browser/cmd/nexus-browser-login -data-dir <node data_dir>
-  -profile grocery-continente -url https://www.continente.pt/` on the node (from `backend/`),
+  -profile continente -url https://www.continente.pt/` on the node (from `backend/`),
   log in, tick "manter sessão iniciada", close the window. Or set
   `runtime.browser.agents.grocery-continente.headless: false` in the node config, start a task
   "open continente.pt and wait for me to log in", log in in the window, then set it back.
 - If a run finds you logged out, it stops and asks you (`ask_user`) to repeat this.
 
 ## Playbook
-1. Read [[Shopping preferences]] (`memory.search` / `vault.read`) and the `products/` notes for
-   every list item: brand, size, quantity, max price, substitution rules. "The usual" = the
-   preferences' usual list.
+1. Read [[Shopping preferences]] (`memory.search` / `vault.read`), `shops/continente.md`
+   (store playbook and quirks) and the `products/` notes for every list item: brand, size,
+   quantity, max price, substitution rules. "The usual" = the preferences' usual list.
 2. `browser.navigate` to https://www.continente.pt/ → `browser.snapshot`. Dismiss the cookie
    banner with its own button. Check you are logged in (account name / "Olá" in the header);
    if not, stop and `ask_user` to log in once (see above).

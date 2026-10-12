@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file nexus/v1/device.proto.
  */
 export const file_nexus_v1_device: GenFile = /*@__PURE__*/
-  fileDesc("ChVuZXh1cy92MS9kZXZpY2UucHJvdG8SCG5leHVzLnYxIpkCCgZEZXZpY2USCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIiCgRraW5kGAMgASgOMhQubmV4dXMudjEuRGV2aWNlS2luZBISCgpwdWJsaWNfa2V5GAQgASgMEhIKCnB1c2hfdG9rZW4YBSABKAkSLQoJcGFpcmVkX2F0GAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBItCglsYXN0X3NlZW4YByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhsKE2FwcHJvdmFsX3B1YmxpY19rZXkYCCABKAwSHQoVZW5jcnlwdGlvbl9wdWJsaWNfa2V5GAkgASgMEg8KB3ByaW1hcnkYCiABKAgi8QEKC1BhaXJSZXF1ZXN0EhUKDXBhaXJpbmdfdG9rZW4YASABKAkSDAoEbmFtZRgCIAEoCRIiCgRraW5kGAMgASgOMhQubmV4dXMudjEuRGV2aWNlS2luZBISCgpwdWJsaWNfa2V5GAQgASgMEhsKE2FwcHJvdmFsX3B1YmxpY19rZXkYBSABKAwSHQoVZW5jcnlwdGlvbl9wdWJsaWNfa2V5GAYgASgMEhUKDXBhaXJpbmdfcHJvb2YYByABKAwSFwoPYXBwX2F0dGVzdGF0aW9uGAggASgMEhkKEWFwcF9hdHRlc3Rfa2V5X2lkGAkgASgJImEKDFBhaXJSZXNwb25zZRIgCgZkZXZpY2UYASABKAsyEC5uZXh1cy52MS5EZXZpY2USEwoLc2FmZXR5X2NvZGUYAiABKAkSGgoSY2xpZW50X2NlcnRpZmljYXRlGAMgASgMIigKE0dldENoYWxsZW5nZVJlcXVlc3QSEQoJZGV2aWNlX2lkGAEgASgJIikKFEdldENoYWxsZW5nZVJlc3BvbnNlEhEKCWNoYWxsZW5nZRgBIAEoDCJOChNBdXRoZW50aWNhdGVSZXF1ZXN0EhEKCWRldmljZV9pZBgBIAEoCRIRCgljaGFsbGVuZ2UYAiABKAwSEQoJc2lnbmF0dXJlGAMgASgMIlwKFEF1dGhlbnRpY2F0ZVJlc3BvbnNlEhQKDGFjY2Vzc190b2tlbhgBIAEoCRIuCgpleHBpcmVzX2F0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCJDChhSZWdpc3RlclB1c2hUb2tlblJlcXVlc3QSEgoKcHVzaF90b2tlbhgBIAEoCRITCgtlbnZpcm9ubWVudBgCIAEoCSIbChlSZWdpc3RlclB1c2hUb2tlblJlc3BvbnNlIrIBCiBSZWdpc3RlckxpdmVBY3Rpdml0eVRva2VuUmVxdWVzdBItCgRraW5kGAEgASgOMh8ubmV4dXMudjEuTGl2ZUFjdGl2aXR5VG9rZW5LaW5kEhUKDWFjdGl2aXR5X3R5cGUYAiABKAkSEwoLYWN0aXZpdHlfaWQYAyABKAkSDwoHdGFza19pZBgEIAEoCRINCgV0b2tlbhgFIAEoDBITCgtlbnZpcm9ubWVudBgGIAEoCSIjCiFSZWdpc3RlckxpdmVBY3Rpdml0eVRva2VuUmVzcG9uc2UiFAoSTGlzdERldmljZXNSZXF1ZXN0IjgKE0xpc3REZXZpY2VzUmVzcG9uc2USIQoHZGV2aWNlcxgBIAMoCzIQLm5leHVzLnYxLkRldmljZSIhChNSZXZva2VEZXZpY2VSZXF1ZXN0EgoKAmlkGAEgASgJIhYKFFJldm9rZURldmljZVJlc3BvbnNlKn8KCkRldmljZUtpbmQSGwoXREVWSUNFX0tJTkRfVU5TUEVDSUZJRUQQABITCg9ERVZJQ0VfS0lORF9JT1MQARIVChFERVZJQ0VfS0lORF9XQVRDSBACEhMKD0RFVklDRV9LSU5EX1dFQhADEhMKD0RFVklDRV9LSU5EX0NMSRAEKpIBChVMaXZlQWN0aXZpdHlUb2tlbktpbmQSKAokTElWRV9BQ1RJVklUWV9UT0tFTl9LSU5EX1VOU1BFQ0lGSUVEEAASKgomTElWRV9BQ1RJVklUWV9UT0tFTl9LSU5EX1BVU0hfVE9fU1RBUlQQARIjCh9MSVZFX0FDVElWSVRZX1RPS0VOX0tJTkRfVVBEQVRFEAIy0wQKDURldmljZVNlcnZpY2USNQoEUGFpchIVLm5leHVzLnYxLlBhaXJSZXF1ZXN0GhYubmV4dXMudjEuUGFpclJlc3BvbnNlEk0KDEdldENoYWxsZW5nZRIdLm5leHVzLnYxLkdldENoYWxsZW5nZVJlcXVlc3QaHi5uZXh1cy52MS5HZXRDaGFsbGVuZ2VSZXNwb25zZRJNCgxBdXRoZW50aWNhdGUSHS5uZXh1cy52MS5BdXRoZW50aWNhdGVSZXF1ZXN0Gh4ubmV4dXMudjEuQXV0aGVudGljYXRlUmVzcG9uc2USXAoRUmVnaXN0ZXJQdXNoVG9rZW4SIi5uZXh1cy52MS5SZWdpc3RlclB1c2hUb2tlblJlcXVlc3QaIy5uZXh1cy52MS5SZWdpc3RlclB1c2hUb2tlblJlc3BvbnNlEnQKGVJlZ2lzdGVyTGl2ZUFjdGl2aXR5VG9rZW4SKi5uZXh1cy52MS5SZWdpc3RlckxpdmVBY3Rpdml0eVRva2VuUmVxdWVzdBorLm5leHVzLnYxLlJlZ2lzdGVyTGl2ZUFjdGl2aXR5VG9rZW5SZXNwb25zZRJKCgtMaXN0RGV2aWNlcxIcLm5leHVzLnYxLkxpc3REZXZpY2VzUmVxdWVzdBodLm5leHVzLnYxLkxpc3REZXZpY2VzUmVzcG9uc2USTQoMUmV2b2tlRGV2aWNlEh0ubmV4dXMudjEuUmV2b2tlRGV2aWNlUmVxdWVzdBoeLm5leHVzLnYxLlJldm9rZURldmljZVJlc3BvbnNlQpcBCgxjb20ubmV4dXMudjFCC0RldmljZVByb3RvUAFaOWdpdGh1Yi5jb20vZGFuaWVscGluYTEvbmV4dXMvYmFja2VuZC9nZW4vbmV4dXMvdjE7bmV4dXN2MaICA05YWKoCCE5leHVzLlYxygIITmV4dXNcVjHiAhROZXh1c1xWMVxHUEJNZXRhZGF0YeoCCU5leHVzOjpWMWIGcHJvdG8z", [file_google_protobuf_timestamp]);
+  fileDesc("ChVuZXh1cy92MS9kZXZpY2UucHJvdG8SCG5leHVzLnYxIpkCCgZEZXZpY2USCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIiCgRraW5kGAMgASgOMhQubmV4dXMudjEuRGV2aWNlS2luZBISCgpwdWJsaWNfa2V5GAQgASgMEhIKCnB1c2hfdG9rZW4YBSABKAkSLQoJcGFpcmVkX2F0GAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBItCglsYXN0X3NlZW4YByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhsKE2FwcHJvdmFsX3B1YmxpY19rZXkYCCABKAwSHQoVZW5jcnlwdGlvbl9wdWJsaWNfa2V5GAkgASgMEg8KB3ByaW1hcnkYCiABKAgi8QEKC1BhaXJSZXF1ZXN0EhUKDXBhaXJpbmdfdG9rZW4YASABKAkSDAoEbmFtZRgCIAEoCRIiCgRraW5kGAMgASgOMhQubmV4dXMudjEuRGV2aWNlS2luZBISCgpwdWJsaWNfa2V5GAQgASgMEhsKE2FwcHJvdmFsX3B1YmxpY19rZXkYBSABKAwSHQoVZW5jcnlwdGlvbl9wdWJsaWNfa2V5GAYgASgMEhUKDXBhaXJpbmdfcHJvb2YYByABKAwSFwoPYXBwX2F0dGVzdGF0aW9uGAggASgMEhkKEWFwcF9hdHRlc3Rfa2V5X2lkGAkgASgJImEKDFBhaXJSZXNwb25zZRIgCgZkZXZpY2UYASABKAsyEC5uZXh1cy52MS5EZXZpY2USEwoLc2FmZXR5X2NvZGUYAiABKAkSGgoSY2xpZW50X2NlcnRpZmljYXRlGAMgASgMIigKE0dldENoYWxsZW5nZVJlcXVlc3QSEQoJZGV2aWNlX2lkGAEgASgJIikKFEdldENoYWxsZW5nZVJlc3BvbnNlEhEKCWNoYWxsZW5nZRgBIAEoDCJOChNBdXRoZW50aWNhdGVSZXF1ZXN0EhEKCWRldmljZV9pZBgBIAEoCRIRCgljaGFsbGVuZ2UYAiABKAwSEQoJc2lnbmF0dXJlGAMgASgMIlwKFEF1dGhlbnRpY2F0ZVJlc3BvbnNlEhQKDGFjY2Vzc190b2tlbhgBIAEoCRIuCgpleHBpcmVzX2F0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCJDChhSZWdpc3RlclB1c2hUb2tlblJlcXVlc3QSEgoKcHVzaF90b2tlbhgBIAEoCRITCgtlbnZpcm9ubWVudBgCIAEoCSIbChlSZWdpc3RlclB1c2hUb2tlblJlc3BvbnNlIrIBCiBSZWdpc3RlckxpdmVBY3Rpdml0eVRva2VuUmVxdWVzdBItCgRraW5kGAEgASgOMh8ubmV4dXMudjEuTGl2ZUFjdGl2aXR5VG9rZW5LaW5kEhUKDWFjdGl2aXR5X3R5cGUYAiABKAkSEwoLYWN0aXZpdHlfaWQYAyABKAkSDwoHdGFza19pZBgEIAEoCRINCgV0b2tlbhgFIAEoDBITCgtlbnZpcm9ubWVudBgGIAEoCSIjCiFSZWdpc3RlckxpdmVBY3Rpdml0eVRva2VuUmVzcG9uc2UiFAoSTGlzdERldmljZXNSZXF1ZXN0IjgKE0xpc3REZXZpY2VzUmVzcG9uc2USIQoHZGV2aWNlcxgBIAMoCzIQLm5leHVzLnYxLkRldmljZSIhChNSZXZva2VEZXZpY2VSZXF1ZXN0EgoKAmlkGAEgASgJIhYKFFJldm9rZURldmljZVJlc3BvbnNlIkoKFENyZWF0ZVBhaXJpbmdSZXF1ZXN0EiMKBGtpbmQYASABKA4yFS5uZXh1cy52MS5QYWlyaW5nS2luZBINCgVsYWJlbBgCIAEoCSKjAQoVQ3JlYXRlUGFpcmluZ1Jlc3BvbnNlEgsKA3VybBgBIAEoCRIuCgpleHBpcmVzX2F0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIjCgRraW5kGAMgASgOMhUubmV4dXMudjEuUGFpcmluZ0tpbmQSEAoIaHViX3VybHMYBCADKAkSFgoOY2FfZmluZ2VycHJpbnQYBSABKAkiZAoPUGFpck5vZGVSZXF1ZXN0EhUKDXBhaXJpbmdfdG9rZW4YASABKAkSDwoHbm9kZV9pZBgCIAEoCRISCgpwdWJsaWNfa2V5GAMgASgMEhUKDXBhaXJpbmdfcHJvb2YYBCABKAwiewoQUGFpck5vZGVSZXNwb25zZRIPCgdub2RlX2lkGAEgASgJEg0KBXRva2VuGAIgASgJEhoKEmNsaWVudF9jZXJ0aWZpY2F0ZRgDIAEoDBIWCg5jYV9jZXJ0aWZpY2F0ZRgEIAEoDBITCgtzYWZldHlfY29kZRgFIAEoCSp/CgpEZXZpY2VLaW5kEhsKF0RFVklDRV9LSU5EX1VOU1BFQ0lGSUVEEAASEwoPREVWSUNFX0tJTkRfSU9TEAESFQoRREVWSUNFX0tJTkRfV0FUQ0gQAhITCg9ERVZJQ0VfS0lORF9XRUIQAxITCg9ERVZJQ0VfS0lORF9DTEkQBCqSAQoVTGl2ZUFjdGl2aXR5VG9rZW5LaW5kEigKJExJVkVfQUNUSVZJVFlfVE9LRU5fS0lORF9VTlNQRUNJRklFRBAAEioKJkxJVkVfQUNUSVZJVFlfVE9LRU5fS0lORF9QVVNIX1RPX1NUQVJUEAESIwofTElWRV9BQ1RJVklUWV9UT0tFTl9LSU5EX1VQREFURRACKlsKC1BhaXJpbmdLaW5kEhwKGFBBSVJJTkdfS0lORF9VTlNQRUNJRklFRBAAEhcKE1BBSVJJTkdfS0lORF9ERVZJQ0UQARIVChFQQUlSSU5HX0tJTkRfTk9ERRACMugFCg1EZXZpY2VTZXJ2aWNlEjUKBFBhaXISFS5uZXh1cy52MS5QYWlyUmVxdWVzdBoWLm5leHVzLnYxLlBhaXJSZXNwb25zZRJNCgxHZXRDaGFsbGVuZ2USHS5uZXh1cy52MS5HZXRDaGFsbGVuZ2VSZXF1ZXN0Gh4ubmV4dXMudjEuR2V0Q2hhbGxlbmdlUmVzcG9uc2USTQoMQXV0aGVudGljYXRlEh0ubmV4dXMudjEuQXV0aGVudGljYXRlUmVxdWVzdBoeLm5leHVzLnYxLkF1dGhlbnRpY2F0ZVJlc3BvbnNlElwKEVJlZ2lzdGVyUHVzaFRva2VuEiIubmV4dXMudjEuUmVnaXN0ZXJQdXNoVG9rZW5SZXF1ZXN0GiMubmV4dXMudjEuUmVnaXN0ZXJQdXNoVG9rZW5SZXNwb25zZRJ0ChlSZWdpc3RlckxpdmVBY3Rpdml0eVRva2VuEioubmV4dXMudjEuUmVnaXN0ZXJMaXZlQWN0aXZpdHlUb2tlblJlcXVlc3QaKy5uZXh1cy52MS5SZWdpc3RlckxpdmVBY3Rpdml0eVRva2VuUmVzcG9uc2USSgoLTGlzdERldmljZXMSHC5uZXh1cy52MS5MaXN0RGV2aWNlc1JlcXVlc3QaHS5uZXh1cy52MS5MaXN0RGV2aWNlc1Jlc3BvbnNlEk0KDFJldm9rZURldmljZRIdLm5leHVzLnYxLlJldm9rZURldmljZVJlcXVlc3QaHi5uZXh1cy52MS5SZXZva2VEZXZpY2VSZXNwb25zZRJQCg1DcmVhdGVQYWlyaW5nEh4ubmV4dXMudjEuQ3JlYXRlUGFpcmluZ1JlcXVlc3QaHy5uZXh1cy52MS5DcmVhdGVQYWlyaW5nUmVzcG9uc2USQQoIUGFpck5vZGUSGS5uZXh1cy52MS5QYWlyTm9kZVJlcXVlc3QaGi5uZXh1cy52MS5QYWlyTm9kZVJlc3BvbnNlQpcBCgxjb20ubmV4dXMudjFCC0RldmljZVByb3RvUAFaOWdpdGh1Yi5jb20vZGFuaWVscGluYTEvbmV4dXMvYmFja2VuZC9nZW4vbmV4dXMvdjE7bmV4dXN2MaICA05YWKoCCE5leHVzLlYxygIITmV4dXNcVjHiAhROZXh1c1xWMVxHUEJNZXRhZGF0YeoCCU5leHVzOjpWMWIGcHJvdG8z", [file_google_protobuf_timestamp]);
 
 /**
  * @generated from message nexus.v1.Device
@@ -421,6 +421,156 @@ export const RevokeDeviceResponseSchema: GenMessage<RevokeDeviceResponse> = /*@_
   messageDesc(file_nexus_v1_device, 14);
 
 /**
+ * @generated from message nexus.v1.CreatePairingRequest
+ */
+export type CreatePairingRequest = Message<"nexus.v1.CreatePairingRequest"> & {
+  /**
+   * @generated from field: nexus.v1.PairingKind kind = 1;
+   */
+  kind: PairingKind;
+
+  /**
+   * free-form note recorded in the audit log
+   *
+   * @generated from field: string label = 2;
+   */
+  label: string;
+};
+
+/**
+ * Describes the message nexus.v1.CreatePairingRequest.
+ * Use `create(CreatePairingRequestSchema)` to create a new message.
+ */
+export const CreatePairingRequestSchema: GenMessage<CreatePairingRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_device, 15);
+
+/**
+ * @generated from message nexus.v1.CreatePairingResponse
+ */
+export type CreatePairingResponse = Message<"nexus.v1.CreatePairingResponse"> & {
+  /**
+   * nexus://pair?v=1&k=...
+   *
+   * @generated from field: string url = 1;
+   */
+  url: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp expires_at = 2;
+   */
+  expiresAt?: Timestamp | undefined;
+
+  /**
+   * @generated from field: nexus.v1.PairingKind kind = 3;
+   */
+  kind: PairingKind;
+
+  /**
+   * @generated from field: repeated string hub_urls = 4;
+   */
+  hubUrls: string[];
+
+  /**
+   * lowercase hex SHA-256 of the Hub CA DER
+   *
+   * @generated from field: string ca_fingerprint = 5;
+   */
+  caFingerprint: string;
+};
+
+/**
+ * Describes the message nexus.v1.CreatePairingResponse.
+ * Use `create(CreatePairingResponseSchema)` to create a new message.
+ */
+export const CreatePairingResponseSchema: GenMessage<CreatePairingResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_device, 16);
+
+/**
+ * @generated from message nexus.v1.PairNodeRequest
+ */
+export type PairNodeRequest = Message<"nexus.v1.PairNodeRequest"> & {
+  /**
+   * "s" from the pairing URL
+   *
+   * @generated from field: string pairing_token = 1;
+   */
+  pairingToken: string;
+
+  /**
+   * requested id (e.g. hostname); empty = hub assigns one
+   *
+   * @generated from field: string node_id = 2;
+   */
+  nodeId: string;
+
+  /**
+   * node identity key, P-256 (65-byte X9.63)
+   *
+   * @generated from field: bytes public_key = 3;
+   */
+  publicKey: Uint8Array;
+
+  /**
+   * HMAC-SHA256(HKDF(secret, "nexus/v1/pairing"), public_key) — WIRE_FORMATS.md.
+   *
+   * @generated from field: bytes pairing_proof = 4;
+   */
+  pairingProof: Uint8Array;
+};
+
+/**
+ * Describes the message nexus.v1.PairNodeRequest.
+ * Use `create(PairNodeRequestSchema)` to create a new message.
+ */
+export const PairNodeRequestSchema: GenMessage<PairNodeRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_device, 17);
+
+/**
+ * @generated from message nexus.v1.PairNodeResponse
+ */
+export type PairNodeResponse = Message<"nexus.v1.PairNodeResponse"> & {
+  /**
+   * @generated from field: string node_id = 1;
+   */
+  nodeId: string;
+
+  /**
+   * node bearer token (shown once; stored hashed on the hub)
+   *
+   * @generated from field: string token = 2;
+   */
+  token: string;
+
+  /**
+   * PEM, for public_key
+   *
+   * @generated from field: bytes client_certificate = 3;
+   */
+  clientCertificate: Uint8Array;
+
+  /**
+   * PEM Hub CA
+   *
+   * @generated from field: bytes ca_certificate = 4;
+   */
+  caCertificate: Uint8Array;
+
+  /**
+   * 6 emojis; compare with the hub log / dashboard
+   *
+   * @generated from field: string safety_code = 5;
+   */
+  safetyCode: string;
+};
+
+/**
+ * Describes the message nexus.v1.PairNodeResponse.
+ * Use `create(PairNodeResponseSchema)` to create a new message.
+ */
+export const PairNodeResponseSchema: GenMessage<PairNodeResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_device, 18);
+
+/**
  * @generated from enum nexus.v1.DeviceKind
  */
 export enum DeviceKind {
@@ -481,6 +631,34 @@ export enum LiveActivityTokenKind {
  */
 export const LiveActivityTokenKindSchema: GenEnum<LiveActivityTokenKind> = /*@__PURE__*/
   enumDesc(file_nexus_v1_device, 1);
+
+/**
+ * @generated from enum nexus.v1.PairingKind
+ */
+export enum PairingKind {
+  /**
+   * = device
+   *
+   * @generated from enum value: PAIRING_KIND_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: PAIRING_KIND_DEVICE = 1;
+   */
+  DEVICE = 1,
+
+  /**
+   * @generated from enum value: PAIRING_KIND_NODE = 2;
+   */
+  NODE = 2,
+}
+
+/**
+ * Describes the enum nexus.v1.PairingKind.
+ */
+export const PairingKindSchema: GenEnum<PairingKind> = /*@__PURE__*/
+  enumDesc(file_nexus_v1_device, 2);
 
 /**
  * DeviceService handles pairing and session tokens.
@@ -549,6 +727,30 @@ export const DeviceService: GenService<{
     methodKind: "unary";
     input: typeof RevokeDeviceRequestSchema;
     output: typeof RevokeDeviceResponseSchema;
+  },
+  /**
+   * CreatePairing enables pairing for 5 minutes and returns the nexus://pair
+   * URL to render as a QR (device) or to pass to `nexus-node pair` (node).
+   * Requires a paired device session or the dev token; nodes are denied.
+   *
+   * @generated from rpc nexus.v1.DeviceService.CreatePairing
+   */
+  createPairing: {
+    methodKind: "unary";
+    input: typeof CreatePairingRequestSchema;
+    output: typeof CreatePairingResponseSchema;
+  },
+  /**
+   * PairNode redeems a node pairing token (public; authenticated by the
+   * pairing proof). The node receives a bearer token, an mTLS client
+   * certificate for its identity key and the Hub CA.
+   *
+   * @generated from rpc nexus.v1.DeviceService.PairNode
+   */
+  pairNode: {
+    methodKind: "unary";
+    input: typeof PairNodeRequestSchema;
+    output: typeof PairNodeResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_nexus_v1_device, 0);

@@ -29,6 +29,9 @@ type Options struct {
 	// Auth wraps module handlers when set (usually resolved from
 	// kernel.SvcAuth after host Init; see AuthFrom).
 	Auth kernel.Authenticator
+	// TLS supplies the listener config for server.tls.auto (the security
+	// module; see TLSFrom).
+	TLS TLSSource
 	// Version is reported by /healthz.
 	Version string
 	// ShutdownGrace is how long Shutdown waits for in-flight requests before
@@ -58,6 +61,23 @@ func AuthFrom(lookup func(string) (any, bool)) kernel.Authenticator {
 	}
 	a, _ := v.(kernel.Authenticator)
 	return a
+}
+
+// TLSSource issues the hub's TLS config from its private CA. extraHosts are
+// added to the certificate SANs (the listen IP). Implemented by
+// *security.Security.
+type TLSSource interface {
+	HubTLSConfig(extraHosts []string) *tls.Config
+}
+
+// TLSFrom returns the kernel.SvcSecurity service as a TLSSource, if any.
+func TLSFrom(lookup func(string) (any, bool)) TLSSource {
+	v, ok := lookup(kernel.SvcSecurity)
+	if !ok {
+		return nil
+	}
+	t, _ := v.(TLSSource)
+	return t
 }
 
 // New builds a server. Call Listen, then Serve.
@@ -139,28 +159,65 @@ func (s *Server) Listen() error {
 	if err != nil {
 		return fmt.Errorf("hubserver: listen %s: %w", s.opts.Config.Listen, err)
 	}
-	tlsCfg := s.opts.Config.TLS
-	if tlsCfg.Cert != "" || tlsCfg.Key != "" {
-		cert, err := tls.LoadX509KeyPair(tlsCfg.Cert, tlsCfg.Key)
-		if err != nil {
-			ln.Close()
-			return fmt.Errorf("hubserver: tls: %w", err)
-		}
-		s.srv.TLSConfig = &tls.Config{
-			Certificates: []tls.Certificate{cert},
-			MinVersion:   tls.VersionTLS12,
-			NextProtos:   []string{"h2", "http/1.1"},
-		}
-		ln = tls.NewListener(ln, s.srv.TLSConfig)
+	tc, err := s.tlsConfig()
+	if err != nil {
+		ln.Close()
+		return err
+	}
+	if tc != nil {
+		s.srv.TLSConfig = tc
 		if err := http2.ConfigureServer(s.srv, &http2.Server{}); err != nil {
 			ln.Close()
 			return fmt.Errorf("hubserver: http2: %w", err)
 		}
+		ln = tls.NewListener(ln, s.srv.TLSConfig)
 	}
 	s.mu.Lock()
 	s.ln = ln
 	s.mu.Unlock()
 	return nil
+}
+
+// tlsConfig returns the listener TLS config, or nil for plain h2c.
+func (s *Server) tlsConfig() (*tls.Config, error) {
+	c := s.opts.Config.TLS
+	switch {
+	case c.Auto:
+		if c.Cert != "" || c.Key != "" {
+			return nil, errors.New("hubserver: server.tls.auto and server.tls.cert/key are mutually exclusive")
+		}
+		if s.opts.TLS == nil {
+			return nil, errors.New("hubserver: server.tls.auto requires the security module")
+		}
+		tc := s.opts.TLS.HubTLSConfig(listenHosts(s.opts.Config.Listen)).Clone()
+		tc.MinVersion = tls.VersionTLS13
+		tc.NextProtos = []string{"h2", "http/1.1"}
+		return tc, nil
+	case c.Cert != "" || c.Key != "":
+		cert, err := tls.LoadX509KeyPair(c.Cert, c.Key)
+		if err != nil {
+			return nil, fmt.Errorf("hubserver: tls: %w", err)
+		}
+		return &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS12,
+			NextProtos:   []string{"h2", "http/1.1"},
+		}, nil
+	}
+	return nil, nil
+}
+
+// listenHosts returns the IP of a listen address for the certificate SANs
+// (none for wildcard addresses such as ":7700" or "0.0.0.0:7700").
+func listenHosts(listen string) []string {
+	h, _, err := net.SplitHostPort(listen)
+	if err != nil || h == "" {
+		return nil
+	}
+	if ip := net.ParseIP(h); ip != nil && ip.IsUnspecified() {
+		return nil
+	}
+	return []string{h}
 }
 
 // Addr returns the bound address (after Listen).

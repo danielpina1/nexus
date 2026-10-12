@@ -53,6 +53,11 @@ const (
 	// DeviceServiceRevokeDeviceProcedure is the fully-qualified name of the DeviceService's
 	// RevokeDevice RPC.
 	DeviceServiceRevokeDeviceProcedure = "/nexus.v1.DeviceService/RevokeDevice"
+	// DeviceServiceCreatePairingProcedure is the fully-qualified name of the DeviceService's
+	// CreatePairing RPC.
+	DeviceServiceCreatePairingProcedure = "/nexus.v1.DeviceService/CreatePairing"
+	// DeviceServicePairNodeProcedure is the fully-qualified name of the DeviceService's PairNode RPC.
+	DeviceServicePairNodeProcedure = "/nexus.v1.DeviceService/PairNode"
 )
 
 // DeviceServiceClient is a client for the nexus.v1.DeviceService service.
@@ -67,6 +72,14 @@ type DeviceServiceClient interface {
 	RegisterLiveActivityToken(context.Context, *connect.Request[v1.RegisterLiveActivityTokenRequest]) (*connect.Response[v1.RegisterLiveActivityTokenResponse], error)
 	ListDevices(context.Context, *connect.Request[v1.ListDevicesRequest]) (*connect.Response[v1.ListDevicesResponse], error)
 	RevokeDevice(context.Context, *connect.Request[v1.RevokeDeviceRequest]) (*connect.Response[v1.RevokeDeviceResponse], error)
+	// CreatePairing enables pairing for 5 minutes and returns the nexus://pair
+	// URL to render as a QR (device) or to pass to `nexus-node pair` (node).
+	// Requires a paired device session or the dev token; nodes are denied.
+	CreatePairing(context.Context, *connect.Request[v1.CreatePairingRequest]) (*connect.Response[v1.CreatePairingResponse], error)
+	// PairNode redeems a node pairing token (public; authenticated by the
+	// pairing proof). The node receives a bearer token, an mTLS client
+	// certificate for its identity key and the Hub CA.
+	PairNode(context.Context, *connect.Request[v1.PairNodeRequest]) (*connect.Response[v1.PairNodeResponse], error)
 }
 
 // NewDeviceServiceClient constructs a client for the nexus.v1.DeviceService service. By default, it
@@ -122,6 +135,18 @@ func NewDeviceServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(deviceServiceMethods.ByName("RevokeDevice")),
 			connect.WithClientOptions(opts...),
 		),
+		createPairing: connect.NewClient[v1.CreatePairingRequest, v1.CreatePairingResponse](
+			httpClient,
+			baseURL+DeviceServiceCreatePairingProcedure,
+			connect.WithSchema(deviceServiceMethods.ByName("CreatePairing")),
+			connect.WithClientOptions(opts...),
+		),
+		pairNode: connect.NewClient[v1.PairNodeRequest, v1.PairNodeResponse](
+			httpClient,
+			baseURL+DeviceServicePairNodeProcedure,
+			connect.WithSchema(deviceServiceMethods.ByName("PairNode")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -134,6 +159,8 @@ type deviceServiceClient struct {
 	registerLiveActivityToken *connect.Client[v1.RegisterLiveActivityTokenRequest, v1.RegisterLiveActivityTokenResponse]
 	listDevices               *connect.Client[v1.ListDevicesRequest, v1.ListDevicesResponse]
 	revokeDevice              *connect.Client[v1.RevokeDeviceRequest, v1.RevokeDeviceResponse]
+	createPairing             *connect.Client[v1.CreatePairingRequest, v1.CreatePairingResponse]
+	pairNode                  *connect.Client[v1.PairNodeRequest, v1.PairNodeResponse]
 }
 
 // Pair calls nexus.v1.DeviceService.Pair.
@@ -171,6 +198,16 @@ func (c *deviceServiceClient) RevokeDevice(ctx context.Context, req *connect.Req
 	return c.revokeDevice.CallUnary(ctx, req)
 }
 
+// CreatePairing calls nexus.v1.DeviceService.CreatePairing.
+func (c *deviceServiceClient) CreatePairing(ctx context.Context, req *connect.Request[v1.CreatePairingRequest]) (*connect.Response[v1.CreatePairingResponse], error) {
+	return c.createPairing.CallUnary(ctx, req)
+}
+
+// PairNode calls nexus.v1.DeviceService.PairNode.
+func (c *deviceServiceClient) PairNode(ctx context.Context, req *connect.Request[v1.PairNodeRequest]) (*connect.Response[v1.PairNodeResponse], error) {
+	return c.pairNode.CallUnary(ctx, req)
+}
+
 // DeviceServiceHandler is an implementation of the nexus.v1.DeviceService service.
 type DeviceServiceHandler interface {
 	// Pair exchanges a one-time pairing token (from the QR code) for a device registration.
@@ -183,6 +220,14 @@ type DeviceServiceHandler interface {
 	RegisterLiveActivityToken(context.Context, *connect.Request[v1.RegisterLiveActivityTokenRequest]) (*connect.Response[v1.RegisterLiveActivityTokenResponse], error)
 	ListDevices(context.Context, *connect.Request[v1.ListDevicesRequest]) (*connect.Response[v1.ListDevicesResponse], error)
 	RevokeDevice(context.Context, *connect.Request[v1.RevokeDeviceRequest]) (*connect.Response[v1.RevokeDeviceResponse], error)
+	// CreatePairing enables pairing for 5 minutes and returns the nexus://pair
+	// URL to render as a QR (device) or to pass to `nexus-node pair` (node).
+	// Requires a paired device session or the dev token; nodes are denied.
+	CreatePairing(context.Context, *connect.Request[v1.CreatePairingRequest]) (*connect.Response[v1.CreatePairingResponse], error)
+	// PairNode redeems a node pairing token (public; authenticated by the
+	// pairing proof). The node receives a bearer token, an mTLS client
+	// certificate for its identity key and the Hub CA.
+	PairNode(context.Context, *connect.Request[v1.PairNodeRequest]) (*connect.Response[v1.PairNodeResponse], error)
 }
 
 // NewDeviceServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -234,6 +279,18 @@ func NewDeviceServiceHandler(svc DeviceServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(deviceServiceMethods.ByName("RevokeDevice")),
 		connect.WithHandlerOptions(opts...),
 	)
+	deviceServiceCreatePairingHandler := connect.NewUnaryHandler(
+		DeviceServiceCreatePairingProcedure,
+		svc.CreatePairing,
+		connect.WithSchema(deviceServiceMethods.ByName("CreatePairing")),
+		connect.WithHandlerOptions(opts...),
+	)
+	deviceServicePairNodeHandler := connect.NewUnaryHandler(
+		DeviceServicePairNodeProcedure,
+		svc.PairNode,
+		connect.WithSchema(deviceServiceMethods.ByName("PairNode")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/nexus.v1.DeviceService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case DeviceServicePairProcedure:
@@ -250,6 +307,10 @@ func NewDeviceServiceHandler(svc DeviceServiceHandler, opts ...connect.HandlerOp
 			deviceServiceListDevicesHandler.ServeHTTP(w, r)
 		case DeviceServiceRevokeDeviceProcedure:
 			deviceServiceRevokeDeviceHandler.ServeHTTP(w, r)
+		case DeviceServiceCreatePairingProcedure:
+			deviceServiceCreatePairingHandler.ServeHTTP(w, r)
+		case DeviceServicePairNodeProcedure:
+			deviceServicePairNodeHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -285,4 +346,12 @@ func (UnimplementedDeviceServiceHandler) ListDevices(context.Context, *connect.R
 
 func (UnimplementedDeviceServiceHandler) RevokeDevice(context.Context, *connect.Request[v1.RevokeDeviceRequest]) (*connect.Response[v1.RevokeDeviceResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.DeviceService.RevokeDevice is not implemented"))
+}
+
+func (UnimplementedDeviceServiceHandler) CreatePairing(context.Context, *connect.Request[v1.CreatePairingRequest]) (*connect.Response[v1.CreatePairingResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.DeviceService.CreatePairing is not implemented"))
+}
+
+func (UnimplementedDeviceServiceHandler) PairNode(context.Context, *connect.Request[v1.PairNodeRequest]) (*connect.Response[v1.PairNodeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.DeviceService.PairNode is not implemented"))
 }

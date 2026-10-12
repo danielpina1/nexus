@@ -12,7 +12,12 @@ node:
   token: change-me            # must match nodelink.tokens.my-laptop on the hub (or env NEXUS_NODE_TOKEN)
   tags: [laptop, shell]       # os:<goos> and arch:<goarch> are added automatically
   workspaces_dir: ./data-node/workspaces
-  # ca_file: /etc/nexus/hub-ca.pem
+  # `nexus-node pair '<nexus://pair URL>'` sets hub_url/node_id and these
+  # (files in <data_dir>/node; used automatically when present):
+  # token_file: ./data-node/node/node.token
+  # ca_file: ./data-node/node/hub-ca.crt     # the ONLY trusted root for the hub
+  # cert_file: ./data-node/node/node.crt     # mTLS client certificate
+  # key_file: ./data-node/node/identity.key
   status_interval: 15s
   # Reject approvals unless a real edge verifier (security module) is installed.
   strict_approvals: false
@@ -22,3 +27,30 @@ runtime.echo:
 
 runtime.shell:
   timeout: 10m
+
+# Model access for native agent runtimes on this node (module: node.llm).
+# Same schema as the hub's llm section. Check with `nexus-node llm check`.
+# See docs/MODELS.md.
+node.llm:
+  default_provider: ollama
+  aliases_auto: true
+  providers:
+    ollama:
+      base_url: http://localhost:11434/v1   # or the GPU box on the LAN/Tailscale
+      api: openai
+      auth: none
+      timeout: 300s
+    # cloud:
+    #   base_url: https://api.anthropic.com   # or an OpenAI-compatible gateway .../v1
+    #   api: anthropic
+    #   api_key_env: CLOUD_API_KEY
+    #   # ca_file: /etc/nexus/gateway-ca.pem
+  aliases:
+    fast-local: { provider: ollama, model: CHANGE_ME }
+    smart:      { provider: ollama, model: CHANGE_ME }
+    best:       { provider: ollama, model: CHANGE_ME }
+    embed:      { provider: ollama, model: CHANGE_ME }
+    # smart:
+    #   provider: cloud
+    #   model: claude-sonnet-4-5
+    #   fallback: [{ provider: ollama, model: "qwen2.5:14b" }]

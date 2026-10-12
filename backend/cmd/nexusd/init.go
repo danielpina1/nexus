@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 
 	"github.com/danielpina1/nexus/backend/configs"
+	"github.com/danielpina1/nexus/backend/internal/hubserver"
 )
 
 func cmdInit(args []string) error {
@@ -20,34 +21,54 @@ func cmdInit(args []string) error {
 	dir := fset.String("dir", ".", "directory to initialise")
 	tmpl := fset.String("template", "", "vault template directory (default: search for vault-template/ nearby)")
 	force := fset.Bool("force", false, "overwrite an existing nexus.yaml")
+	var hubURLs urlList
+	fset.Var(&hubURLs, "hub-url", "URL phones and nodes use to reach the hub, e.g. https://nexus.home.arpa:7700 (repeatable or comma-separated)")
+	listen := fset.String("listen", hubserver.DefaultListen, `server.listen address, e.g. "10.20.0.10:7700"`)
 	_ = fset.Parse(args)
 
+	nc, err := newNetConfig(hubURLs, *listen)
+	if err != nil {
+		return err
+	}
 	if err := os.MkdirAll(*dir, 0o755); err != nil {
 		return err
 	}
-	if err := writeConfig(filepath.Join(*dir, "nexus.yaml"), *force); err != nil {
+	cfgPath := filepath.Join(*dir, "nexus.yaml")
+	wrote, err := writeConfig(cfgPath, *force, nc)
+	if err != nil {
 		return err
 	}
-	return initVault(filepath.Join(*dir, "vault"), *tmpl)
+	if err := initVault(filepath.Join(*dir, "vault"), *tmpl); err != nil {
+		return err
+	}
+	if wrote {
+		printNextSteps(os.Stdout, cfgPath, nc)
+	}
+	return nil
 }
 
-// writeConfig writes the embedded example with a freshly generated dev token.
-func writeConfig(path string, force bool) error {
+// writeConfig writes the embedded example with a freshly generated dev token
+// and the network settings; it reports whether the file was written.
+func writeConfig(path string, force bool, nc netConfig) (bool, error) {
 	if _, err := os.Stat(path); err == nil && !force {
 		fmt.Printf("✓ %s already exists (use -force to overwrite)\n", path)
-		return nil
+		return false, nil
 	}
 	tok := make([]byte, 24)
 	if _, err := rand.Read(tok); err != nil {
-		return err
+		return false, err
 	}
 	token := hex.EncodeToString(tok)
 	body := bytes.Replace(configs.NexusExample, []byte("dev_token: CHANGE_ME"), []byte("dev_token: "+token), 1)
+	body, err := nc.apply(body)
+	if err != nil {
+		return false, err
+	}
 	if err := os.WriteFile(path, body, 0o600); err != nil {
-		return err
+		return false, err
 	}
 	fmt.Printf("✓ wrote %s\n  dev token: %s\n  export NEXUS_TOKEN=%s\n", path, token, token)
-	return nil
+	return true, nil
 }
 
 // initVault copies the vault template into dst unless dst already exists.

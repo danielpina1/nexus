@@ -70,20 +70,26 @@ Set the VPN's DNS to the gateway so `nexus.home.arpa` resolves remotely.
 
 ## 3. Nexus configuration
 
-`nexus.yaml` on the Hub:
+`nexusd init -hub-url https://nexus.home.arpa:7700 -listen 10.20.0.10:7700` writes this
+`nexus.yaml` on the Hub (`-hub-url` is repeatable or comma-separated):
 
 ```yaml
 server:
   listen: "10.20.0.10:7700"        # bind to the nexus VLAN address, not 0.0.0.0
-  tls:                              # recommended: TLS with the Hub's private CA
-    cert: ./data/security/pki/hub.crt
-    key: ./data/security/pki/hub.key
+  tls:
+    auto: true                      # TLS 1.3 + HTTP/2, cert from the Hub's private CA
 security:
   hub_urls: ["https://nexus.home.arpa:7700"]   # what goes into the pairing QR
-  server_names: ["nexus.home.arpa", "10.20.0.10"]
+  server_names: ["nexus.home.arpa", "localhost", "127.0.0.1", "10.20.0.10"]  # cert SANs (+ listen IP)
 ```
 
-`node.yaml` on each machine: `hub_url: https://nexus.home.arpa:7700`.
+The CA is created on first start in `<data_dir>/security/pki/ca.crt`; the server certificate is
+issued and renewed automatically. Pair with `nexusd pair` (iPhone QR) or `nexusd pair -kind node`,
+or from the dashboard (Settings → Pair a device / Pair a machine).
+
+On each machine: `nexus-node pair '<nexus://pair URL>'` writes `hub_url`, `node_id`, `token_file`,
+`ca_file` (the only trusted root), `cert_file` and `key_file` into `node.yaml`. CLI on the Hub:
+`NEXUS_URL=https://localhost:7700 NEXUS_CA_FILE=data/security/pki/ca.crt nexus status`.
 
 Pair the iPhone **at home on Wi-Fi** (the QR contains the Hub URL and the CA fingerprint the app
 pins). From then on the same URL works everywhere: directly at home, through the VPN outside.

@@ -18,7 +18,7 @@ import (
 const usage = `nexus — Nexus command-line client
 
 Usage:
-  nexus [-url URL] [-token TOKEN] <command> [args]
+  nexus [-url URL] [-token TOKEN] [-ca FILE] <command> [args]
 
 Commands:
   status                          hub health, nodes, tasks and pending approvals
@@ -36,6 +36,8 @@ Commands:
 Environment:
   NEXUS_URL    hub URL (default http://localhost:7700)
   NEXUS_TOKEN  bearer token (security.dev_token in nexus.yaml)
+  NEXUS_CA_FILE  hub CA (PEM) for https:// hubs using the private CA
+                 (<data_dir>/security/pki/ca.crt on the hub; -ca flag)
 `
 
 type command func(ctx context.Context, c *client, args []string) error
@@ -57,6 +59,7 @@ func main() {
 	global.Usage = func() { fmt.Fprint(os.Stderr, usage) }
 	url := global.String("url", envOr("NEXUS_URL", "http://localhost:7700"), "hub URL")
 	token := global.String("token", os.Getenv("NEXUS_TOKEN"), "bearer token")
+	caFile := global.String("ca", os.Getenv("NEXUS_CA_FILE"), "hub CA certificate (PEM) to trust for https:// (e.g. data/security/pki/ca.crt)")
 	_ = global.Parse(os.Args[1:])
 
 	if global.NArg() == 0 {
@@ -76,7 +79,12 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	if err := cmd(ctx, newClient(*url, *token), args); err != nil {
+	rt, err := transport(*caFile)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "nexus:", err)
+		os.Exit(1)
+	}
+	if err := cmd(ctx, newClientRT(*url, *token, rt), args); err != nil {
 		if ctx.Err() != nil {
 			return // interrupted
 		}

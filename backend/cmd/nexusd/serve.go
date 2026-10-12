@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -55,9 +56,14 @@ func cmdServe(args []string) error {
 	if auth == nil {
 		log.Warn("no auth module enabled: the API is unauthenticated")
 	}
-	srv := hubserver.New(hubserver.Options{Config: srvCfg, Mux: mux, Logger: log, Auth: auth, Version: version})
+	tlsSrc := hubserver.TLSFrom(proc.Lookup)
+	srv := hubserver.New(hubserver.Options{Config: srvCfg, Mux: mux, Logger: log, Auth: auth, TLS: tlsSrc, Version: version})
 	if err := srv.Listen(); err != nil {
 		return err
+	}
+	if srvCfg.TLS.Auto {
+		log.Info("TLS from the hub's private CA; clients pin this CA (pairing delivers it)",
+			"ca_file", filepath.Join(cfg.DataDir, "security", "pki", "ca.crt"))
 	}
 	if err := proc.Start(ctx); err != nil {
 		return err

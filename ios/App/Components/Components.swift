@@ -43,25 +43,97 @@ struct TaskStateBadge: View {
 }
 
 struct ConnectionPill: View {
-    let state: ConnectionState
+    let label: String
+    let color: Color
+
+    init(state: ConnectionState) {
+        label = state.label
+        switch state {
+        case .connected: color = .green
+        case .demo: color = .purple
+        case .connecting, .reconnecting: color = .orange
+        case .disconnected: color = .red
+        }
+    }
+
+    init(label: String, color: Color) {
+        self.label = label
+        self.color = color
+    }
 
     var body: some View {
         HStack(spacing: 6) {
             Circle().fill(color).frame(width: 8, height: 8)
-            Text(state.label).font(.caption2.weight(.medium))
+            Text(label).font(.caption2.weight(.medium))
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(.thinMaterial, in: Capsule())
     }
+}
 
-    private var color: Color {
-        switch state {
-        case .connected: return .green
-        case .demo: return .purple
-        case .connecting, .reconnecting: return .orange
-        case .disconnected: return .red
+/// Calm banner shown on Home and Chat while the Hub can't be reached (docs/NETWORK.md §4):
+/// away from home with the VPN off, or no network at all. Commands are queued meanwhile.
+struct HubUnreachableBanner: View {
+    @Environment(NexusStore.self) private var store
+
+    var body: some View {
+        if !store.isDemo && store.reachability.isUnavailable {
+            content
         }
+    }
+
+    private var isOffline: Bool { store.reachability == .offline }
+
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: isOffline ? "wifi.slash" : "house.and.flag")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(isOffline ? "No internet connection" : "Can't reach your Nexus at home")
+                        .font(.subheadline.weight(.semibold))
+                    Text(isOffline
+                         ? "Notifications still arrive when you're back online."
+                         : "Turn on your home VPN (WireGuard / WiFiman Teleport)")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+            }
+            HStack {
+                if !store.outbox.isEmpty {
+                    Label(
+                        "\(store.outbox.count) queued — sent when you're back",
+                        systemImage: "tray.and.arrow.up"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                } else if let last = store.lastContact {
+                    Text("Last contact \(Format.relative(last))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button {
+                    store.retryConnection()
+                } label: {
+                    if store.isProbing {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Text("Retry")
+                    }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(store.isProbing)
+            }
+        }
+        .padding(12)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -100,7 +172,14 @@ struct LiveConnectionPill: View {
     @Environment(NexusStore.self) private var store
 
     var body: some View {
-        ConnectionPill(state: store.connection)
+        switch store.reachability {
+        case .offline where !store.isDemo:
+            ConnectionPill(label: "No network", color: .gray)
+        case .unreachable where !store.isDemo:
+            ConnectionPill(label: "Away · VPN off?", color: .orange)
+        default:
+            ConnectionPill(state: store.connection)
+        }
     }
 }
 

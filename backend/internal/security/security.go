@@ -238,6 +238,8 @@ var publicProcedures = map[string]bool{
 	nexusv1connect.DeviceServicePairProcedure:         true,
 	nexusv1connect.DeviceServiceGetChallengeProcedure: true,
 	nexusv1connect.DeviceServiceAuthenticateProcedure: true,
+	// Node pairing is authenticated by the pairing proof.
+	nexusv1connect.DeviceServicePairNodeProcedure: true,
 	// The node link authenticates nodes itself (nodelink calls
 	// AuthenticateNode), so the generic middleware lets it through.
 	nexusv1connect.NodeLinkServiceConnectProcedure: true,

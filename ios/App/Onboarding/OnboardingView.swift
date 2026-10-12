@@ -43,6 +43,8 @@ struct OnboardingView: View {
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
+
+                        PairAtHomeHint()
                     }
 
                     GroupBox("Or paste the pairing link") {
@@ -197,7 +199,7 @@ struct PairingView: View {
                     }
                     .disabled(isPairing)
                 } footer: {
-                    Text("Creates keys in the Secure Enclave and proves to the Hub that you scanned its code.")
+                    Text("Creates keys in the Secure Enclave and proves to the Hub that you scanned its code. Pair at home on Wi-Fi — away from home, your UniFi VPN takes over afterwards.")
                 }
             }
 
@@ -274,5 +276,25 @@ struct DevTokenView: View {
         HubConfiguration(hubURLs: [url], deviceName: UIDevice.current.name, useJSONCodec: useJSON).save()
         if store.isDemo { store.setDemoMode(false) }
         store.reconnect()
+    }
+}
+
+/// "Pair at home on Wi-Fi" (docs/NETWORK.md §3): the Hub is only reachable at home or through
+/// the UniFi VPN, and the first contact should happen on the trusted home network.
+struct PairAtHomeHint: View {
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "house.fill")
+                .foregroundStyle(.tint)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Pair at home on Wi-Fi").font(.subheadline.weight(.semibold))
+                Text("Afterwards the same Hub address works everywhere: directly at home, and through your UniFi VPN (WireGuard or Teleport) when you're out.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
     }
 }

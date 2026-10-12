@@ -159,7 +159,7 @@ type FetchConfig struct {
 type CacheConfig struct {
 	Disabled bool     `yaml:"disabled"`
 	TTL      Duration `yaml:"ttl"`
-	Dir      string   `yaml:"dir"`      // default <data_dir>/cache
+	Dir      string   `yaml:"dir"`       // default <data_dir>/cache
 	MaxBytes int64    `yaml:"max_bytes"` // default 512 MiB; oldest entries pruned
 }
 

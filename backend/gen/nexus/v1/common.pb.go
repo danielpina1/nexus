@@ -29,7 +29,7 @@ type Tier int32
 const (
 	Tier_TIER_UNSPECIFIED Tier = 0
 	Tier_TIER_SIMPLE      Tier = 1 // local models
-	Tier_TIER_MEDIUM      Tier = 2 // cloud models via Unify Gateway
+	Tier_TIER_MEDIUM      Tier = 2 // stronger models (local or cloud)
 	Tier_TIER_HEAVY       Tier = 3 // Claude Code, Codex, long autonomous work
 )
 

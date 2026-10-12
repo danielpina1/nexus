@@ -36,6 +36,14 @@ public enum AppGroup {
         public static let pendingAction = "nexus.pendingAction"
         public static let pushEnvironment = "nexus.push.environment"
         public static let lockScreenDetails = "nexus.privacy.lockScreenDetails"
+        // Remote access (NETWORK.md): which Hub URL answered last, and when.
+        public static let lastWorkingHubURL = "nexus.hub.lastWorkingURL"
+        public static let lastHubContact = "nexus.hub.lastContact"
+        public static let lastHubContactViaVPN = "nexus.hub.lastContactViaVPN"
+        /// Commands, replies, captures and signed decisions waiting for the Hub.
+        public static let outbox = "nexus.outbox"
+        /// Pending approvals (serialized protobuf) so the approval sheet works while away.
+        public static let approvalCache = "nexus.approvals.cache"
     }
 }
 

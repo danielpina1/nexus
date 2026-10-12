@@ -109,6 +109,46 @@ public nonisolated enum Nexus_V1_LiveActivityTokenKind: SwiftProtobuf.Enum, Swif
 
 }
 
+public nonisolated enum Nexus_V1_PairingKind: SwiftProtobuf.Enum, Swift.CaseIterable {
+  public typealias RawValue = Int
+
+  /// = device
+  case unspecified // = 0
+  case device // = 1
+  case node // = 2
+  case UNRECOGNIZED(Int)
+
+  public init() {
+    self = .unspecified
+  }
+
+  public init?(rawValue: Int) {
+    switch rawValue {
+    case 0: self = .unspecified
+    case 1: self = .device
+    case 2: self = .node
+    default: self = .UNRECOGNIZED(rawValue)
+    }
+  }
+
+  public var rawValue: Int {
+    switch self {
+    case .unspecified: return 0
+    case .device: return 1
+    case .node: return 2
+    case .UNRECOGNIZED(let i): return i
+    }
+  }
+
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  public static let allCases: [Nexus_V1_PairingKind] = [
+    .unspecified,
+    .device,
+    .node,
+  ]
+
+}
+
 public nonisolated struct Nexus_V1_Device: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -386,6 +426,98 @@ public nonisolated struct Nexus_V1_RevokeDeviceResponse: Sendable {
   public init() {}
 }
 
+public nonisolated struct Nexus_V1_CreatePairingRequest: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var kind: Nexus_V1_PairingKind = .unspecified
+
+  /// free-form note recorded in the audit log
+  public var label: String = String()
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+public nonisolated struct Nexus_V1_CreatePairingResponse: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// nexus://pair?v=1&k=...
+  public var url: String = String()
+
+  public var expiresAt: SwiftProtobuf.Google_Protobuf_Timestamp {
+    get {_expiresAt ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    set {_expiresAt = newValue}
+  }
+  /// Returns true if `expiresAt` has been explicitly set.
+  public var hasExpiresAt: Bool {self._expiresAt != nil}
+  /// Clears the value of `expiresAt`. Subsequent reads from it will return its default value.
+  public mutating func clearExpiresAt() {self._expiresAt = nil}
+
+  public var kind: Nexus_V1_PairingKind = .unspecified
+
+  public var hubUrls: [String] = []
+
+  /// lowercase hex SHA-256 of the Hub CA DER
+  public var caFingerprint: String = String()
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+
+  fileprivate var _expiresAt: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+}
+
+public nonisolated struct Nexus_V1_PairNodeRequest: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// "s" from the pairing URL
+  public var pairingToken: String = String()
+
+  /// requested id (e.g. hostname); empty = hub assigns one
+  public var nodeID: String = String()
+
+  /// node identity key, P-256 (65-byte X9.63)
+  public var publicKey: Data = Data()
+
+  /// HMAC-SHA256(HKDF(secret, "nexus/v1/pairing"), public_key) — WIRE_FORMATS.md.
+  public var pairingProof: Data = Data()
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+public nonisolated struct Nexus_V1_PairNodeResponse: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var nodeID: String = String()
+
+  /// node bearer token (shown once; stored hashed on the hub)
+  public var token: String = String()
+
+  /// PEM, for public_key
+  public var clientCertificate: Data = Data()
+
+  /// PEM Hub CA
+  public var caCertificate: Data = Data()
+
+  /// 6 emojis; compare with the hub log / dashboard
+  public var safetyCode: String = String()
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 fileprivate nonisolated let _protobuf_package = "nexus.v1"
@@ -396,6 +528,10 @@ nonisolated extension Nexus_V1_DeviceKind: SwiftProtobuf._ProtoNameProviding {
 
 nonisolated extension Nexus_V1_LiveActivityTokenKind: SwiftProtobuf._ProtoNameProviding {
   public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0LIVE_ACTIVITY_TOKEN_KIND_UNSPECIFIED\0\u{1}LIVE_ACTIVITY_TOKEN_KIND_PUSH_TO_START\0\u{1}LIVE_ACTIVITY_TOKEN_KIND_UPDATE\0")
+}
+
+nonisolated extension Nexus_V1_PairingKind: SwiftProtobuf._ProtoNameProviding {
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0PAIRING_KIND_UNSPECIFIED\0\u{1}PAIRING_KIND_DEVICE\0\u{1}PAIRING_KIND_NODE\0")
 }
 
 nonisolated extension Nexus_V1_Device: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
@@ -951,6 +1087,190 @@ nonisolated extension Nexus_V1_RevokeDeviceResponse: SwiftProtobuf.Message, Swif
   }
 
   public static func ==(lhs: Nexus_V1_RevokeDeviceResponse, rhs: Nexus_V1_RevokeDeviceResponse) -> Bool {
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Nexus_V1_CreatePairingRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".CreatePairingRequest"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}kind\0\u{1}label\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularEnumField(value: &self.kind) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.label) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.kind != .unspecified {
+      try visitor.visitSingularEnumField(value: self.kind, fieldNumber: 1)
+    }
+    if !self.label.isEmpty {
+      try visitor.visitSingularStringField(value: self.label, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Nexus_V1_CreatePairingRequest, rhs: Nexus_V1_CreatePairingRequest) -> Bool {
+    if lhs.kind != rhs.kind {return false}
+    if lhs.label != rhs.label {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Nexus_V1_CreatePairingResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".CreatePairingResponse"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}url\0\u{3}expires_at\0\u{1}kind\0\u{3}hub_urls\0\u{3}ca_fingerprint\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.url) }()
+      case 2: try { try decoder.decodeSingularMessageField(value: &self._expiresAt) }()
+      case 3: try { try decoder.decodeSingularEnumField(value: &self.kind) }()
+      case 4: try { try decoder.decodeRepeatedStringField(value: &self.hubUrls) }()
+      case 5: try { try decoder.decodeSingularStringField(value: &self.caFingerprint) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    if !self.url.isEmpty {
+      try visitor.visitSingularStringField(value: self.url, fieldNumber: 1)
+    }
+    try { if let v = self._expiresAt {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
+    } }()
+    if self.kind != .unspecified {
+      try visitor.visitSingularEnumField(value: self.kind, fieldNumber: 3)
+    }
+    if !self.hubUrls.isEmpty {
+      try visitor.visitRepeatedStringField(value: self.hubUrls, fieldNumber: 4)
+    }
+    if !self.caFingerprint.isEmpty {
+      try visitor.visitSingularStringField(value: self.caFingerprint, fieldNumber: 5)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Nexus_V1_CreatePairingResponse, rhs: Nexus_V1_CreatePairingResponse) -> Bool {
+    if lhs.url != rhs.url {return false}
+    if lhs._expiresAt != rhs._expiresAt {return false}
+    if lhs.kind != rhs.kind {return false}
+    if lhs.hubUrls != rhs.hubUrls {return false}
+    if lhs.caFingerprint != rhs.caFingerprint {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Nexus_V1_PairNodeRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".PairNodeRequest"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}pairing_token\0\u{3}node_id\0\u{3}public_key\0\u{3}pairing_proof\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.pairingToken) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.nodeID) }()
+      case 3: try { try decoder.decodeSingularBytesField(value: &self.publicKey) }()
+      case 4: try { try decoder.decodeSingularBytesField(value: &self.pairingProof) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.pairingToken.isEmpty {
+      try visitor.visitSingularStringField(value: self.pairingToken, fieldNumber: 1)
+    }
+    if !self.nodeID.isEmpty {
+      try visitor.visitSingularStringField(value: self.nodeID, fieldNumber: 2)
+    }
+    if !self.publicKey.isEmpty {
+      try visitor.visitSingularBytesField(value: self.publicKey, fieldNumber: 3)
+    }
+    if !self.pairingProof.isEmpty {
+      try visitor.visitSingularBytesField(value: self.pairingProof, fieldNumber: 4)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Nexus_V1_PairNodeRequest, rhs: Nexus_V1_PairNodeRequest) -> Bool {
+    if lhs.pairingToken != rhs.pairingToken {return false}
+    if lhs.nodeID != rhs.nodeID {return false}
+    if lhs.publicKey != rhs.publicKey {return false}
+    if lhs.pairingProof != rhs.pairingProof {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Nexus_V1_PairNodeResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".PairNodeResponse"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}node_id\0\u{1}token\0\u{3}client_certificate\0\u{3}ca_certificate\0\u{3}safety_code\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.nodeID) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.token) }()
+      case 3: try { try decoder.decodeSingularBytesField(value: &self.clientCertificate) }()
+      case 4: try { try decoder.decodeSingularBytesField(value: &self.caCertificate) }()
+      case 5: try { try decoder.decodeSingularStringField(value: &self.safetyCode) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.nodeID.isEmpty {
+      try visitor.visitSingularStringField(value: self.nodeID, fieldNumber: 1)
+    }
+    if !self.token.isEmpty {
+      try visitor.visitSingularStringField(value: self.token, fieldNumber: 2)
+    }
+    if !self.clientCertificate.isEmpty {
+      try visitor.visitSingularBytesField(value: self.clientCertificate, fieldNumber: 3)
+    }
+    if !self.caCertificate.isEmpty {
+      try visitor.visitSingularBytesField(value: self.caCertificate, fieldNumber: 4)
+    }
+    if !self.safetyCode.isEmpty {
+      try visitor.visitSingularStringField(value: self.safetyCode, fieldNumber: 5)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Nexus_V1_PairNodeResponse, rhs: Nexus_V1_PairNodeResponse) -> Bool {
+    if lhs.nodeID != rhs.nodeID {return false}
+    if lhs.token != rhs.token {return false}
+    if lhs.clientCertificate != rhs.clientCertificate {return false}
+    if lhs.caCertificate != rhs.caCertificate {return false}
+    if lhs.safetyCode != rhs.safetyCode {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

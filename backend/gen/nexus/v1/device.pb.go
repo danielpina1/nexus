@@ -126,6 +126,55 @@ func (LiveActivityTokenKind) EnumDescriptor() ([]byte, []int) {
 	return file_nexus_v1_device_proto_rawDescGZIP(), []int{1}
 }
 
+type PairingKind int32
+
+const (
+	PairingKind_PAIRING_KIND_UNSPECIFIED PairingKind = 0 // = device
+	PairingKind_PAIRING_KIND_DEVICE      PairingKind = 1
+	PairingKind_PAIRING_KIND_NODE        PairingKind = 2
+)
+
+// Enum value maps for PairingKind.
+var (
+	PairingKind_name = map[int32]string{
+		0: "PAIRING_KIND_UNSPECIFIED",
+		1: "PAIRING_KIND_DEVICE",
+		2: "PAIRING_KIND_NODE",
+	}
+	PairingKind_value = map[string]int32{
+		"PAIRING_KIND_UNSPECIFIED": 0,
+		"PAIRING_KIND_DEVICE":      1,
+		"PAIRING_KIND_NODE":        2,
+	}
+)
+
+func (x PairingKind) Enum() *PairingKind {
+	p := new(PairingKind)
+	*p = x
+	return p
+}
+
+func (x PairingKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (PairingKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_nexus_v1_device_proto_enumTypes[2].Descriptor()
+}
+
+func (PairingKind) Type() protoreflect.EnumType {
+	return &file_nexus_v1_device_proto_enumTypes[2]
+}
+
+func (x PairingKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use PairingKind.Descriptor instead.
+func (PairingKind) EnumDescriptor() ([]byte, []int) {
+	return file_nexus_v1_device_proto_rawDescGZIP(), []int{2}
+}
+
 type Device struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
 	Id                  string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -983,6 +1032,279 @@ func (*RevokeDeviceResponse) Descriptor() ([]byte, []int) {
 	return file_nexus_v1_device_proto_rawDescGZIP(), []int{14}
 }
 
+type CreatePairingRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Kind          PairingKind            `protobuf:"varint,1,opt,name=kind,proto3,enum=nexus.v1.PairingKind" json:"kind,omitempty"`
+	Label         string                 `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"` // free-form note recorded in the audit log
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreatePairingRequest) Reset() {
+	*x = CreatePairingRequest{}
+	mi := &file_nexus_v1_device_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreatePairingRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreatePairingRequest) ProtoMessage() {}
+
+func (x *CreatePairingRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_device_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreatePairingRequest.ProtoReflect.Descriptor instead.
+func (*CreatePairingRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_device_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *CreatePairingRequest) GetKind() PairingKind {
+	if x != nil {
+		return x.Kind
+	}
+	return PairingKind_PAIRING_KIND_UNSPECIFIED
+}
+
+func (x *CreatePairingRequest) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+type CreatePairingResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Url           string                 `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"` // nexus://pair?v=1&k=...
+	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	Kind          PairingKind            `protobuf:"varint,3,opt,name=kind,proto3,enum=nexus.v1.PairingKind" json:"kind,omitempty"`
+	HubUrls       []string               `protobuf:"bytes,4,rep,name=hub_urls,json=hubUrls,proto3" json:"hub_urls,omitempty"`
+	CaFingerprint string                 `protobuf:"bytes,5,opt,name=ca_fingerprint,json=caFingerprint,proto3" json:"ca_fingerprint,omitempty"` // lowercase hex SHA-256 of the Hub CA DER
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreatePairingResponse) Reset() {
+	*x = CreatePairingResponse{}
+	mi := &file_nexus_v1_device_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreatePairingResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreatePairingResponse) ProtoMessage() {}
+
+func (x *CreatePairingResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_device_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreatePairingResponse.ProtoReflect.Descriptor instead.
+func (*CreatePairingResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_device_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *CreatePairingResponse) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
+func (x *CreatePairingResponse) GetExpiresAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return nil
+}
+
+func (x *CreatePairingResponse) GetKind() PairingKind {
+	if x != nil {
+		return x.Kind
+	}
+	return PairingKind_PAIRING_KIND_UNSPECIFIED
+}
+
+func (x *CreatePairingResponse) GetHubUrls() []string {
+	if x != nil {
+		return x.HubUrls
+	}
+	return nil
+}
+
+func (x *CreatePairingResponse) GetCaFingerprint() string {
+	if x != nil {
+		return x.CaFingerprint
+	}
+	return ""
+}
+
+type PairNodeRequest struct {
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	PairingToken string                 `protobuf:"bytes,1,opt,name=pairing_token,json=pairingToken,proto3" json:"pairing_token,omitempty"` // "s" from the pairing URL
+	NodeId       string                 `protobuf:"bytes,2,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`                   // requested id (e.g. hostname); empty = hub assigns one
+	PublicKey    []byte                 `protobuf:"bytes,3,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`          // node identity key, P-256 (65-byte X9.63)
+	// HMAC-SHA256(HKDF(secret, "nexus/v1/pairing"), public_key) — WIRE_FORMATS.md.
+	PairingProof  []byte `protobuf:"bytes,4,opt,name=pairing_proof,json=pairingProof,proto3" json:"pairing_proof,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PairNodeRequest) Reset() {
+	*x = PairNodeRequest{}
+	mi := &file_nexus_v1_device_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PairNodeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PairNodeRequest) ProtoMessage() {}
+
+func (x *PairNodeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_device_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PairNodeRequest.ProtoReflect.Descriptor instead.
+func (*PairNodeRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_device_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *PairNodeRequest) GetPairingToken() string {
+	if x != nil {
+		return x.PairingToken
+	}
+	return ""
+}
+
+func (x *PairNodeRequest) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *PairNodeRequest) GetPublicKey() []byte {
+	if x != nil {
+		return x.PublicKey
+	}
+	return nil
+}
+
+func (x *PairNodeRequest) GetPairingProof() []byte {
+	if x != nil {
+		return x.PairingProof
+	}
+	return nil
+}
+
+type PairNodeResponse struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	NodeId            string                 `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	Token             string                 `protobuf:"bytes,2,opt,name=token,proto3" json:"token,omitempty"`                                                  // node bearer token (shown once; stored hashed on the hub)
+	ClientCertificate []byte                 `protobuf:"bytes,3,opt,name=client_certificate,json=clientCertificate,proto3" json:"client_certificate,omitempty"` // PEM, for public_key
+	CaCertificate     []byte                 `protobuf:"bytes,4,opt,name=ca_certificate,json=caCertificate,proto3" json:"ca_certificate,omitempty"`             // PEM Hub CA
+	SafetyCode        string                 `protobuf:"bytes,5,opt,name=safety_code,json=safetyCode,proto3" json:"safety_code,omitempty"`                      // 6 emojis; compare with the hub log / dashboard
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *PairNodeResponse) Reset() {
+	*x = PairNodeResponse{}
+	mi := &file_nexus_v1_device_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PairNodeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PairNodeResponse) ProtoMessage() {}
+
+func (x *PairNodeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_device_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PairNodeResponse.ProtoReflect.Descriptor instead.
+func (*PairNodeResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_device_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *PairNodeResponse) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *PairNodeResponse) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+func (x *PairNodeResponse) GetClientCertificate() []byte {
+	if x != nil {
+		return x.ClientCertificate
+	}
+	return nil
+}
+
+func (x *PairNodeResponse) GetCaCertificate() []byte {
+	if x != nil {
+		return x.CaCertificate
+	}
+	return nil
+}
+
+func (x *PairNodeResponse) GetSafetyCode() string {
+	if x != nil {
+		return x.SafetyCode
+	}
+	return ""
+}
+
 var File_nexus_v1_device_proto protoreflect.FileDescriptor
 
 const file_nexus_v1_device_proto_rawDesc = "" +
@@ -1049,7 +1371,30 @@ const file_nexus_v1_device_proto_rawDesc = "" +
 	"\adevices\x18\x01 \x03(\v2\x10.nexus.v1.DeviceR\adevices\"%\n" +
 	"\x13RevokeDeviceRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x16\n" +
-	"\x14RevokeDeviceResponse*\x7f\n" +
+	"\x14RevokeDeviceResponse\"W\n" +
+	"\x14CreatePairingRequest\x12)\n" +
+	"\x04kind\x18\x01 \x01(\x0e2\x15.nexus.v1.PairingKindR\x04kind\x12\x14\n" +
+	"\x05label\x18\x02 \x01(\tR\x05label\"\xd1\x01\n" +
+	"\x15CreatePairingResponse\x12\x10\n" +
+	"\x03url\x18\x01 \x01(\tR\x03url\x129\n" +
+	"\n" +
+	"expires_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12)\n" +
+	"\x04kind\x18\x03 \x01(\x0e2\x15.nexus.v1.PairingKindR\x04kind\x12\x19\n" +
+	"\bhub_urls\x18\x04 \x03(\tR\ahubUrls\x12%\n" +
+	"\x0eca_fingerprint\x18\x05 \x01(\tR\rcaFingerprint\"\x93\x01\n" +
+	"\x0fPairNodeRequest\x12#\n" +
+	"\rpairing_token\x18\x01 \x01(\tR\fpairingToken\x12\x17\n" +
+	"\anode_id\x18\x02 \x01(\tR\x06nodeId\x12\x1d\n" +
+	"\n" +
+	"public_key\x18\x03 \x01(\fR\tpublicKey\x12#\n" +
+	"\rpairing_proof\x18\x04 \x01(\fR\fpairingProof\"\xb8\x01\n" +
+	"\x10PairNodeResponse\x12\x17\n" +
+	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12\x14\n" +
+	"\x05token\x18\x02 \x01(\tR\x05token\x12-\n" +
+	"\x12client_certificate\x18\x03 \x01(\fR\x11clientCertificate\x12%\n" +
+	"\x0eca_certificate\x18\x04 \x01(\fR\rcaCertificate\x12\x1f\n" +
+	"\vsafety_code\x18\x05 \x01(\tR\n" +
+	"safetyCode*\x7f\n" +
 	"\n" +
 	"DeviceKind\x12\x1b\n" +
 	"\x17DEVICE_KIND_UNSPECIFIED\x10\x00\x12\x13\n" +
@@ -1060,7 +1405,11 @@ const file_nexus_v1_device_proto_rawDesc = "" +
 	"\x15LiveActivityTokenKind\x12(\n" +
 	"$LIVE_ACTIVITY_TOKEN_KIND_UNSPECIFIED\x10\x00\x12*\n" +
 	"&LIVE_ACTIVITY_TOKEN_KIND_PUSH_TO_START\x10\x01\x12#\n" +
-	"\x1fLIVE_ACTIVITY_TOKEN_KIND_UPDATE\x10\x022\xd3\x04\n" +
+	"\x1fLIVE_ACTIVITY_TOKEN_KIND_UPDATE\x10\x02*[\n" +
+	"\vPairingKind\x12\x1c\n" +
+	"\x18PAIRING_KIND_UNSPECIFIED\x10\x00\x12\x17\n" +
+	"\x13PAIRING_KIND_DEVICE\x10\x01\x12\x15\n" +
+	"\x11PAIRING_KIND_NODE\x10\x022\xe8\x05\n" +
 	"\rDeviceService\x125\n" +
 	"\x04Pair\x12\x15.nexus.v1.PairRequest\x1a\x16.nexus.v1.PairResponse\x12M\n" +
 	"\fGetChallenge\x12\x1d.nexus.v1.GetChallengeRequest\x1a\x1e.nexus.v1.GetChallengeResponse\x12M\n" +
@@ -1068,7 +1417,9 @@ const file_nexus_v1_device_proto_rawDesc = "" +
 	"\x11RegisterPushToken\x12\".nexus.v1.RegisterPushTokenRequest\x1a#.nexus.v1.RegisterPushTokenResponse\x12t\n" +
 	"\x19RegisterLiveActivityToken\x12*.nexus.v1.RegisterLiveActivityTokenRequest\x1a+.nexus.v1.RegisterLiveActivityTokenResponse\x12J\n" +
 	"\vListDevices\x12\x1c.nexus.v1.ListDevicesRequest\x1a\x1d.nexus.v1.ListDevicesResponse\x12M\n" +
-	"\fRevokeDevice\x12\x1d.nexus.v1.RevokeDeviceRequest\x1a\x1e.nexus.v1.RevokeDeviceResponseB\x97\x01\n" +
+	"\fRevokeDevice\x12\x1d.nexus.v1.RevokeDeviceRequest\x1a\x1e.nexus.v1.RevokeDeviceResponse\x12P\n" +
+	"\rCreatePairing\x12\x1e.nexus.v1.CreatePairingRequest\x1a\x1f.nexus.v1.CreatePairingResponse\x12A\n" +
+	"\bPairNode\x12\x19.nexus.v1.PairNodeRequest\x1a\x1a.nexus.v1.PairNodeResponseB\x97\x01\n" +
 	"\fcom.nexus.v1B\vDeviceProtoP\x01Z9github.com/danielpina1/nexus/backend/gen/nexus/v1;nexusv1\xa2\x02\x03NXX\xaa\x02\bNexus.V1\xca\x02\bNexus\\V1\xe2\x02\x14Nexus\\V1\\GPBMetadata\xea\x02\tNexus::V1b\x06proto3"
 
 var (
@@ -1083,56 +1434,68 @@ func file_nexus_v1_device_proto_rawDescGZIP() []byte {
 	return file_nexus_v1_device_proto_rawDescData
 }
 
-var file_nexus_v1_device_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_nexus_v1_device_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_nexus_v1_device_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_nexus_v1_device_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_nexus_v1_device_proto_goTypes = []any{
 	(DeviceKind)(0),                           // 0: nexus.v1.DeviceKind
 	(LiveActivityTokenKind)(0),                // 1: nexus.v1.LiveActivityTokenKind
-	(*Device)(nil),                            // 2: nexus.v1.Device
-	(*PairRequest)(nil),                       // 3: nexus.v1.PairRequest
-	(*PairResponse)(nil),                      // 4: nexus.v1.PairResponse
-	(*GetChallengeRequest)(nil),               // 5: nexus.v1.GetChallengeRequest
-	(*GetChallengeResponse)(nil),              // 6: nexus.v1.GetChallengeResponse
-	(*AuthenticateRequest)(nil),               // 7: nexus.v1.AuthenticateRequest
-	(*AuthenticateResponse)(nil),              // 8: nexus.v1.AuthenticateResponse
-	(*RegisterPushTokenRequest)(nil),          // 9: nexus.v1.RegisterPushTokenRequest
-	(*RegisterPushTokenResponse)(nil),         // 10: nexus.v1.RegisterPushTokenResponse
-	(*RegisterLiveActivityTokenRequest)(nil),  // 11: nexus.v1.RegisterLiveActivityTokenRequest
-	(*RegisterLiveActivityTokenResponse)(nil), // 12: nexus.v1.RegisterLiveActivityTokenResponse
-	(*ListDevicesRequest)(nil),                // 13: nexus.v1.ListDevicesRequest
-	(*ListDevicesResponse)(nil),               // 14: nexus.v1.ListDevicesResponse
-	(*RevokeDeviceRequest)(nil),               // 15: nexus.v1.RevokeDeviceRequest
-	(*RevokeDeviceResponse)(nil),              // 16: nexus.v1.RevokeDeviceResponse
-	(*timestamppb.Timestamp)(nil),             // 17: google.protobuf.Timestamp
+	(PairingKind)(0),                          // 2: nexus.v1.PairingKind
+	(*Device)(nil),                            // 3: nexus.v1.Device
+	(*PairRequest)(nil),                       // 4: nexus.v1.PairRequest
+	(*PairResponse)(nil),                      // 5: nexus.v1.PairResponse
+	(*GetChallengeRequest)(nil),               // 6: nexus.v1.GetChallengeRequest
+	(*GetChallengeResponse)(nil),              // 7: nexus.v1.GetChallengeResponse
+	(*AuthenticateRequest)(nil),               // 8: nexus.v1.AuthenticateRequest
+	(*AuthenticateResponse)(nil),              // 9: nexus.v1.AuthenticateResponse
+	(*RegisterPushTokenRequest)(nil),          // 10: nexus.v1.RegisterPushTokenRequest
+	(*RegisterPushTokenResponse)(nil),         // 11: nexus.v1.RegisterPushTokenResponse
+	(*RegisterLiveActivityTokenRequest)(nil),  // 12: nexus.v1.RegisterLiveActivityTokenRequest
+	(*RegisterLiveActivityTokenResponse)(nil), // 13: nexus.v1.RegisterLiveActivityTokenResponse
+	(*ListDevicesRequest)(nil),                // 14: nexus.v1.ListDevicesRequest
+	(*ListDevicesResponse)(nil),               // 15: nexus.v1.ListDevicesResponse
+	(*RevokeDeviceRequest)(nil),               // 16: nexus.v1.RevokeDeviceRequest
+	(*RevokeDeviceResponse)(nil),              // 17: nexus.v1.RevokeDeviceResponse
+	(*CreatePairingRequest)(nil),              // 18: nexus.v1.CreatePairingRequest
+	(*CreatePairingResponse)(nil),             // 19: nexus.v1.CreatePairingResponse
+	(*PairNodeRequest)(nil),                   // 20: nexus.v1.PairNodeRequest
+	(*PairNodeResponse)(nil),                  // 21: nexus.v1.PairNodeResponse
+	(*timestamppb.Timestamp)(nil),             // 22: google.protobuf.Timestamp
 }
 var file_nexus_v1_device_proto_depIdxs = []int32{
 	0,  // 0: nexus.v1.Device.kind:type_name -> nexus.v1.DeviceKind
-	17, // 1: nexus.v1.Device.paired_at:type_name -> google.protobuf.Timestamp
-	17, // 2: nexus.v1.Device.last_seen:type_name -> google.protobuf.Timestamp
+	22, // 1: nexus.v1.Device.paired_at:type_name -> google.protobuf.Timestamp
+	22, // 2: nexus.v1.Device.last_seen:type_name -> google.protobuf.Timestamp
 	0,  // 3: nexus.v1.PairRequest.kind:type_name -> nexus.v1.DeviceKind
-	2,  // 4: nexus.v1.PairResponse.device:type_name -> nexus.v1.Device
-	17, // 5: nexus.v1.AuthenticateResponse.expires_at:type_name -> google.protobuf.Timestamp
+	3,  // 4: nexus.v1.PairResponse.device:type_name -> nexus.v1.Device
+	22, // 5: nexus.v1.AuthenticateResponse.expires_at:type_name -> google.protobuf.Timestamp
 	1,  // 6: nexus.v1.RegisterLiveActivityTokenRequest.kind:type_name -> nexus.v1.LiveActivityTokenKind
-	2,  // 7: nexus.v1.ListDevicesResponse.devices:type_name -> nexus.v1.Device
-	3,  // 8: nexus.v1.DeviceService.Pair:input_type -> nexus.v1.PairRequest
-	5,  // 9: nexus.v1.DeviceService.GetChallenge:input_type -> nexus.v1.GetChallengeRequest
-	7,  // 10: nexus.v1.DeviceService.Authenticate:input_type -> nexus.v1.AuthenticateRequest
-	9,  // 11: nexus.v1.DeviceService.RegisterPushToken:input_type -> nexus.v1.RegisterPushTokenRequest
-	11, // 12: nexus.v1.DeviceService.RegisterLiveActivityToken:input_type -> nexus.v1.RegisterLiveActivityTokenRequest
-	13, // 13: nexus.v1.DeviceService.ListDevices:input_type -> nexus.v1.ListDevicesRequest
-	15, // 14: nexus.v1.DeviceService.RevokeDevice:input_type -> nexus.v1.RevokeDeviceRequest
-	4,  // 15: nexus.v1.DeviceService.Pair:output_type -> nexus.v1.PairResponse
-	6,  // 16: nexus.v1.DeviceService.GetChallenge:output_type -> nexus.v1.GetChallengeResponse
-	8,  // 17: nexus.v1.DeviceService.Authenticate:output_type -> nexus.v1.AuthenticateResponse
-	10, // 18: nexus.v1.DeviceService.RegisterPushToken:output_type -> nexus.v1.RegisterPushTokenResponse
-	12, // 19: nexus.v1.DeviceService.RegisterLiveActivityToken:output_type -> nexus.v1.RegisterLiveActivityTokenResponse
-	14, // 20: nexus.v1.DeviceService.ListDevices:output_type -> nexus.v1.ListDevicesResponse
-	16, // 21: nexus.v1.DeviceService.RevokeDevice:output_type -> nexus.v1.RevokeDeviceResponse
-	15, // [15:22] is the sub-list for method output_type
-	8,  // [8:15] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	3,  // 7: nexus.v1.ListDevicesResponse.devices:type_name -> nexus.v1.Device
+	2,  // 8: nexus.v1.CreatePairingRequest.kind:type_name -> nexus.v1.PairingKind
+	22, // 9: nexus.v1.CreatePairingResponse.expires_at:type_name -> google.protobuf.Timestamp
+	2,  // 10: nexus.v1.CreatePairingResponse.kind:type_name -> nexus.v1.PairingKind
+	4,  // 11: nexus.v1.DeviceService.Pair:input_type -> nexus.v1.PairRequest
+	6,  // 12: nexus.v1.DeviceService.GetChallenge:input_type -> nexus.v1.GetChallengeRequest
+	8,  // 13: nexus.v1.DeviceService.Authenticate:input_type -> nexus.v1.AuthenticateRequest
+	10, // 14: nexus.v1.DeviceService.RegisterPushToken:input_type -> nexus.v1.RegisterPushTokenRequest
+	12, // 15: nexus.v1.DeviceService.RegisterLiveActivityToken:input_type -> nexus.v1.RegisterLiveActivityTokenRequest
+	14, // 16: nexus.v1.DeviceService.ListDevices:input_type -> nexus.v1.ListDevicesRequest
+	16, // 17: nexus.v1.DeviceService.RevokeDevice:input_type -> nexus.v1.RevokeDeviceRequest
+	18, // 18: nexus.v1.DeviceService.CreatePairing:input_type -> nexus.v1.CreatePairingRequest
+	20, // 19: nexus.v1.DeviceService.PairNode:input_type -> nexus.v1.PairNodeRequest
+	5,  // 20: nexus.v1.DeviceService.Pair:output_type -> nexus.v1.PairResponse
+	7,  // 21: nexus.v1.DeviceService.GetChallenge:output_type -> nexus.v1.GetChallengeResponse
+	9,  // 22: nexus.v1.DeviceService.Authenticate:output_type -> nexus.v1.AuthenticateResponse
+	11, // 23: nexus.v1.DeviceService.RegisterPushToken:output_type -> nexus.v1.RegisterPushTokenResponse
+	13, // 24: nexus.v1.DeviceService.RegisterLiveActivityToken:output_type -> nexus.v1.RegisterLiveActivityTokenResponse
+	15, // 25: nexus.v1.DeviceService.ListDevices:output_type -> nexus.v1.ListDevicesResponse
+	17, // 26: nexus.v1.DeviceService.RevokeDevice:output_type -> nexus.v1.RevokeDeviceResponse
+	19, // 27: nexus.v1.DeviceService.CreatePairing:output_type -> nexus.v1.CreatePairingResponse
+	21, // 28: nexus.v1.DeviceService.PairNode:output_type -> nexus.v1.PairNodeResponse
+	20, // [20:29] is the sub-list for method output_type
+	11, // [11:20] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_nexus_v1_device_proto_init() }
@@ -1145,8 +1508,8 @@ func file_nexus_v1_device_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_nexus_v1_device_proto_rawDesc), len(file_nexus_v1_device_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   15,
+			NumEnums:      3,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

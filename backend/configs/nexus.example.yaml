@@ -16,8 +16,8 @@ modules:
 
 # --- HTTP API server --------------------------------------------------------
 server:
-  # HTTP/1.1 + h2c (cleartext HTTP/2). Keep it on a private network
-  # (Tailscale/WireGuard) or configure TLS below.
+  # Bind address. Behind a UniFi Gateway bind to the hub's fixed IP on the
+  # nexus network, e.g. "10.20.0.10:7700" (docs/NETWORK.md).
   listen: ":7700"
   # Built web dashboard (`make web` → web/dist), e.g. ./web/dist.
   # Empty: a placeholder page is served. Relative paths in this file are
@@ -30,7 +30,13 @@ server:
       - http://localhost:5173
       - http://127.0.0.1:5173
   tls:
-    cert: ""   # path to PEM certificate (enables HTTPS + HTTP/2)
+    # TLS 1.3 + HTTP/2 with a certificate issued by the hub's private CA
+    # (<data_dir>/security/pki/ca.crt, created on first start). SANs =
+    # security.server_names + the listen IP. Phones and nodes pin this CA at
+    # pairing. false = plain HTTP/1.1 + h2c (development only).
+    auto: true
+    # Or your own certificate (instead of auto):
+    cert: ""   # path to PEM certificate
     key: ""    # path to PEM private key
 
 # --- Operational database (module: store) ------------------------------------
@@ -49,6 +55,11 @@ security:
   # Development bearer token: clients send `Authorization: Bearer <dev_token>`.
   # `nexusd init` generates a random one. Remove once device pairing is set up.
   dev_token: CHANGE_ME
+  # URLs phones and nodes use to reach the hub; put in pairing QRs
+  # (`nexusd init -hub-url ...` sets them).
+  hub_urls: ["https://nexus.home.arpa:7700"]
+  # Hub certificate SANs: the hostnames/IPs of hub_urls (+ local access).
+  server_names: ["nexus.home.arpa", "localhost", "127.0.0.1"]
   # Static node credentials as "node-id:token" (prefer pairing + mTLS).
   node_tokens:
     # - mac-studio:CHANGE_ME
@@ -64,26 +75,63 @@ vault:
   remote: ""
 
 # --- LLM access (module: llm) ------------------------------------------------
+# Every model call from the hub (router, memory/vault Ask) goes through here.
+# Check the setup with `nexusd llm check` and list models with
+# `nexusd llm models`. See docs/MODELS.md.
 llm:
+  # Provider for raw model names (default: first provider by name).
+  default_provider: ollama
+  # Fill aliases whose model is CHANGE_ME/empty from the models the providers
+  # list (smart prefers "sonnet"/"gpt-4…", best "opus"/"gpt-5", fast-local
+  # "haiku"/"mini"/"llama"/"qwen", embed "embed"). Explicit models always win.
+  aliases_auto: true
+  # alias_preferences:              # override the preference substrings
+  #   smart: [qwen2.5:14b, llama3.1]
   providers:
-    # Unify Gateway: the single door to cloud models (OpenAI-compatible).
-    unify:
-      kind: openai
-      base_url: https://gateway.example.com/v1
-      api_key_env: UNIFY_API_KEY
-    # Local models through Ollama's OpenAI-compatible endpoint.
+    # Local models through Ollama's OpenAI-compatible API ("/v1" is appended
+    # when the URL has no path). For another machine on the LAN/Tailscale use
+    # its address, e.g. http://gpu-box.tailnet.ts.net:11434, and start Ollama
+    # with OLLAMA_HOST=0.0.0.0.
     ollama:
-      kind: openai
       base_url: http://localhost:11434/v1
+      api: openai                   # openai (default) | anthropic
+      auth: none                    # bearer (default) | header | none
+      timeout: 300s                 # local models may need time to load
+    # A cloud API or any OpenAI-/Anthropic-compatible gateway (LiteLLM,
+    # OpenRouter, vLLM, …). Uncomment and set the key in the environment.
+    # cloud:
+    #   base_url: https://api.anthropic.com     # or https://gateway.lan:4000/v1
+    #   api: anthropic                          # or openai
+    #   api_key_env: CLOUD_API_KEY              # anthropic: sent as x-api-key
+    #   # auth: bearer                          # force Authorization: Bearer
+    #   # auth_header: X-Api-Key                # custom key header
+    #   # ca_file: /etc/nexus/gateway-ca.pem    # private CA / self-signed TLS
+    #   #                                       # (insecure_skip_verify is refused)
   # Model aliases used by agents and the router (mirrors vault
-  # policies/models.md; the vault note wins when both define an alias).
+  # policies/models.md). CHANGE_ME = pick automatically (aliases_auto).
   aliases:
-    fast-local: { provider: ollama, model: "llama3.2:3b" }
-    embed:      { provider: ollama, model: "nomic-embed-text" }
-    smart:      { provider: unify,  model: "CHANGE_ME" }
-    best:       { provider: unify,  model: "CHANGE_ME" }
-  # Request timeout.
-  timeout: 120s
+    fast-local: { provider: ollama, model: CHANGE_ME }
+    smart:      { provider: ollama, model: CHANGE_ME }
+    best:       { provider: ollama, model: CHANGE_ME }
+    embed:      { provider: ollama, model: CHANGE_ME }
+    # With a cloud provider, keep a local fallback so basic commands work
+    # offline (embed never falls back to a different model):
+    # smart:
+    #   provider: cloud
+    #   model: claude-sonnet-4-5
+    #   fallback: [{ provider: ollama, model: "qwen2.5:14b" }]
+  # Provider health: after failure_threshold consecutive failures a provider
+  # is skipped for cooldown (doubling up to max_cooldown) while fallbacks serve.
+  health:
+    failure_threshold: 3
+    cooldown: 15s
+    max_cooldown: 5m
+  # Retries per target on 429/5xx/network errors.
+  max_retries: 3
+  # Optional price table (per million tokens) for cost tracking.
+  # currency: EUR
+  # prices:
+  #   claude-sonnet-4-5: { input: 3.0, output: 15.0 }
 
 # --- Command router (module: router) -----------------------------------------
 router:

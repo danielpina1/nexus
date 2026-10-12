@@ -55,12 +55,12 @@ public struct NexusActions: Sendable {
         }
     }
 
-    public func capture(_ text: String, url: String? = nil, source: String = "ios") async throws -> Nexus_V1_NoteRef {
+    public func capture(_ text: String, url: String? = nil, source: String = "ios", idempotencyKey: String = .idempotencyKey()) async throws -> Nexus_V1_NoteRef {
         var request = Nexus_V1_CaptureRequest()
         request.text = text
         request.url = url ?? ""
         request.source = source
-        request.idempotencyKey = .idempotencyKey()
+        request.idempotencyKey = idempotencyKey
         return try await hub.call { headers in
             await hub.vault.capture(request: request, headers: headers)
         }.note
@@ -68,14 +68,21 @@ public struct NexusActions: Sendable {
 
     // MARK: Task steering
 
-    public func sendMessage(taskID: String, text: String, questionID: String? = nil, choice: String? = nil, attachments: [Nexus_V1_Attachment] = []) async throws {
+    public func sendMessage(
+        taskID: String,
+        text: String,
+        questionID: String? = nil,
+        choice: String? = nil,
+        attachments: [Nexus_V1_Attachment] = [],
+        idempotencyKey: String = .idempotencyKey()
+    ) async throws {
         var request = Nexus_V1_SendMessageRequest()
         request.taskID = taskID
         request.text = text
         request.questionID = questionID ?? ""
         request.choice = choice ?? ""
         request.attachments = attachments
-        request.idempotencyKey = .idempotencyKey()
+        request.idempotencyKey = idempotencyKey
         _ = try await hub.call { headers in
             await hub.tasks.sendMessage(request: request, headers: headers)
         }
@@ -155,6 +162,22 @@ public struct NexusActions: Sendable {
             // Needs Face ID (see ApprovalSigner.swift): the caller deep-links to the in-app sheet.
             throw DecideError.requiresBiometric
         }
+        let request = try await signDecision(
+            approval: approval, approve: approve, comment: comment, remember: remember, actionSHA256: actionSHA256
+        )
+        return try await send(decision: request)
+    }
+
+    /// Signs a decision (Face ID for the approval key) without sending it, so it can be
+    /// queued while the Hub is unreachable. The signature is bound to the approval's expiry
+    /// (`request.decision.expiresAt`).
+    public func signDecision(
+        approval: Nexus_V1_Approval,
+        approve: Bool,
+        comment: String = "",
+        remember: Bool = false,
+        actionSHA256: Data? = nil
+    ) async throws -> Nexus_V1_DecideRequest {
         guard let deviceID = hub.configuration.deviceID else { throw HubError.notPaired }
         let signed = try await ApprovalSigner().sign(
             approval: approval,
@@ -166,7 +189,13 @@ public struct NexusActions: Sendable {
         request.decision = signed
         request.comment = comment
         request.remember = remember
-        return try await hub.call { headers in
+        return request
+    }
+
+    /// Sends an already signed decision.
+    @discardableResult
+    public func send(decision request: Nexus_V1_DecideRequest) async throws -> Nexus_V1_Approval {
+        try await hub.call { headers in
             await hub.approvals.decide(request: request, headers: headers)
         }.approval
     }

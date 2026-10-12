@@ -2,6 +2,7 @@
 //
 //	nexus-node run [-config node.yaml]   connect to the hub and execute runs
 //	nexus-node runtimes [-config ...]    list runtimes and their availability
+//	nexus-node llm check|models|status [-config node.yaml]
 //	nexus-node version
 package main
 
@@ -36,6 +37,10 @@ func main() {
 		err = run(os.Args[2:])
 	case "runtimes":
 		err = runtimes(os.Args[2:])
+	case "pair":
+		err = pair(os.Args[2:])
+	case "llm":
+		err = cmdLLM(os.Args[2:])
 	case "version":
 		fmt.Println("nexus-node", version)
 	case "-h", "--help", "help":
@@ -54,6 +59,8 @@ func usage() {
 	fmt.Fprintln(os.Stderr, `usage:
   nexus-node run [-config node.yaml] [-v]
   nexus-node runtimes [-config node.yaml]
+  nexus-node pair [-config node.yaml] [-id NAME] '<nexus://pair URL>'
+  nexus-node llm check|models|status [-config node.yaml]
   nexus-node version`)
 }
 

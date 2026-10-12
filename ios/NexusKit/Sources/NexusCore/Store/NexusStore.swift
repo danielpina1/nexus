@@ -3,8 +3,37 @@ import NexusAPI
 import Observation
 import SwiftProtobuf
 
+/// Result of an action that may be queued while the Hub is unreachable.
+public enum Delivery<Value> {
+    /// Reached the Hub.
+    case sent(Value)
+    /// Stored in the `Outbox`; sent automatically once the Hub answers again.
+    case queued(OutboxItem)
+
+    public var isQueued: Bool {
+        if case .queued = self { return true }
+        return false
+    }
+}
+
+public enum OutboxError: Error, LocalizedError {
+    case attachmentsNeedConnection
+
+    public var errorDescription: String? {
+        switch self {
+        case .attachmentsNeedConnection:
+            return "Photos can't be queued. Connect to your Nexus (home Wi-Fi or VPN) and send again."
+        }
+    }
+}
+
 /// The app's observable state: agents, nodes, tasks, inbox, per-task timelines and the
 /// connection state — fed by `EventStream` and refreshed with unary Hub calls.
+///
+/// Remote access (docs/NETWORK.md): `reachability` says whether the Hub answers and through
+/// which route; `NWPathMonitor` changes (Wi-Fi ↔ cellular, VPN up/down) trigger a re-probe of
+/// all paired Hub URLs, and commands / replies / captures / signed decisions made while it is
+/// unreachable go to the `Outbox` and are sent on reconnect.
 @Observable
 @MainActor
 public final class NexusStore {
@@ -25,6 +54,16 @@ public final class NexusStore {
     public private(set) var devices: [Nexus_V1_Device] = []
     public var lastError: String?
 
+    // Remote access
+    public private(set) var reachability: HubReachability = .unknown
+    public private(set) var networkPath: NetworkPathInfo?
+    /// A `/healthz` probe is running (drives the spinner on "Retry").
+    public private(set) var isProbing = false
+    /// Last time the Hub answered (probe or event stream).
+    public private(set) var lastContact: Date? = HubRouteMemory.lastContact
+    /// Items waiting for the Hub, oldest first.
+    public private(set) var outbox: [OutboxItem] = Outbox.load()
+
     /// Called whenever a task changes (used by the Live Activity manager).
     @ObservationIgnored public var onTaskChanged: ((Nexus_V1_Task) -> Void)?
     /// Called for every approval event (used to refresh notifications / activities).
@@ -33,6 +72,11 @@ public final class NexusStore {
     @ObservationIgnored private var hub: HubClient?
     @ObservationIgnored private var stream: EventStream?
     @ObservationIgnored private var snapshotTask: Task<Void, Never>?
+    @ObservationIgnored private let network = NetworkMonitor()
+    @ObservationIgnored private var probeTask: Task<Void, Never>?
+    @ObservationIgnored private var retryTask: Task<Void, Never>?
+    @ObservationIgnored private var isFlushing = false
+    @ObservationIgnored private var streamGeneration = 0
     private static let maxTimelineEntries = 500
 
     // MARK: Init
@@ -51,6 +95,25 @@ public final class NexusStore {
 
     public var isPaired: Bool { configuration?.isPaired ?? false }
     public var actions: NexusActions? { hub.map(NexusActions.init(hub:)) }
+
+    /// The Hub URL currently in use (nil before the first connection attempt).
+    public var currentHubURL: URL? { hub?.baseURL }
+
+    /// "Home Wi-Fi", "VPN", "Unreachable", … for Settings → Remote access.
+    public var routeLabel: String {
+        switch reachability {
+        case .connected(_, let viaVPN):
+            if viaVPN == true { return "VPN" }
+            if networkPath?.usesWiFi == true { return "Home Wi-Fi" }
+            if networkPath?.usesWired == true { return "Home network (wired)" }
+            if networkPath?.usesCellular == true { return "Cellular (direct)" }
+            return "Connected"
+        case .unreachable: return "Unreachable"
+        case .offline: return "No network"
+        case .checking: return "Checking…"
+        case .unknown: return isDemo ? "Demo" : "Not checked yet"
+        }
+    }
 
     // MARK: Derived
 
@@ -114,40 +177,260 @@ public final class NexusStore {
             if agents.isEmpty { loadDemoData() }
             return
         }
-        if hub != nil && stream != nil { return }
+        if hub != nil && (stream != nil || reachability.isUnavailable) { return }
         configuration = HubConfiguration.load()
         guard let configuration, configuration.primaryURL != nil else {
             connection = .disconnected
+            reachability = .unknown
             return
         }
+        outbox = Outbox.load()
+        if approvals.isEmpty {
+            approvals = Dictionary(ApprovalCache.load().map { ($0.id, $0) }, uniquingKeysWith: { _, new in new })
+        }
+        network.start { [weak self] info in self?.pathChanged(info) }
         do {
+            // Optimistic start on the URL that answered last; the probe below corrects the
+            // route (other URL, VPN, unreachable) within a few seconds.
             let hub = try HubClient(configuration: configuration)
             self.hub = hub
-            self.stream?.stop()
-            let stream = EventStream(
-                hub: hub,
-                onEvent: { [weak self] event in self?.apply(event) },
-                onState: { [weak self] state in self?.connection = state }
-            )
-            self.stream = stream
-            stream.start()
+            startStream(hub)
             Task { await refresh() }
         } catch {
             lastError = error.localizedDescription
         }
+        probe(restartStream: false)
     }
 
-    /// App returned to the foreground: reconnect a stalled stream right away.
+    /// App returned to the foreground: re-check the route and reconnect a stalled stream.
     public func foreground() {
         start()
-        if let stream, connection != .connected {
+        guard !isDemo, hub != nil else { return }
+        if !reachability.isConnected {
+            probe(restartStream: true)
+        } else if let stream, connection != .connected {
             stream.restart()
         }
     }
 
     public func stop() {
+        stopStream()
+        retryTask?.cancel()
+        retryTask = nil
+        probeTask?.cancel()
+        probeTask = nil
+    }
+
+    // MARK: Remote access
+
+    private func startStream(_ hub: HubClient) {
+        stream?.stop()
+        streamGeneration += 1
+        let generation = streamGeneration
+        let stream = EventStream(
+            hub: hub,
+            onEvent: { [weak self] event in self?.apply(event) },
+            onState: { [weak self] state in self?.streamStateChanged(state, generation: generation) }
+        )
+        self.stream = stream
+        stream.start()
+    }
+
+    private func stopStream() {
         stream?.stop()
         stream = nil
+        streamGeneration += 1
+        if !isDemo { connection = .disconnected }
+    }
+
+    private func streamStateChanged(_ state: ConnectionState, generation: Int) {
+        // Ignore late callbacks from a stream that was replaced (route change).
+        guard generation == streamGeneration else { return }
+        connection = state
+        switch state {
+        case .connected:
+            guard let hub else { return }
+            let viaVPN = networkPath.map(\.hasVPNInterface)
+            HubRouteMemory.recordContact(url: hub.baseURL, viaVPN: viaVPN)
+            lastContact = Date()
+            reachability = .connected(url: hub.baseURL, viaVPN: viaVPN)
+            retryTask?.cancel()
+            retryTask = nil
+            if !outbox.isEmpty { Task { await flushOutbox() } }
+        case .reconnecting(let attempt, _):
+            // The stream keeps failing: probe GET /healthz on every paired URL before
+            // declaring the Hub unreachable (and switch URL if another one answers).
+            if attempt >= 2 && !isProbing { probe(restartStream: false) }
+        default:
+            break
+        }
+    }
+
+    private func pathChanged(_ info: NetworkPathInfo) {
+        let previous = networkPath
+        networkPath = info
+        guard !isDemo, configuration != nil, hub != nil else { return }
+        if !info.isSatisfied {
+            reachability = .offline
+            stopStream()
+            scheduleRetry()
+            return
+        }
+        // Wi-Fi ↔ cellular, VPN up/down: the way to the Hub may have changed. Re-probe (after a
+        // short settle delay — on-demand VPNs come up a moment after the new path).
+        if previous != nil || !reachability.isConnected {
+            probe(after: .milliseconds(800), restartStream: true)
+        }
+    }
+
+    /// "Retry" in the unreachable banner and Settings → Remote access → Test connection.
+    public func retryConnection() {
+        guard !isDemo else { return }
+        if hub == nil { start() }
+        probe(restartStream: true)
+    }
+
+    /// Probes all paired Hub URLs (last working first) with `GET /healthz`.
+    private func probe(after delay: Duration = .zero, restartStream: Bool) {
+        guard !isDemo, let configuration, !configuration.hubURLs.isEmpty else { return }
+        probeTask?.cancel()
+        probeTask = Task { [weak self] in
+            if delay > .zero { try? await Task.sleep(for: delay) }
+            guard !Task.isCancelled, let self else { return }
+            await self.runProbe(configuration, restartStream: restartStream)
+        }
+    }
+
+    private func runProbe(_ configuration: HubConfiguration, restartStream: Bool) async {
+        if reachability == .unknown { reachability = .checking }
+        isProbing = true
+        let path = network.current ?? networkPath
+        let result = await HubClient.connect(configuration: configuration, path: path)
+        isProbing = false
+        guard !Task.isCancelled else { return }
+
+        switch result.outcome {
+        case .reachable(let url):
+            let viaVPN = path.map(\.hasVPNInterface)
+            lastContact = Date()
+            reachability = .connected(url: url, viaVPN: viaVPN)
+            retryTask?.cancel()
+            retryTask = nil
+            if hub?.baseURL != url || stream == nil, let client = result.client {
+                let switched = hub != nil
+                hub = client
+                startStream(client)
+                if switched { await refresh() }
+            } else if restartStream, connection != .connected {
+                stream?.restart()
+            }
+            await flushOutbox()
+        case .unreachable(let reason):
+            reachability = .unreachable(reason: reason)
+            stopStream()
+            scheduleRetry()
+        case .offline:
+            reachability = .offline
+            stopStream()
+            scheduleRetry()
+        }
+    }
+
+    /// While unreachable (and the app is running), re-probe every 15–60 s. Path changes
+    /// (e.g. the WireGuard on-demand tunnel coming up) trigger an immediate probe as well.
+    private func scheduleRetry() {
+        guard retryTask == nil else { return }
+        retryTask = Task { [weak self] in
+            var delay: Double = 15
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(delay))
+                guard !Task.isCancelled, let self else { return }
+                if self.reachability.isConnected { break }
+                if self.networkPath?.isSatisfied != false && !self.isProbing {
+                    self.probe(restartStream: true)
+                }
+                delay = min(delay * 1.5, 60)
+            }
+        }
+    }
+
+    /// Sends `kind` now, or queues it when the Hub is unreachable. A transport failure is
+    /// confirmed with a `/healthz` probe before queueing (the Hub may just have answered with
+    /// an error, or another paired URL may work).
+    private func deliverOrQueue<Value>(
+        _ kind: OutboxItem.Kind,
+        idempotencyKey: String = .idempotencyKey(),
+        send: (NexusActions, String) async throws -> Value
+    ) async throws -> Delivery<Value> {
+        if isDemo { throw HubError.demoMode }
+        guard let configuration, let hub else { throw HubError.notConfigured }
+        if reachability.isUnavailable {
+            return .queued(enqueue(kind, idempotencyKey: idempotencyKey))
+        }
+        do {
+            return .sent(try await send(NexusActions(hub: hub), idempotencyKey))
+        } catch let error where HubClient.isTransportFailure(error) {
+            await runProbe(configuration, restartStream: true)
+            if reachability.isConnected, let current = self.hub {
+                // The Hub answers (possibly on another URL now): one retry, same key.
+                return .sent(try await send(NexusActions(hub: current), idempotencyKey))
+            }
+            return .queued(enqueue(kind, idempotencyKey: idempotencyKey))
+        }
+    }
+
+    private func enqueue(_ kind: OutboxItem.Kind, idempotencyKey: String) -> OutboxItem {
+        let item = OutboxItem(kind: kind, idempotencyKey: idempotencyKey)
+        outbox = Outbox.enqueue(item)
+        return item
+    }
+
+    /// Drops a queued item (swipe to delete in Settings → Remote access).
+    public func discardOutboxItem(_ id: String) {
+        Outbox.remove(id: id)
+        outbox = Outbox.load()
+    }
+
+    /// Sends queued items in order. Expired signed decisions are dropped with a message;
+    /// items the Hub rejects are dropped with the Hub's reason; a transport failure stops
+    /// the flush (still unreachable) and keeps the rest.
+    public func flushOutbox() async {
+        guard !isFlushing, !isDemo, let hub, reachability.isConnected else { return }
+        let pending = Outbox.load()
+        guard !pending.isEmpty else {
+            outbox = []
+            return
+        }
+        isFlushing = true
+        defer { isFlushing = false }
+        let actions = NexusActions(hub: hub)
+        var sentAny = false
+        var problems: [String] = []
+        for item in pending {
+            if item.isExpired {
+                Outbox.remove(id: item.id)
+                problems.append("Not sent — “\(item.summary)” expired before your Nexus could be reached. Nothing was approved or denied.")
+                continue
+            }
+            do {
+                try await actions.deliver(item)
+                Outbox.remove(id: item.id)
+                sentAny = true
+            } catch let error where HubClient.isTransportFailure(error) {
+                var failed = item
+                failed.attempts += 1
+                failed.lastError = error.localizedDescription
+                Outbox.update(failed)
+                probe(restartStream: false)
+                break
+            } catch {
+                Outbox.remove(id: item.id)
+                problems.append("Could not send “\(item.summary)”: \(error.localizedDescription)")
+            }
+        }
+        outbox = Outbox.load()
+        if !problems.isEmpty { lastError = problems.joined(separator: "\n") }
+        if sentAny { await refresh() }
     }
 
     /// Re-reads configuration (after pairing / settings changes) and reconnects.
@@ -173,7 +456,9 @@ public final class NexusStore {
     public func unpair() {
         stop()
         hub = nil
+        reachability = .unknown
         HubConfiguration.clear()
+        outbox = []
         Keychain.deleteAll()
         KeyManager.shared.resetAll()
         configuration = nil
@@ -239,6 +524,9 @@ public final class NexusStore {
             approvals = Dictionary(p.map { ($0.id, $0) }, uniquingKeysWith: { _, new in new })
             lastError = nil
             scheduleSnapshot()
+        } catch let error where HubClient.isTransportFailure(error) {
+            // Not an error to show: the unreachable banner covers it. Confirm with a probe.
+            if !isProbing { probe(restartStream: false) }
         } catch {
             lastError = error.localizedDescription
         }
@@ -394,36 +682,91 @@ public final class NexusStore {
         return response
     }
 
-    public func sendMessage(taskID: String, text: String, questionID: String? = nil, choice: String? = nil, attachments: [Nexus_V1_Attachment] = []) async throws {
-        if let questionID { questions.removeValue(forKey: questionID) }
+    /// Like `execute`, but queues the command in the `Outbox` when the Hub is unreachable
+    /// (away from home with the VPN off). Used by the chat composer and favourites.
+    public func submit(_ input: String, attachments: [Nexus_V1_Attachment] = [], agentID: String? = nil, source: String = "ios-chat") async throws -> Delivery<Nexus_V1_ExecuteResponse> {
         if isDemo {
-            append(TimelineItem(id: UUID().uuidString, at: Date(), runID: "", kind: .userMessage(choice ?? text)), to: taskID)
-            return
+            return .sent(try await execute(input, attachments: attachments, agentID: agentID, source: source))
         }
-        try await requireActions().sendMessage(taskID: taskID, text: text, questionID: questionID, choice: choice, attachments: attachments)
+        if !attachments.isEmpty {
+            // Photos are never queued (the outbox is small, text-only).
+            if reachability.isUnavailable { throw OutboxError.attachmentsNeedConnection }
+            return .sent(try await execute(input, attachments: attachments, agentID: agentID, source: source))
+        }
+        let delivery = try await deliverOrQueue(.command(input: input, agentID: agentID, source: source)) { actions, key in
+            try await actions.execute(input, attachments: attachments, agentID: agentID, source: source, idempotencyKey: key)
+        }
+        if case .sent(let response) = delivery, response.hasTask {
+            tasks[response.task.id] = response.task
+            append(TimelineItem(id: "local_\(UUID().uuidString)", at: Date(), runID: response.task.currentRunID, kind: .userMessage(input)), to: response.task.id)
+        }
+        return delivery
     }
 
-    /// Signs (Face ID for biometric approvals) and sends a decision.
-    public func decide(_ approval: Nexus_V1_Approval, approve: Bool, comment: String = "", remember: Bool = false) async throws {
+    /// Replies to a task; queued while the Hub is unreachable (text only).
+    @discardableResult
+    public func sendMessage(taskID: String, text: String, questionID: String? = nil, choice: String? = nil, attachments: [Nexus_V1_Attachment] = []) async throws -> Delivery<Void> {
+        if isDemo {
+            if let questionID { questions.removeValue(forKey: questionID) }
+            append(TimelineItem(id: UUID().uuidString, at: Date(), runID: "", kind: .userMessage(choice ?? text)), to: taskID)
+            return .sent(())
+        }
+        if !attachments.isEmpty {
+            if reachability.isUnavailable { throw OutboxError.attachmentsNeedConnection }
+            try await requireActions().sendMessage(taskID: taskID, text: text, questionID: questionID, choice: choice, attachments: attachments)
+            if let questionID { questions.removeValue(forKey: questionID) }
+            return .sent(())
+        }
+        let delivery = try await deliverOrQueue(.message(taskID: taskID, text: text, questionID: questionID, choice: choice)) { actions, key in
+            try await actions.sendMessage(taskID: taskID, text: text, questionID: questionID, choice: choice, attachments: attachments, idempotencyKey: key)
+        }
+        if let questionID { questions.removeValue(forKey: questionID) }
+        return delivery
+    }
+
+    /// Signs (Face ID for biometric approvals) and sends a decision. While the Hub is
+    /// unreachable the signed decision is queued and retried until the Hub answers or the
+    /// signature's expiry passes (then it is dropped with a message).
+    @discardableResult
+    public func decide(_ approval: Nexus_V1_Approval, approve: Bool, comment: String = "", remember: Bool = false) async throws -> Delivery<Void> {
         if isDemo {
             if approve && approval.level == .biometric {
                 _ = try await ApprovalSigner().authenticate(reason: "Approve “\(approval.title)”")
             }
             approvals.removeValue(forKey: approval.id)
-            return
+            return .sent(())
         }
-        let updated = try await requireActions().decide(
-            approval: approval, approve: approve, comment: comment, remember: remember, allowBiometric: true
+        let request = try await requireActions().signDecision(
+            approval: approval, approve: approve, comment: comment, remember: remember
         )
+        let blob: Data = try request.serializedBytes()
+        let kind = OutboxItem.Kind.decision(
+            request: blob,
+            approvalID: approval.id,
+            title: approval.title,
+            approve: approve,
+            expiresAt: request.decision.expiresAt.date
+        )
+        let delivery = try await deliverOrQueue(kind, idempotencyKey: approval.id) { actions, _ in
+            try await actions.send(decision: request)
+        }
         approvals.removeValue(forKey: approval.id)
-        if updated.state == .pending { approvals[updated.id] = updated }
-        scheduleSnapshot()
+        switch delivery {
+        case .sent(let updated):
+            if updated.state == .pending { approvals[updated.id] = updated }
+            scheduleSnapshot()
+            return .sent(())
+        case .queued(let item):
+            scheduleSnapshot()
+            return .queued(item)
+        }
     }
 
     /// Finds an approval by id (cached or fetched) — for deep links and notifications.
     public func approval(id: String) async -> Nexus_V1_Approval? {
         if let cached = approvals[id] { return cached }
-        guard !isDemo, let hub else { return nil }
+        // While unreachable only the cache counts (no 60 s network timeout behind a spinner).
+        guard !isDemo, let hub, !reachability.isUnavailable else { return nil }
         if let fetched = try? await NexusActions(hub: hub).approval(id: id) {
             approvals[fetched.id] = fetched
             return fetched
@@ -494,9 +837,12 @@ public final class NexusStore {
         }.note
     }
 
-    public func capture(_ text: String, url: String? = nil) async throws {
-        if isDemo { return }
-        _ = try await requireActions().capture(text, url: url, source: "ios-capture")
+    @discardableResult
+    public func capture(_ text: String, url: String? = nil) async throws -> Delivery<Void> {
+        if isDemo { return .sent(()) }
+        return try await deliverOrQueue(.capture(text: text, url: url)) { actions, key in
+            _ = try await actions.capture(text, url: url, source: "ios-capture", idempotencyKey: key)
+        }
     }
 
     // MARK: Machines
@@ -596,6 +942,7 @@ public final class NexusStore {
             favourites: favourites.isEmpty ? (WidgetSnapshot.load()?.favourites ?? []) : Array(favourites),
             lastResult: doneTasks.first.map { $0.summary.isEmpty ? $0.displayTitle : $0.summary }
         )
+        if !isDemo { ApprovalCache.save(Array(approvals.values)) }
         if snapshot != WidgetSnapshot.load() {
             snapshot.save()
             onSnapshot?()

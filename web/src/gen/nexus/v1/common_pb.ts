@@ -221,7 +221,7 @@ export enum Tier {
   SIMPLE = 1,
 
   /**
-   * cloud models via Unify Gateway
+   * stronger models (local or cloud)
    *
    * @generated from enum value: TIER_MEDIUM = 2;
    */

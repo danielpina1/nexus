@@ -40,8 +40,12 @@ func (b bearer) RoundTrip(r *http.Request) (*http.Response, error) {
 }
 
 func newClient(baseURL, token string) *client {
+	return newClientRT(baseURL, token, http.DefaultTransport)
+}
+
+func newClientRT(baseURL, token string, rt http.RoundTripper) *client {
 	baseURL = strings.TrimRight(baseURL, "/")
-	hc := &http.Client{Transport: bearer{token: token, next: http.DefaultTransport}}
+	hc := &http.Client{Transport: bearer{token: token, next: rt}}
 	return &client{
 		baseURL:   baseURL,
 		http:      hc,

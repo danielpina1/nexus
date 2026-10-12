@@ -6,7 +6,8 @@ import Foundation
 /// Architecture rule: every target talks ONLY to the Hub API (and receives APNs pushes that
 /// originate from the Hub). Nothing here ever points at a node, LLM or third-party service.
 public struct HubConfiguration: Codable, Equatable, Sendable {
-    /// Hub base URLs in preference order, e.g. `https://hub.tailnet.ts.net:7700`.
+    /// Hub base URLs from the pairing QR in preference order, e.g. `https://nexus.home.arpa:7700`
+    /// (the same URL works on home Wi-Fi and through the UniFi VPN — docs/NETWORK.md).
     public var hubURLs: [URL]
     /// Lowercase hex SHA-256 of the Hub CA certificate (DER), from the pairing QR.
     public var caFingerprint: String?
@@ -39,6 +40,16 @@ public struct HubConfiguration: Codable, Equatable, Sendable {
 
     public var primaryURL: URL? { hubURLs.first }
 
+    /// All Hub URLs from the pairing QR (`hub=` is repeatable), the one that answered last
+    /// first. HubClient and the reachability probe try them in this order.
+    public var orderedURLs: [URL] {
+        guard let last = HubRouteMemory.lastWorkingURL, hubURLs.contains(last) else { return hubURLs }
+        return [last] + hubURLs.filter { $0 != last }
+    }
+
+    /// The URL to use before anything was probed (widgets, intents, extensions).
+    public var preferredURL: URL? { orderedURLs.first }
+
     public var isPaired: Bool { deviceID != nil || Keychain.string(for: .devToken) != nil }
 
     // MARK: Persistence (App Group defaults)
@@ -57,5 +68,8 @@ public struct HubConfiguration: Codable, Equatable, Sendable {
     public static func clear() {
         AppGroup.defaults.removeObject(forKey: AppGroup.Key.hubConfiguration)
         AppGroup.defaults.removeObject(forKey: AppGroup.Key.lastEventSeq)
+        HubRouteMemory.clear()
+        Outbox.clear()
+        ApprovalCache.clear()
     }
 }
