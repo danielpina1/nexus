@@ -45,8 +45,9 @@ hang)
   sleep 30
   ;;
 idle)
-  IFS= read -r second
-  say '{"type":"result","subtype":"success","is_error":false,"result":"idle done","session_id":"sess-1"}'
+  if IFS= read -r second; then
+    say '{"type":"result","subtype":"success","is_error":false,"result":"idle done","session_id":"sess-1"}'
+  fi
   ;;
 permission)
   cfg=""; prev=""

@@ -31,7 +31,7 @@ import (
 //	now      timestamp
 //
 // Extra functions: the cel-go strings, lists, math and encoders extensions,
-// optional types (`trigger.?payload.?x.orValue('')`) and toJson(dyn) → string.
+// optional types (`trigger.?payload.?x.orValue("none")`) and toJson(dyn) → string.
 var baseVars = []string{"inputs", "steps", "trigger", "run", "item", "index", "event"}
 
 var (

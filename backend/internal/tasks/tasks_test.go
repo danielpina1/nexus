@@ -402,7 +402,7 @@ func TestApprovals(t *testing.T) {
 		wantState(t, f.get(t, task.Id), stRunning)
 	})
 
-	t.Run("denied fails and cancels", func(t *testing.T) {
+	t.Run("denied resumes and lets the runtime decide", func(t *testing.T) {
 		f := newFixture(t)
 		broker := &taskstest.Broker{}
 		f.env.Host.Provide(kernel.SvcApprovals, broker)
@@ -413,8 +413,10 @@ func TestApprovals(t *testing.T) {
 		if err := f.e.OnApprovalResolved(context.Background(), a); err != nil {
 			t.Fatal(err)
 		}
-		wantState(t, f.get(t, task.Id), stFailed)
-		if len(f.disp.Cancels) != 1 || f.disp.Cancels[0].RunId != task.CurrentRunId {
+		// The node gets the denial and its runtime either continues (agent
+		// loops) or reports FAILED itself (shell/echo); the hub does not cancel.
+		wantState(t, f.get(t, task.Id), stRunning)
+		if len(f.disp.Cancels) != 0 {
 			t.Fatalf("cancels = %+v", f.disp.Cancels)
 		}
 	})

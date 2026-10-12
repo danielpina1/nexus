@@ -249,6 +249,11 @@ func (s *Security) Public(path string) bool {
 	if publicProcedures[path] {
 		return true
 	}
+	// Webhooks authenticate per hook (HMAC signature or hook secret) in the
+	// triggers module, so they bypass session auth.
+	if strings.HasPrefix(path, "/hooks/") {
+		return true
+	}
 	for _, p := range s.cfg.PublicPaths {
 		if p != "" && strings.HasPrefix(path, p) {
 			return true

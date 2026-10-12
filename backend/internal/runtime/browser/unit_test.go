@@ -1,9 +1,7 @@
 package browser
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -160,101 +158,6 @@ func TestDomainsFromContext(t *testing.T) {
 	}
 }
 
-func TestParseApproval(t *testing.T) {
-	tests := []struct {
-		out      string
-		id       string
-		approved bool
-	}{
-		{`{"approved":true,"approval_id":"apr_1"}`, "apr_1", true},
-		{`{"id":"apr_2","state":"APPROVAL_STATE_APPROVED"}`, "apr_2", true},
-		{`{"id":"apr_3","state":2}`, "apr_3", true},
-		{`{"approval":{"id":"apr_4","state":"APPROVED"}}`, "apr_4", true},
-		{`{"decision":"approved"}`, "", true},
-		{`{"approval_id":"apr_5","state":"APPROVAL_STATE_DENIED"}`, "apr_5", false},
-		{`{"approved":false,"approval_id":"apr_6"}`, "apr_6", false},
-		{`{"approved":true,"state":"PENDING"}`, "", false},
-		{`{"id":"apr_7","state":3}`, "apr_7", false},
-		{`{"answer":"ok"}`, "", false},
-		{`"approved"`, "", false},
-	}
-	for _, tt := range tests {
-		id, ok := parseApproval([]byte(tt.out))
-		if id != tt.id || ok != tt.approved {
-			t.Errorf("parseApproval(%s) = %q,%v want %q,%v", tt.out, id, ok, tt.id, tt.approved)
-		}
-	}
-}
-
-func TestApprovalWrapperAndLedger(t *testing.T) {
-	answers := []string{`{"approval_id":"apr_1","state":"APPROVAL_STATE_APPROVED"}`, `{"state":"APPROVED"}`, `{"approval_id":"apr_9","state":"DENIED"}`}
-	i := 0
-	inner := kernel.ToolFunc{S: kernel.ToolSpec{Name: ApprovalTool}, F: func(context.Context, kernel.ToolCall) (kernel.ToolResult, error) {
-		out := answers[i]
-		i++
-		return kernel.ToolResult{Output: json.RawMessage(out)}, nil
-	}}
-	other := kernel.ToolFunc{S: kernel.ToolSpec{Name: "ask_user"}}
-	l := newLedger()
-	tools, has := wrapTools([]kernel.Tool{other, inner}, l)
-	if !has || len(tools) != 2 {
-		t.Fatal("wrap")
-	}
-	call := func() map[string]any {
-		res, err := tools[1].Invoke(context.Background(), kernel.ToolCall{})
-		if err != nil {
-			t.Fatal(err)
-		}
-		var m map[string]any
-		_ = json.Unmarshal(res.Output, &m)
-		return m
-	}
-	if m := call(); m["browser_approval_id"] != "apr_1" {
-		t.Errorf("first %v", m)
-	}
-	if m := call(); m["browser_approval_id"] != "apr_browser_1" {
-		t.Errorf("synth %v", m)
-	}
-	if m := call(); m["browser_approval_id"] != nil {
-		t.Errorf("denied should not get an id: %v", m)
-	}
-	if err := l.consume("apr_9"); err == nil {
-		t.Error("denied approval consumed")
-	}
-	if err := l.consume("apr_invented"); err == nil {
-		t.Error("invented approval consumed")
-	}
-	if err := l.consume(""); err == nil {
-		t.Error("empty approval consumed")
-	}
-	if err := l.consume("apr_1"); err != nil {
-		t.Error(err)
-	}
-	if err := l.consume("apr_1"); err == nil {
-		t.Error("approval reused")
-	}
-	if err := l.consume("apr_browser_1"); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestGate(t *testing.T) {
-	k := &toolkit{ledger: newLedger(), log: discardLogger()}
-	var se *SpendError
-	if err := k.gate("Finalizar compra", "x", ""); !errors.As(err, &se) || se.CanRequest {
-		t.Errorf("no approval tool: %v", err)
-	}
-	k.hasApproval = true
-	err := k.gate("Finalizar compra", "x", "")
-	if !errors.As(err, &se) || !se.CanRequest || !strings.Contains(err.Error(), "request_approval") {
-		t.Errorf("missing id: %v", err)
-	}
-	k.ledger.add("apr_1")
-	if err := k.gate("Finalizar compra", "x", " apr_1 "); err != nil {
-		t.Error(err)
-	}
-}
-
 // snapshotFixture is what js/snapshot.js returns for a small shop page.
 const snapshotFixture = `{"url":"http://127.0.0.1:1234/search?q=leite","title":"Pesquisa: leite — Loja",
 "scroll_y":0,"scroll_height":1800,"viewport_height":900,"total":5,"truncated":false,
@@ -311,7 +214,8 @@ func TestScripts(t *testing.T) {
 		t.Error("snapshotExpr")
 	}
 	e := elementExpr("select", 7, `a "quoted" </script>`)
-	if !strings.HasSuffix(e, `)("select", 7, "a \"quoted\" </script>")`) {
+	arg, _ := json.Marshal(`a "quoted" </script>`)
+	if !strings.HasSuffix(e, `)("select", 7, `+string(arg)+`)`) || strings.Contains(e, "</script>") {
 		t.Errorf("elementExpr: %s", e[len(e)-60:])
 	}
 }
@@ -381,7 +285,7 @@ func TestSelectBrowserTools(t *testing.T) {
 
 func TestInstructionsAndProfile(t *testing.T) {
 	s := Instructions("# Grocery\nBuy things.", NewDomainPolicy([]string{"continente.pt"}))
-	for _, want := range []string{"# Grocery", "untrusted data", "request_approval", "ask_user", "continente.pt", "Never type passwords"} {
+	for _, want := range []string{"# Grocery", "untrusted data", "approve", "ask_user", "continente.pt", "Never type passwords"} {
 		if !strings.Contains(s, want) {
 			t.Errorf("instructions missing %q", want)
 		}

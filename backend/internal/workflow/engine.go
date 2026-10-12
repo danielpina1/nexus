@@ -259,7 +259,7 @@ func (r *runner) execStep(ctx context.Context, st *Step, sc *scope, path string)
 			break
 		}
 		r.s.log.Warn("workflow step failed, retrying", "run", r.run.ID, "step", path, "try", try+1, "err", err)
-		if serr := r.s.sleep(sctx, backoff(try)); serr != nil {
+		if serr := r.s.sleep(sctx, r.s.backoff(try)); serr != nil {
 			err = serr
 			break
 		}

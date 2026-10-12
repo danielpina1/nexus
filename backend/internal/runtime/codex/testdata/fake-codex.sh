@@ -1,6 +1,7 @@
 #!/bin/sh
 # Fake Codex CLI emitting `codex exec --json` JSONL for tests.
-# Modes (FAKE_CODEX_MODE): success (default), legacy, fail, crash, hang.
+# Modes (FAKE_CODEX_MODE): success (default), legacy, fail, crash, hang,
+# mcp (calls a gated Nexus tool on the endpoint from -c mcp_servers.nexus.url=… with curl).
 say() { printf "%s\n" "$1"; }
 if [ "$1" = "--version" ]; then
   say "codex-cli 0.99.0"
@@ -46,5 +47,21 @@ crash)
 hang)
   say '{"type":"thread.started","thread_id":"t"}'
   sleep 30
+  ;;
+mcp)
+  url=""
+  for a in "$@"; do
+    case "$a" in mcp_servers.nexus.url=*) url=$(printf '%s' "$a" | sed 's/^mcp_servers\.nexus\.url="\(.*\)"$/\1/') ;; esac
+  done
+  post() { curl -sS --noproxy '*' -X POST -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' --data "$1" "$url"; }
+  post '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"fake-codex","version":"1"}}}' > /dev/null
+  resp=$(post '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"github_push","arguments":{"repo":"x"}}}')
+  case "$resp" in
+    *'"isError":true'*) v=denied ;;
+    *pushed*) v=pushed ;;
+    *) v=error ;;
+  esac
+  say '{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"'"$v"'"}}'
+  say '{"type":"turn.completed","usage":{"input_tokens":1,"output_tokens":1}}'
   ;;
 esac

@@ -18,6 +18,7 @@ import (
 	"github.com/oklog/ulid/v2"
 
 	nexusv1 "github.com/danielpina1/nexus/backend/gen/nexus/v1"
+	"github.com/danielpina1/nexus/backend/internal/runtime/approvalgate"
 	"github.com/danielpina1/nexus/backend/kernel"
 )
 
@@ -46,14 +47,17 @@ const (
 
 // toolkit is the per-run set of browser tools over one session.
 type toolkit struct {
-	s           *session
-	cls         *Classifier
-	ledger      *ledger
-	hasApproval bool
-	workdir     string
-	maxChars    int
-	inlineMax   int
-	log         *slog.Logger
+	s         *session
+	cls       *Classifier
+	gate      *approvalgate.Gate   // checkout/payment clicks; nil = always refuse
+	emit      func(*nexusv1.Event) // run event stream (artifacts taken by the gate)
+	agentName string
+	taskID    string
+	runID     string
+	workdir   string
+	maxChars  int
+	inlineMax int
+	log       *slog.Logger
 
 	mu    sync.Mutex
 	shots int
@@ -84,10 +88,10 @@ func (k *toolkit) tools() []kernel.Tool {
 			`{"type":"object","properties":{"url":{"type":"string"}},"required":["url"]}`, read, k.navigate),
 		mk(ToolSnapshot, "Text view of the current page: title, URL, numbered interactive elements [ref] with role/name/value, and visible text. Refs are used by click/type/select and change after navigation.",
 			`{"type":"object","properties":{}}`, read, k.snapshot),
-		mk(ToolClick, "Click the element [ref] from the latest snapshot. Checkout/payment buttons require approval_id from an APPROVED request_approval.",
-			`{"type":"object","properties":{"ref":{"type":"integer"},"approval_id":{"type":"string","description":"Only for checkout/payment clicks: browser_approval_id returned by an approved request_approval."}},"required":["ref"]}`, compute, k.click),
+		mk(ToolClick, "Click the element [ref] from the latest snapshot. Checkout/payment buttons pause for the user's approval (spend).",
+			`{"type":"object","properties":{"ref":{"type":"integer"}},"required":["ref"]}`, compute, k.click),
 		mk(ToolType, "Type text into the field [ref] (replaces its content unless append=true); submit=true presses Enter. Never use for passwords or card data.",
-			`{"type":"object","properties":{"ref":{"type":"integer"},"text":{"type":"string"},"submit":{"type":"boolean"},"append":{"type":"boolean"},"approval_id":{"type":"string"}},"required":["ref","text"]}`, compute, k.typeText),
+			`{"type":"object","properties":{"ref":{"type":"integer"},"text":{"type":"string"},"submit":{"type":"boolean"},"append":{"type":"boolean"}},"required":["ref","text"]}`, compute, k.typeText),
 		mk(ToolSelect, "Choose an option of the <select> [ref] by value or visible text.",
 			`{"type":"object","properties":{"ref":{"type":"integer"},"value":{"type":"string"}},"required":["ref","value"]}`, compute, k.selectOpt),
 		mk(ToolScroll, "Scroll the page: direction up|down|top|bottom (optional amount in px), or bring element [ref] into view.",
@@ -186,30 +190,72 @@ func (k *toolkit) describeLocked(ctx context.Context, ref int) (elementInfo, err
 	return info, nil
 }
 
-// SpendError explains why a checkout/payment action was refused.
+// SpendError explains why a checkout/payment action did not happen.
 type SpendError struct {
-	Label, Pattern, Reason string
-	CanRequest             bool
+	Label, Reason string
 }
 
 func (e *SpendError) Error() string {
-	if !e.CanRequest {
-		return fmt.Sprintf("BLOCKED (spend): %q looks like a checkout/payment action and this agent has no request_approval tool, so it cannot complete purchases. Stop and report the cart to the user.", e.Label)
-	}
-	return fmt.Sprintf("BLOCKED (spend): %q looks like a checkout/payment action (matched %s) and needs the user's approval: %s. "+
-		"Take a browser.screenshot of the cart, call request_approval with action_class \"spend\", the item list, total, delivery slot and the screenshot attachment_id, "+
-		"then retry this exact call with approval_id set to the browser_approval_id it returns. If the user denies, stop.", e.Label, e.Pattern, e.Reason)
+	return fmt.Sprintf("NOT DONE (spend): %q is a checkout/payment action and the user did not approve it (%s). Do not retry or look for another way to pay; stop and report the cart to the user.", e.Label, e.Reason)
 }
 
-// gate enforces approval for spend actions. It consumes the approval.
-func (k *toolkit) gate(label, pattern, approvalID string) error {
-	if !k.hasApproval {
-		return &SpendError{Label: label, Pattern: pattern}
+// approveSpendLocked asks the user (through the run's approval gate) before a
+// checkout/payment click. The approval shows exactly what will happen: the
+// page, the button, a fresh screenshot and the page text (the cart). The
+// screenshot is emitted as an artifact first. Caller holds k.s.mu.
+func (k *toolkit) approveSpendLocked(ctx context.Context, ref int, label, pattern, how string) error {
+	if k.gate == nil {
+		return &SpendError{Label: label, Reason: "no approval channel in this run"}
 	}
-	if err := k.ledger.consume(strings.TrimSpace(approvalID)); err != nil {
-		return &SpendError{Label: label, Pattern: pattern, Reason: err.Error(), CanRequest: true}
+	u, title := k.s.locationLocked(ctx)
+	payload := map[string]any{
+		"tool":    ToolClick,
+		"action":  how,
+		"url":     u,
+		"page":    title,
+		"element": label,
+		"ref":     ref,
+		"matched": pattern,
 	}
-	k.log.Info("browser: approved checkout action", "label", label, "approval_id", approvalID)
+	if raw, err := k.s.evalLocked(ctx, elementExpr("extract", 0, "")); err == nil {
+		var ex struct {
+			Text string `json:"text"`
+		}
+		if json.Unmarshal([]byte(raw), &ex) == nil && ex.Text != "" {
+			payload["page_text"] = cutUTF8(ex.Text, 3000)
+		}
+	}
+	if att, err := k.captureLocked(ctx, true); err == nil {
+		payload["screenshot"] = att.Id
+		if k.emit != nil {
+			k.emit(&nexusv1.Event{TaskId: k.taskID, RunId: k.runID, Body: &nexusv1.Event_Artifact{Artifact: &nexusv1.ArtifactAdded{Attachment: att}}})
+		}
+	} else {
+		k.log.Warn("browser: screenshot for approval failed", "err", err)
+	}
+	who := k.agentName
+	if who == "" {
+		who = "Browser agent"
+	}
+	host := hostOf(u)
+	out, err := k.gate.Check(ctx, approvalgate.Request{
+		Class:   nexusv1.ActionClass_ACTION_CLASS_SPEND,
+		Title:   fmt.Sprintf("%s wants to %s on %s", who, strings.ToLower(oneLine(label, 60)), host),
+		Summary: fmt.Sprintf("Click %q on %s (%s). Check the attached screenshot and cart before approving.", label, title, u),
+		Payload: payload,
+	})
+	if err != nil {
+		return fmt.Errorf("approval failed: %w", err)
+	}
+	if !out.Approved {
+		k.gate.Resume()
+		reason := out.Reason
+		if reason == "" {
+			reason = "denied"
+		}
+		return &SpendError{Label: label, Reason: reason}
+	}
+	k.log.Info("browser: checkout action approved", "label", label, "approval_id", out.ApprovalID, "level", out.Level.String())
 	return nil
 }
 
@@ -217,8 +263,7 @@ func refSel(ref int) string { return fmt.Sprintf(`[data-nexus-ref="%d"]`, ref) }
 
 func (k *toolkit) click(ctx context.Context, c kernel.ToolCall) (any, error) {
 	var in struct {
-		Ref        int    `json:"ref"`
-		ApprovalID string `json:"approval_id"`
+		Ref int `json:"ref"`
 	}
 	if err := kernel.ToolInput(c, &in); err != nil {
 		return nil, err
@@ -229,14 +274,14 @@ func (k *toolkit) click(ctx context.Context, c kernel.ToolCall) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	label, pattern, spend := k.cls.Match(info.Labels...)
-	if spend {
-		if err := k.gate(oneLine(label, 80), pattern, in.ApprovalID); err != nil {
-			return nil, err
-		}
-	}
 	if info.Disabled {
 		return nil, fmt.Errorf("element [%d] %q is disabled", in.Ref, info.label())
+	}
+	label, pattern, spend := k.cls.Match(info.Labels...)
+	if spend {
+		if err := k.approveSpendLocked(ctx, in.Ref, oneLine(label, 80), pattern, "click"); err != nil {
+			return nil, err
+		}
 	}
 	if _, err := k.s.evalLocked(ctx, elementExpr("prepare", in.Ref, "")); err != nil {
 		return nil, err
@@ -274,11 +319,10 @@ func (k *toolkit) checkHostLocked(ctx context.Context, u string) error {
 
 func (k *toolkit) typeText(ctx context.Context, c kernel.ToolCall) (any, error) {
 	var in struct {
-		Ref        int    `json:"ref"`
-		Text       string `json:"text"`
-		Submit     bool   `json:"submit"`
-		Append     bool   `json:"append"`
-		ApprovalID string `json:"approval_id"`
+		Ref    int    `json:"ref"`
+		Text   string `json:"text"`
+		Submit bool   `json:"submit"`
+		Append bool   `json:"append"`
 	}
 	if err := kernel.ToolInput(c, &in); err != nil {
 		return nil, err
@@ -295,17 +339,17 @@ func (k *toolkit) typeText(ctx context.Context, c kernel.ToolCall) (any, error) 
 	if why := SensitiveField(info.Type, info.Autocomplete, info.NameAttr, info.ID, strings.Join(info.Labels, " ")); why != "" {
 		return nil, fmt.Errorf("refused: element [%d] is a %s; agents never type passwords or card data. If a login is needed, ask_user to log in once interactively (see the browser agent notes)", in.Ref, why)
 	}
+	if info.Disabled {
+		return nil, fmt.Errorf("element [%d] is disabled", in.Ref)
+	}
 	spend := false
 	if in.Submit {
 		if label, pattern, ok := k.cls.Match(info.SubmitLabels...); ok {
-			if err := k.gate(oneLine(label, 80), pattern, in.ApprovalID); err != nil {
+			if err := k.approveSpendLocked(ctx, in.Ref, oneLine(label, 80), pattern, "submit form"); err != nil {
 				return nil, err
 			}
 			spend = true
 		}
-	}
-	if info.Disabled {
-		return nil, fmt.Errorf("element [%d] is disabled", in.Ref)
 	}
 	if _, err := k.s.evalLocked(ctx, elementExpr("prepare", in.Ref, "")); err != nil {
 		return nil, err
@@ -490,16 +534,37 @@ func (k *toolkit) screenshot(ctx context.Context, c kernel.ToolCall) (any, error
 	if err := kernel.ToolInput(c, &in); err != nil {
 		return nil, err
 	}
-	var buf []byte
 	k.s.mu.Lock()
-	var act chromedp.Action = chromedp.CaptureScreenshot(&buf)
-	if in.FullPage {
-		act = chromedp.FullScreenshot(&buf, 100) // quality 100 = PNG
+	att, err := k.captureLocked(ctx, in.FullPage)
+	var u, title string
+	if err == nil {
+		u, title = k.s.locationLocked(ctx)
 	}
-	err := k.s.doLocked(ctx, 0, act)
-	u, title := k.s.locationLocked(ctx)
 	k.s.mu.Unlock()
 	if err != nil {
+		return nil, err
+	}
+	out, err := kernel.ToolOutput(map[string]any{
+		"attachment_id": att.Id, "name": att.Name, "size_bytes": att.SizeBytes,
+		"url": u, "title": title, "full_page": in.FullPage,
+		"note": "screenshot attached to the task (the user can see it)",
+	})
+	if err != nil {
+		return nil, err
+	}
+	out.Artifacts = []*nexusv1.Attachment{att}
+	return out, nil
+}
+
+// captureLocked takes a PNG screenshot and returns it as an attachment
+// (saved under <workdir>/screenshots, inline when small). Caller holds k.s.mu.
+func (k *toolkit) captureLocked(ctx context.Context, fullPage bool) (*nexusv1.Attachment, error) {
+	var buf []byte
+	var act chromedp.Action = chromedp.CaptureScreenshot(&buf)
+	if fullPage {
+		act = chromedp.FullScreenshot(&buf, 100) // quality 100 = PNG
+	}
+	if err := k.s.doLocked(ctx, 0, act); err != nil {
 		return nil, fmt.Errorf("screenshot: %w", err)
 	}
 	k.mu.Lock()
@@ -524,16 +589,7 @@ func (k *toolkit) screenshot(ctx context.Context, c kernel.ToolCall) (any, error
 	if len(buf) <= k.inlineMax || att.Url == "" {
 		att.Data = buf
 	}
-	out, err := kernel.ToolOutput(map[string]any{
-		"attachment_id": att.Id, "name": att.Name, "size_bytes": att.SizeBytes,
-		"url": u, "title": title, "full_page": in.FullPage,
-		"note": "screenshot attached to the task; reference attachment_id in request_approval",
-	})
-	if err != nil {
-		return nil, err
-	}
-	out.Artifacts = []*nexusv1.Attachment{att}
-	return out, nil
+	return att, nil
 }
 
 func (k *toolkit) back(ctx context.Context, _ kernel.ToolCall) (any, error) {

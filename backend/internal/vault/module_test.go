@@ -63,11 +63,11 @@ func TestCatalog(t *testing.T) {
 	for _, a := range enabled {
 		ids = append(ids, a.Id)
 	}
-	if strings.Join(ids, ",") != "assistant,code-fixer,grocery-continente,librarian,ops" {
+	if strings.Join(ids, ",") != "assistant,browser,code-fixer,echo,grocery-continente,librarian,ops,shell" {
 		t.Fatalf("enabled = %v", ids)
 	}
 	all, _ := c.ListAgents(ctx, true)
-	if len(all) != 8 {
+	if len(all) != 11 {
 		t.Fatalf("all = %d", len(all))
 	}
 	for _, a := range all {
@@ -183,7 +183,7 @@ func TestModule(t *testing.T) {
 	ac := nexusv1connect.NewAgentServiceClient(srv.Client(), srv.URL)
 
 	agents, err := ac.ListAgents(ctx, connect.NewRequest(&nexusv1.ListAgentsRequest{}))
-	if err != nil || len(agents.Msg.Agents) != 5 {
+	if err != nil || len(agents.Msg.Agents) != 8 {
 		t.Fatalf("agents = %v %v", agents, err)
 	}
 	ga, err := ac.GetAgent(ctx, connect.NewRequest(&nexusv1.GetAgentRequest{Id: "librarian"}))

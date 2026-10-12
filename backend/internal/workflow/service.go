@@ -88,6 +88,8 @@ type Service struct {
 	st  *store
 	cat *Catalog
 	now func() time.Time
+	// backoff is the delay before retry number try+1 of a failing step.
+	backoff func(try int) time.Duration
 
 	base       context.Context
 	baseCancel context.CancelCauseFunc
@@ -106,7 +108,7 @@ func NewService(h kernel.Host, st kernel.Store, cfg Config, dir func() string) (
 		return nil, fmt.Errorf("workflow: migrate: %w", err)
 	}
 	cfg.defaults()
-	s := &Service{h: h, log: h.Logger(), cfg: cfg, now: time.Now, active: map[string]context.CancelCauseFunc{}}
+	s := &Service{h: h, log: h.Logger(), cfg: cfg, now: time.Now, backoff: backoff, active: map[string]context.CancelCauseFunc{}}
 	s.st = &store{db: st.DB(), now: func() time.Time { return s.now() }}
 	if dir == nil {
 		dir = s.defaultDir
@@ -153,6 +155,11 @@ func (s *Service) Run() error {
 }
 
 func (s *Service) goBG(fn func(ctx context.Context)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.base.Err() != nil {
+		return
+	}
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
@@ -162,7 +169,9 @@ func (s *Service) goBG(fn func(ctx context.Context)) {
 
 // Stop suspends running workflows (they resume on next start) and waits.
 func (s *Service) Stop(ctx context.Context) error {
+	s.mu.Lock()
 	s.baseCancel(errShutdown)
+	s.mu.Unlock()
 	done := make(chan struct{})
 	go func() { s.wg.Wait(); close(done) }()
 	select {
@@ -412,9 +421,14 @@ func (s *Service) StartWith(ctx context.Context, o StartOptions) (string, error)
 func (s *Service) launch(run *RunInfo) {
 	ctx, cancel := context.WithCancelCause(s.base)
 	s.mu.Lock()
+	if s.base.Err() != nil { // stopping: the run resumes on next start
+		s.mu.Unlock()
+		cancel(errShutdown)
+		return
+	}
 	s.active[run.ID] = cancel
-	s.mu.Unlock()
 	s.wg.Add(1)
+	s.mu.Unlock()
 	go func() {
 		defer s.wg.Done()
 		defer func() {
@@ -800,8 +814,9 @@ func phraseScore(input, phrase string) float64 {
 
 // MatchIntent returns the enabled workflow whose intent phrases best match
 // input, with a score in [0,1] (1 = exact phrase, 0.9 = input starts with
-// the phrase, 0.8 = contains it, ≤ 0.7 = word overlap). The command module
-// should route to the workflow when score ≥ ~0.8.
+// the phrase, 0.8 = contains it, 0.5–0.7 = most phrase words present; weaker
+// matches return ""). The command module should route to the workflow when
+// score ≥ ~0.8 and offer it as a choice below that.
 func (s *Service) MatchIntent(input string) (string, float64) {
 	best, bestScore := "", 0.0
 	list := s.cat.List()
@@ -821,8 +836,14 @@ func (s *Service) MatchIntent(input string) (string, float64) {
 			}
 		}
 	}
+	if bestScore < minIntentScore {
+		return "", 0
+	}
 	return best, bestScore
 }
+
+// minIntentScore drops weak word-overlap matches.
+const minIntentScore = 0.5
 
 // IntentInputs derives inputs from a command: the text after the matched
 // phrase (e.g. "buy groceries: milk, eggs" → "milk, eggs") goes to the first

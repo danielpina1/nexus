@@ -203,7 +203,7 @@ func (b *Bridge) gateMessage(ctx context.Context, req approvalgate.Request) stri
 // prompt already approved this exact call.
 func (b *Bridge) callNexus(ctx context.Context, t kernel.Tool, args json.RawMessage) (*CallResult, error) {
 	spec := t.Spec()
-	if !b.consumePreapproval(spec.Name, args) {
+	if !approvalgate.HumanInTheLoopTools[spec.Name] && !b.consumePreapproval(spec.Name, args) {
 		msg := b.gateMessage(ctx, approvalgate.Request{
 			Class:   spec.ActionClass,
 			Title:   fmt.Sprintf("%s wants to use %s", b.cfg.Who, spec.Name),
@@ -278,6 +278,9 @@ func (b *Bridge) permission(ctx context.Context, args json.RawMessage) (*CallRes
 		if t, ok := b.byMCP[strings.TrimPrefix(in.ToolName, prefix)]; ok {
 			nexusTool = t
 			class, toolName = t.Spec().ActionClass, t.Spec().Name
+			if approvalgate.HumanInTheLoopTools[toolName] {
+				return decisionResult(PermissionDecision{Behavior: "allow", UpdatedInput: input}), nil
+			}
 		} else if strings.TrimPrefix(in.ToolName, prefix) == PermissionToolName {
 			return decisionResult(PermissionDecision{Behavior: "deny", Message: "the permission tool cannot be called directly"}), nil
 		}
@@ -296,7 +299,7 @@ func (b *Bridge) permission(ctx context.Context, args json.RawMessage) (*CallRes
 	if msg != "" {
 		return decisionResult(PermissionDecision{Behavior: "deny", Message: msg}), nil
 	}
-	if nexusTool != nil {
+	if nexusTool != nil && !approvalgate.HumanInTheLoopTools[toolName] {
 		b.preapprove(nexusTool.Spec().Name, input)
 	}
 	return decisionResult(PermissionDecision{Behavior: "allow", UpdatedInput: input}), nil

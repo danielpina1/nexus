@@ -50,7 +50,7 @@ func TestGrocery(t *testing.T) {
 		Model:       "smart",
 		Tier:        nexusv1.Tier_TIER_MEDIUM,
 		NodeTags:    []string{"browser", "always-on"},
-		Tools:       []string{"browser", "memory.search", "vault.write", "ask_user", "request_approval"},
+		Tools:       []string{"browser", "memory.search", "vault.read", "vault.write", "ask_user", "request_approval", "notify"},
 		Limits: &nexusv1.AgentLimits{
 			MaxRuntimeSeconds: 1800,
 			MaxCost:           &nexusv1.Money{Currency: "EUR", MinorUnits: 50},
@@ -58,7 +58,7 @@ func TestGrocery(t *testing.T) {
 		},
 		Policy:  map[string]nexusv1.TrustLevel{"spend": nexusv1.TrustLevel_TRUST_LEVEL_BIOMETRIC},
 		Note:    &nexusv1.NoteRef{Id: "grocery-continente", Path: "agents/grocery-continente.md", Title: "Grocery (Continente)"},
-		Version: 1,
+		Version: 2,
 		Enabled: true,
 	}
 	if !proto.Equal(a, want) {

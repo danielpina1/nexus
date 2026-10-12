@@ -510,3 +510,29 @@ func TestAgentPolicyTightensTool(t *testing.T) {
 		t.Fatal("agent policy read: approve did not gate memory.search")
 	}
 }
+
+func TestHumanInTheLoopToolsNotGated(t *testing.T) {
+	called := 0
+	mk := func(name string, class nexusv1.ActionClass) kernel.Tool {
+		return kernel.ToolFunc{S: kernel.ToolSpec{Name: name, ActionClass: class}, F: func(context.Context, kernel.ToolCall) (kernel.ToolResult, error) {
+			called++
+			return kernel.ToolOutput(map[string]bool{"ok": true})
+		}}
+	}
+	f := &fakeLLM{steps: []step{callTools(
+		kernel.LLMToolCall{ID: "c1", Name: "ask_user", Arguments: `{"question":"?"}`},
+		kernel.LLMToolCall{ID: "c2", Name: "request_approval", Arguments: `{"action_class":"spend"}`},
+	), answer("ok", 0)}}
+	cfg := baseCfg(f)
+	cfg.Tools = []kernel.Tool{mk("ask_user", nexusv1.ActionClass_ACTION_CLASS_UNSPECIFIED), mk("request_approval", nexusv1.ActionClass_ACTION_CLASS_SPEND)}
+	r, _ := Start(context.Background(), cfg)
+	evs := collect(t, r)
+	for _, ev := range evs {
+		if ev.GetApproval() != nil {
+			t.Fatal("human-in-the-loop tool was gated")
+		}
+	}
+	if task := terminal(t, evs); task.State != nexusv1.TaskState_TASK_STATE_SUCCEEDED || called != 2 {
+		t.Fatalf("task %v called %d", task, called)
+	}
+}

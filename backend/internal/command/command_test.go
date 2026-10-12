@@ -203,7 +203,7 @@ func TestExecuteValidation(t *testing.T) {
 		t.Fatalf("empty err = %v", err)
 	}
 	_, err := f.cli.Execute(ctx, connect.NewRequest(&nexusv1.ExecuteRequest{Input: "x", Route: &nexusv1.Route{Kind: kindWorkflow}}))
-	if connect.CodeOf(err) != connect.CodeUnimplemented {
+	if connect.CodeOf(err) != connect.CodeUnavailable { // no workflow module in this fixture
 		t.Fatalf("workflow err = %v", err)
 	}
 }

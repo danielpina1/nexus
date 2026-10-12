@@ -69,6 +69,11 @@ var Defaults = map[nexusv1.ActionClass]nexusv1.TrustLevel{
 // UnknownLevel applies to ACTION_CLASS_UNSPECIFIED and unknown classes (fail safe).
 const UnknownLevel = nexusv1.TrustLevel_TRUST_LEVEL_APPROVE
 
+// HumanInTheLoopTools are tools that themselves ask the user (a question or
+// an explicit approval); gating them would ask twice, so runtimes call them
+// without a gate check.
+var HumanInTheLoopTools = map[string]bool{"ask_user": true, "request_approval": true}
+
 // ErrClosed is returned by Check when the gate is closed while waiting.
 var ErrClosed = errors.New("approvalgate: run ended while waiting for approval")
 

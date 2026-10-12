@@ -272,13 +272,12 @@ func (e *Engine) handleApproval(ctx context.Context, nodeID string, run *runRec,
 }
 
 // OnApprovalResolved is called by the approvals module when an approval is
-// decided or expires. approved → running; denied/expired → failed and the run
-// is cancelled on its node.
+// decided or expires. Either way the task returns to running: the node's
+// runtime receives the decision and continues or ends the run itself.
 func (e *Engine) OnApprovalResolved(ctx context.Context, a *nexusv1.Approval) error {
 	if a.GetTaskId() == "" {
 		return nil
 	}
-	var cancelNode, cancelRun string
 	_, err := e.mutate(ctx, a.TaskId, actorHub, func(r *taskRec) error {
 		if r.approvalID != a.Id || r.task.State != stWaitingApproval {
 			return nil
@@ -288,29 +287,16 @@ func (e *Engine) OnApprovalResolved(ctx context.Context, a *nexusv1.Approval) er
 		case nexusv1.ApprovalState_APPROVAL_STATE_APPROVED:
 			return r.to(stRunning)
 		case nexusv1.ApprovalState_APPROVAL_STATE_DENIED, nexusv1.ApprovalState_APPROVAL_STATE_EXPIRED:
-			verb := "denied"
-			if a.State == nexusv1.ApprovalState_APPROVAL_STATE_EXPIRED {
-				verb = "expired"
-			}
-			r.task.Summary = fmt.Sprintf("approval %s: %s", verb, a.Title)
-			cancelNode, cancelRun = r.task.NodeId, r.task.CurrentRunId
-			if err := e.setRunState(ctx, cancelRun, runFailed, r.task.Summary); err != nil {
-				return err
-			}
-			if err := r.to(stFailed); err != nil {
-				return err
-			}
-			if r.task.ParentId == "" {
-				r.extra = append(r.extra, resultNotice(r.task))
-			}
+			// The runtime decides what a denial means: agent loops and coding
+			// agents continue (e.g. try another way), the shell and echo
+			// runtimes end the run as FAILED themselves. The node receives the
+			// resolution through the dispatcher, so the hub only resumes here.
+			return r.to(stRunning)
 		}
 		return nil
 	})
 	if err != nil {
 		return err
-	}
-	if cancelNode != "" && cancelRun != "" {
-		e.cancelOnNode(ctx, cancelNode, cancelRun, "approval not granted")
 	}
 	return nil
 }

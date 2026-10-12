@@ -14,8 +14,13 @@
 // back → READ; click, type, select → COMPUTE (routine work inside a site).
 // A click (or Enter-submit) on an element whose label matches a
 // checkout/payment pattern ("finalizar compra", "pagar", "place order"…) is a
-// SPEND action: the tool refuses it unless the call carries an approval_id
-// that this run obtained from an APPROVED request_approval (see approval.go).
+// SPEND action, gated directly: the tool takes a full-page screenshot (emitted
+// as an artifact), then calls approvalgate.Gate.Check with class SPEND and a
+// runtime-built payload (url, page title, button label, page text, screenshot
+// id) — not model-authored text — and clicks only if the user approves
+// (BIOMETRIC by default policy). A denial is returned to the model as a tool
+// error telling it to stop. The run owns one gate, shared with the agent loop
+// (agentloop.Config.Gate), so Run.Resolve serves both.
 //
 // Configuration (module section "runtime.browser"):
 //
@@ -61,7 +66,9 @@ import (
 	"sync"
 	"time"
 
+	nexusv1 "github.com/danielpina1/nexus/backend/gen/nexus/v1"
 	"github.com/danielpina1/nexus/backend/internal/runtime/agentloop"
+	"github.com/danielpina1/nexus/backend/internal/runtime/approvalgate"
 	"github.com/danielpina1/nexus/backend/kernel"
 )
 
@@ -297,13 +304,19 @@ func (r *Runtime) Start(ctx context.Context, spec kernel.RunSpec) (kernel.Run, e
 		Log:           log,
 		Lock:          r.lock(dir),
 	})
-	led := newLedger()
-	hubTools, hasApproval := wrapTools(spec.Tools, led)
+	run := &Run{sess: sess, events: make(chan *nexusv1.Event, 64), gateEv: make(chan *nexusv1.Event), fwdDone: make(chan struct{})}
+	// One approval gate for the run, shared with the agent loop (which gates
+	// tools by their static class) and used by browser.click for checkout.
+	run.gate = approvalgate.New(approvalgate.Config{
+		TaskID: a.GetTaskId(), RunID: a.GetRunId(), Agent: agent,
+		Emit: run.emitGate, Log: log,
+	})
 	kit := &toolkit{
-		s: sess, cls: r.cls, ledger: led, hasApproval: hasApproval,
+		s: sess, cls: r.cls, gate: run.gate, emit: run.emitGate,
+		agentName: agent.GetName(), taskID: a.GetTaskId(), runID: a.GetRunId(),
 		workdir: spec.Workdir, maxChars: r.cfg.SnapshotMaxChars, inlineMax: r.cfg.InlineScreenshotMaxBytes, log: log,
 	}
-	tools := append(selectBrowserTools(kit.tools(), agent.GetTools()), dropBrowserNames(hubTools)...)
+	tools := append(selectBrowserTools(kit.tools(), agent.GetTools()), dropBrowserNames(spec.Tools)...)
 
 	model := agent.GetModel()
 	if model == "" {
@@ -320,6 +333,8 @@ func (r *Runtime) Start(ctx context.Context, spec kernel.RunSpec) (kernel.Run, e
 		Prompt:       agentloop.BuildPrompt(a),
 		Tools:        tools,
 		Limits:       limits,
+		Agent:        agent,
+		Gate:         run.gate,
 		TaskID:       a.GetTaskId(),
 		RunID:        a.GetRunId(),
 		AgentID:      agent.GetId(),
@@ -329,12 +344,15 @@ func (r *Runtime) Start(ctx context.Context, spec kernel.RunSpec) (kernel.Run, e
 		Logger:       log,
 	})
 	if err != nil {
+		run.gate.Close()
 		sess.Close()
 		return nil, err
 	}
-	run := &Run{Run: loop, sess: sess}
+	run.loop = loop
+	go run.forward()
 	go func() {
 		<-loop.Done()
+		run.gate.Close()
 		sess.Close()
 	}()
 	return run, nil
@@ -379,21 +397,83 @@ func dropBrowserNames(tools []kernel.Tool) []kernel.Tool {
 	return out
 }
 
-// Run is a browser agent run: the agent loop plus its Chrome session.
+// Run is a browser agent run: the agent loop, its approval gate and its
+// Chrome session. Events merges the loop's events with those the gate and
+// the browser tools emit while a tool call is in progress.
 type Run struct {
-	*agentloop.Run
-	sess *session
+	loop    *agentloop.Run
+	gate    *approvalgate.Gate
+	sess    *session
+	events  chan *nexusv1.Event
+	gateEv  chan *nexusv1.Event
+	fwdDone chan struct{}
+}
+
+var _ kernel.Run = (*Run)(nil)
+
+// Events implements kernel.Run.
+func (r *Run) Events() <-chan *nexusv1.Event { return r.events }
+
+// Send implements kernel.Run.
+func (r *Run) Send(ctx context.Context, in *nexusv1.RunInput) error { return r.loop.Send(ctx, in) }
+
+// Resolve delivers an approval decision to the gated action waiting for it.
+func (r *Run) Resolve(ctx context.Context, res *nexusv1.ApprovalResolution) error {
+	return r.gate.Resolve(ctx, res)
+}
+
+// Cancel stops the loop, abandons pending approvals and kills Chrome.
+func (r *Run) Cancel(ctx context.Context) error {
+	err := r.loop.Cancel(ctx)
+	r.gate.Close()
+	r.sess.Kill()
+	return err
 }
 
 // BrowserClosed is closed once Chrome has exited and the profile is free
 // (after the run ended or was cancelled).
 func (r *Run) BrowserClosed() <-chan struct{} { return r.sess.done }
 
-// Cancel stops the loop and kills Chrome.
-func (r *Run) Cancel(ctx context.Context) error {
-	err := r.Run.Cancel(ctx)
-	r.sess.Kill()
-	return err
+// emitGate sends an event produced during a tool call (approval, notice,
+// artifact). It returns once the forwarder has taken it, so it is ordered
+// after everything the loop emitted before the call and before what it
+// emits after.
+func (r *Run) emitGate(ev *nexusv1.Event) {
+	select {
+	case r.gateEv <- ev:
+	case <-r.fwdDone:
+	}
+}
+
+func (r *Run) forward() {
+	defer close(r.fwdDone)
+	defer close(r.events)
+	in := r.loop.Events()
+	for {
+		select {
+		case ev, ok := <-in:
+			if !ok {
+				return
+			}
+			r.events <- ev
+		case ev := <-r.gateEv:
+			// The loop is blocked in the tool call that emitted ev: flush
+			// what it emitted before (e.g. the ToolCall event) first.
+			for flushed := false; !flushed; {
+				select {
+				case lev, ok := <-in:
+					if !ok {
+						r.events <- ev
+						return
+					}
+					r.events <- lev
+				default:
+					flushed = true
+				}
+			}
+			r.events <- ev
+		}
+	}
 }
 
 // Guidance is appended to the agent's instructions.
@@ -404,7 +484,7 @@ const Guidance = `## Using the browser
 - Never type passwords, one-time codes or payment card data, and never create accounts. If the site asks you to log in, stop and use ask_user: the user logs in once in the persistent browser profile (see the agent notes).
 - Close cookie banners and pop-ups only with their dismiss/accept-necessary buttons.
 - When something is ambiguous (product variant, quantity, missing item, unexpected price), ask the user with ask_user instead of guessing.
-- Checkout, payment and order-confirmation buttons are SPEND actions. Before them: review the cart, take a browser.screenshot of the final cart, then call request_approval with action_class "spend", a title with the total, the item list, the total, the delivery slot and the screenshot attachment_id. Only after it is APPROVED, click the checkout button with approval_id set to the browser_approval_id from the approval result. If it is denied, stop and report.
+- Checkout, payment and order-confirmation buttons are SPEND actions. Before clicking one: review the cart (items, quantities, total, delivery slot) and take a browser.screenshot of the final cart. Clicking it pauses the run and asks the user to approve, showing them the page, the button and a screenshot; if it comes back NOT DONE (denied/expired), do not retry or look for another way to pay — stop and report.
 - Finish with a concise summary: what is in the cart or was ordered, the total, and anything that needs the user's attention.`
 
 // Instructions composes the agent instructions with browser guidance and the

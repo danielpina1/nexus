@@ -163,6 +163,7 @@ func (r *Runtime) Start(ctx context.Context, spec kernel.RunSpec) (kernel.Run, e
 		TaskID:       a.GetTaskId(),
 		RunID:        a.GetRunId(),
 		AgentID:      a.GetAgent().GetId(),
+		Agent:        a.GetAgent(),
 		Runtime:      r.name,
 		NoStream:     r.cfg.NoStream,
 		MaxTokens:    r.cfg.MaxTokens,

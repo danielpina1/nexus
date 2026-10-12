@@ -547,6 +547,15 @@ func (e *Engine) ListTasks(ctx context.Context, req *nexusv1.ListTasksRequest) (
 // assigned/running it steers the run.
 func (e *Engine) SendMessage(ctx context.Context, req *nexusv1.SendMessageRequest) error {
 	if req.GetTaskId() == "" {
+		// Questions asked by workflow "ask" steps are not tied to a task.
+		if v, ok := e.h.Lookup("workflows"); ok && req.GetQuestionId() != "" {
+			if wf, ok := v.(interface {
+				OwnsQuestion(ctx context.Context, questionID string) bool
+				Answer(ctx context.Context, questionID, choice, text string) error
+			}); ok && wf.OwnsQuestion(ctx, req.QuestionId) {
+				return wf.Answer(ctx, req.QuestionId, req.Choice, req.Text)
+			}
+		}
 		return connect.NewError(connect.CodeInvalidArgument, errors.New("task_id required"))
 	}
 	r, err := e.loadTask(ctx, req.TaskId)
@@ -685,6 +694,13 @@ func (e *Engine) StopAll(ctx context.Context, pauseTriggers bool) (int, error) {
 		}
 		if ok {
 			n++
+		}
+	}
+	if pauseTriggers {
+		if v, ok := e.h.Lookup("workflows"); ok {
+			if p, ok := v.(interface{ PauseTriggers(bool) }); ok {
+				p.PauseTriggers(true)
+			}
 		}
 	}
 	e.log.Warn("kill switch: all tasks stopped", "cancelled", n, "pause_triggers", pauseTriggers)

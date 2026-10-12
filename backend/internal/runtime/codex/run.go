@@ -14,6 +14,7 @@ import (
 	nexusv1 "github.com/danielpina1/nexus/backend/gen/nexus/v1"
 	"github.com/danielpina1/nexus/backend/internal/runtime/agentloop"
 	"github.com/danielpina1/nexus/backend/internal/runtime/agentloop/cliproc"
+	"github.com/danielpina1/nexus/backend/internal/runtime/approvalgate"
 )
 
 type run struct {
@@ -23,8 +24,15 @@ type run struct {
 	events               chan *nexusv1.Event
 	stderr               *cliproc.Tail
 
+	// Nexus MCP bridge (nil when disabled).
+	gate    *approvalgate.Gate
+	cleanup func()
+
 	mu        sync.Mutex
 	cancelled bool
+
+	emitMu       sync.Mutex
+	eventsClosed bool
 
 	// reader-goroutine state
 	lastMessage string
@@ -36,25 +44,28 @@ type run struct {
 	started     map[string]time.Time
 }
 
-func startRun(cmd *exec.Cmd, taskID, runID, prompt, model string, log *slog.Logger) (*run, error) {
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return nil, err
-	}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, err
-	}
-	r := &run{
+func newRun(taskID, runID, model string, log *slog.Logger) *run {
+	return &run{
 		taskID: taskID, runID: runID, model: model, log: log,
 		events:  make(chan *nexusv1.Event, 256),
 		stderr:  &cliproc.Tail{N: 4096},
 		started: map[string]time.Time{},
 	}
+}
+
+func (r *run) start(cmd *exec.Cmd, prompt string) error {
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return err
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
 	cmd.Stderr = r.stderr
 	proc, err := cliproc.Start(cmd)
 	if err != nil {
-		return nil, fmt.Errorf("codex: start %s: %w", cmd.Path, err)
+		return fmt.Errorf("codex: start %s: %w", cmd.Path, err)
 	}
 	r.proc = proc
 	go func() {
@@ -62,33 +73,71 @@ func startRun(cmd *exec.Cmd, taskID, runID, prompt, model string, log *slog.Logg
 		_ = stdin.Close()
 	}()
 	go r.read(stdout)
-	return r, nil
+	return nil
 }
 
 func (r *run) Events() <-chan *nexusv1.Event { return r.events }
 
 func (r *run) Send(context.Context, *nexusv1.RunInput) error { return ErrSteeringUnsupported }
 
-func (r *run) Resolve(context.Context, *nexusv1.ApprovalResolution) error {
-	return ErrApprovalsUnsupported
+// Resolve feeds a (node-verified) approval decision to a gated Nexus MCP
+// tool call.
+func (r *run) Resolve(ctx context.Context, res *nexusv1.ApprovalResolution) error {
+	if r.gate == nil {
+		return ErrApprovalsUnsupported
+	}
+	return r.gate.Resolve(ctx, res)
 }
 
 func (r *run) Cancel(context.Context) error {
 	r.mu.Lock()
 	r.cancelled = true
 	r.mu.Unlock()
+	r.stopGate()
 	r.proc.Kill(3 * time.Second)
 	return nil
 }
 
-func (r *run) emit(ev *nexusv1.Event) { r.events <- ev }
+// emit is safe from any goroutine (the MCP bridge emits approvals); events
+// after the channel is closed are dropped.
+func (r *run) emit(ev *nexusv1.Event) {
+	r.emitMu.Lock()
+	defer r.emitMu.Unlock()
+	if r.eventsClosed {
+		return
+	}
+	r.events <- ev
+}
+
+func (r *run) closeEvents() {
+	r.emitMu.Lock()
+	defer r.emitMu.Unlock()
+	if !r.eventsClosed {
+		r.eventsClosed = true
+		close(r.events)
+	}
+}
+
+func (r *run) stopGate() {
+	if r.gate != nil {
+		r.gate.Close()
+	}
+}
+
+func (r *run) stopBridge() {
+	r.stopGate()
+	if r.cleanup != nil {
+		r.cleanup()
+	}
+}
 
 func (r *run) read(stdout io.Reader) {
-	defer close(r.events)
+	defer r.closeEvents()
 	if err := cliproc.ReadLines(stdout, r.handleLine); err != nil {
 		r.log.Warn("codex: reading stdout", "err", err)
 	}
 	waitErr := r.proc.Wait()
+	r.stopBridge()
 	if r.usage != nil && !r.costEmitted {
 		r.recordCost(r.usage)
 	}

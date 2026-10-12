@@ -31,6 +31,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/danielpina1/nexus/backend/internal/workflow"
 	"log/slog"
 	"strings"
 
@@ -143,7 +144,7 @@ func (s *Service) Execute(ctx context.Context, req *connect.Request[nexusv1.Exec
 	case kindCapture:
 		err = s.capture(ctx, m, resp)
 	case kindWorkflow:
-		err = connect.NewError(connect.CodeUnimplemented, errors.New("workflows are not implemented yet"))
+		err = s.workflow(ctx, m, route, resp)
 	default:
 		err = s.task(ctx, m, route, resp)
 	}
@@ -166,6 +167,13 @@ func (s *Service) resolveRoute(ctx context.Context, m *nexusv1.ExecuteRequest) (
 			r.Reason = "chosen by user"
 		}
 		return r, nil
+	}
+	// Workflow intents ("buy groceries", "morning brief") are matched
+	// deterministically before the router so no model call is needed.
+	if wf, ok := lookup[workflow.Workflows](s.h, workflow.SvcWorkflows); ok {
+		if id, score := wf.MatchIntent(m.Input); id != "" && score >= workflowIntentScore {
+			return &nexusv1.Route{Kind: kindWorkflow, WorkflowId: id, Confidence: float32(score), Reason: "workflow intent"}, nil
+		}
 	}
 	r, err := s.router.Route(ctx, m.Input, m.Attachments, m.Context)
 	if err != nil {
@@ -395,5 +403,41 @@ func (m *Module) Init(_ context.Context, h kernel.Host) error {
 	}
 	m.Service = New(h, tasks, rt, cfg)
 	h.Handle(nexusv1connect.NewCommandServiceHandler(m.Service))
+	return nil
+}
+
+// workflowIntentScore is the minimum MatchIntent score that starts a
+// workflow without asking (0.8 = the input contains an intent phrase).
+const workflowIntentScore = 0.8
+
+// workflow starts a workflow run for a WORKFLOW route.
+func (s *Service) workflow(ctx context.Context, m *nexusv1.ExecuteRequest, route *nexusv1.Route, resp *nexusv1.ExecuteResponse) error {
+	wf, ok := lookup[workflow.Workflows](s.h, workflow.SvcWorkflows)
+	if !ok {
+		return connect.NewError(connect.CodeUnavailable, errors.New("workflow module not enabled"))
+	}
+	id := route.WorkflowId
+	if id == "" {
+		id, _ = wf.MatchIntent(m.Input)
+	}
+	if id == "" {
+		return connect.NewError(connect.CodeNotFound, errors.New("no workflow matches"))
+	}
+	inputs := wf.IntentInputs(id, m.Input)
+	if inputs == nil {
+		inputs = map[string]any{}
+	}
+	for k, v := range route.GetParams().AsMap() {
+		inputs[k] = v
+	}
+	runID, err := wf.StartWith(ctx, workflow.StartOptions{
+		WorkflowID: id, Inputs: inputs, Source: "command", IdempotencyKey: m.IdempotencyKey,
+	})
+	if err != nil {
+		return err
+	}
+	route.WorkflowId = id
+	resp.WorkflowRunId = runID
+	resp.Answer = fmt.Sprintf("Started workflow %s (run %s).", id, runID)
 	return nil
 }

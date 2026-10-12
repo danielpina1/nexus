@@ -153,7 +153,7 @@ func (m *RunManager) start(ar *activeRun) error {
 	if err := os.MkdirAll(ar.workdir, 0o700); err != nil {
 		return fmt.Errorf("workspace: %w", err)
 	}
-	spec := kernel.RunSpec{Assignment: a, Workdir: ar.workdir, Tools: m.runTools(a), Env: map[string]string{}}
+	spec := kernel.RunSpec{Assignment: a, Workdir: ar.workdir, Tools: m.runTools(a), Env: map[string]string{"NEXUS_NODE_ID": m.NodeID}}
 	run, err := rt.Start(m.ctx, spec)
 	if err != nil {
 		return err

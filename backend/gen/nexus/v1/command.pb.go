@@ -444,6 +444,7 @@ type ExecuteResponse struct {
 	Sources       []*NoteRef             `protobuf:"bytes,4,rep,name=sources,proto3" json:"sources,omitempty"`   // for SEARCH / CAPTURE
 	Question      string                 `protobuf:"bytes,5,opt,name=question,proto3" json:"question,omitempty"` // set when the router needs the user to choose
 	Choices       []string               `protobuf:"bytes,6,rep,name=choices,proto3" json:"choices,omitempty"`
+	WorkflowRunId string                 `protobuf:"bytes,7,opt,name=workflow_run_id,json=workflowRunId,proto3" json:"workflow_run_id,omitempty"` // for WORKFLOW
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -518,6 +519,13 @@ func (x *ExecuteResponse) GetChoices() []string {
 		return x.Choices
 	}
 	return nil
+}
+
+func (x *ExecuteResponse) GetWorkflowRunId() string {
+	if x != nil {
+		return x.WorkflowRunId
+	}
+	return ""
 }
 
 type CorrectRouteRequest struct {
@@ -659,14 +667,15 @@ const file_nexus_v1_command_proto_rawDesc = "" +
 	"\vattachments\x18\x02 \x03(\v2\x14.nexus.v1.AttachmentR\vattachments\x122\n" +
 	"\acontext\x18\x03 \x01(\v2\x18.nexus.v1.CommandContextR\acontext\x12%\n" +
 	"\x05route\x18\x04 \x01(\v2\x0f.nexus.v1.RouteR\x05route\x12'\n" +
-	"\x0fidempotency_key\x18\x05 \x01(\tR\x0eidempotencyKey\"\xd7\x01\n" +
+	"\x0fidempotency_key\x18\x05 \x01(\tR\x0eidempotencyKey\"\xff\x01\n" +
 	"\x0fExecuteResponse\x12%\n" +
 	"\x05route\x18\x01 \x01(\v2\x0f.nexus.v1.RouteR\x05route\x12\"\n" +
 	"\x04task\x18\x02 \x01(\v2\x0e.nexus.v1.TaskR\x04task\x12\x16\n" +
 	"\x06answer\x18\x03 \x01(\tR\x06answer\x12+\n" +
 	"\asources\x18\x04 \x03(\v2\x11.nexus.v1.NoteRefR\asources\x12\x1a\n" +
 	"\bquestion\x18\x05 \x01(\tR\bquestion\x12\x18\n" +
-	"\achoices\x18\x06 \x03(\tR\achoices\"c\n" +
+	"\achoices\x18\x06 \x03(\tR\achoices\x12&\n" +
+	"\x0fworkflow_run_id\x18\a \x01(\tR\rworkflowRunId\"c\n" +
 	"\x13CorrectRouteRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x19\n" +
 	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x18\n" +

@@ -15,5 +15,7 @@ import (
 	_ "github.com/danielpina1/nexus/backend/internal/security"
 	_ "github.com/danielpina1/nexus/backend/internal/store"
 	_ "github.com/danielpina1/nexus/backend/internal/tasks"
+	_ "github.com/danielpina1/nexus/backend/internal/triggers"
 	_ "github.com/danielpina1/nexus/backend/internal/vault"
+	_ "github.com/danielpina1/nexus/backend/internal/workflow"
 )

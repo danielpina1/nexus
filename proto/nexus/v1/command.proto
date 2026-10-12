@@ -71,6 +71,7 @@ message ExecuteResponse {
   repeated NoteRef sources = 4; // for SEARCH / CAPTURE
   string question = 5; // set when the router needs the user to choose
   repeated string choices = 6;
+  string workflow_run_id = 7; // for WORKFLOW
 }
 
 message CorrectRouteRequest {

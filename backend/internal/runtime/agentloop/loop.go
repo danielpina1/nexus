@@ -22,7 +22,8 @@
 //
 // Ask before acting: every tool call goes through an approvalgate.Gate with
 // the tool's ToolSpec.ActionClass (unspecified classes fail safe to
-// approve). AUTO runs at once, NOTIFY runs and emits a Notice, APPROVE and
+// approve; ask_user and request_approval, which ask the user themselves, are
+// never gated). AUTO runs at once, NOTIFY runs and emits a Notice, APPROVE and
 // BIOMETRIC emit an Approval (payload {tool, input}) + TaskUpdated
 // WAITING_APPROVAL and wait for Resolve; a denial is returned to the model as
 // the tool result {"error":"denied by user"} (the run continues and a
@@ -452,6 +453,9 @@ func (r *Run) execTool(ctx context.Context, tc kernel.LLMToolCall) string {
 // gateTool applies the approval gate to a tool call; it returns "" when the
 // call may proceed, else the error given back to the model.
 func (r *Run) gateTool(ctx context.Context, name, args string, class nexusv1.ActionClass) string {
+	if approvalgate.HumanInTheLoopTools[name] {
+		return ""
+	}
 	var input any
 	_ = json.Unmarshal([]byte(args), &input)
 	who := r.cfg.Agent.GetName()

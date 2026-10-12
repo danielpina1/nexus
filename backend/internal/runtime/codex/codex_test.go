@@ -2,7 +2,9 @@ package codex
 
 import (
 	"context"
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -217,4 +219,84 @@ func TestModuleAndUnavailable(t *testing.T) {
 	if rt.Capabilities().Steering {
 		t.Error("codex should not claim steering")
 	}
+}
+
+func TestNexusMCP(t *testing.T) {
+	if _, err := exec.LookPath("curl"); err != nil {
+		t.Skip("curl not available")
+	}
+	push := kernel.ToolFunc{
+		S: kernel.ToolSpec{Name: "github.push", ActionClass: nexusv1.ActionClass_ACTION_CLASS_CODE_PUSH},
+		F: func(context.Context, kernel.ToolCall) (kernel.ToolResult, error) {
+			return kernel.ToolOutput(map[string]string{"status": "pushed"})
+		},
+	}
+	for _, approve := range []bool{true, false} {
+		t.Run(map[bool]string{true: "approve", false: "deny"}[approve], func(t *testing.T) {
+			dir := t.TempDir()
+			argsFile := filepath.Join(dir, "args")
+			rt := newRuntime(t, Config{NexusMCP: true})
+			if !rt.Capabilities().ApprovalHooks {
+				t.Error("ApprovalHooks off with nexus_mcp")
+			}
+			run, err := rt.Start(context.Background(), kernel.RunSpec{Assignment: assignment(), Workdir: dir, Tools: []kernel.Tool{push},
+				Env: map[string]string{"FAKE_CODEX_MODE": "mcp", "FAKE_ARGS_FILE": argsFile}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var evs []*nexusv1.Event
+			timeout := time.After(15 * time.Second)
+		loop:
+			for {
+				select {
+				case ev, ok := <-run.Events():
+					if !ok {
+						break loop
+					}
+					evs = append(evs, ev)
+					if a := ev.GetApproval(); a != nil {
+						if a.Payload.Fields["tool"].GetStringValue() != "github.push" || a.ActionClass != nexusv1.ActionClass_ACTION_CLASS_CODE_PUSH {
+							t.Errorf("approval %v", a)
+						}
+						if err := run.Resolve(context.Background(), &nexusv1.ApprovalResolution{Approval: &nexusv1.Approval{Id: a.Id},
+							Decision: &nexusv1.SignedApproval{ApprovalId: a.Id, Approve: approve, ActionSha256: a.PayloadHash}}); err != nil {
+							t.Fatal(err)
+						}
+					}
+				case <-timeout:
+					t.Fatalf("timeout; events %v", evs)
+				}
+			}
+			want := "denied"
+			if approve {
+				want = "pushed"
+			}
+			if task := last(t, evs); task.State != nexusv1.TaskState_TASK_STATE_SUCCEEDED || task.Summary != want {
+				t.Fatalf("task %v", task)
+			}
+			args, _ := os.ReadFile(argsFile)
+			if !strings.Contains(string(args), "-c\nmcp_servers.nexus.url=\"http://127.0.0.1:") ||
+				!strings.Contains(string(args), "-c\nmcp_servers.nexus.tool_timeout_sec=3720\n") {
+				t.Fatalf("args %s", args)
+			}
+		})
+	}
+}
+
+func TestNexusMCPArgsTemplate(t *testing.T) {
+	rt := New(Config{NexusMCPArgs: []string{"-c", "mcp_servers.nx.url='{url}'", "-c", "experimental_use_rmcp_client=true"}}, kerneltest.New(t))
+	got := strings.Join(rt.ArgsWithNexus("", "http://h/mcp/t"), " ")
+	if !strings.Contains(got, "-c mcp_servers.nx.url='http://h/mcp/t' -c experimental_use_rmcp_client=true") || !strings.HasSuffix(got, " -") {
+		t.Fatalf("args %s", got)
+	}
+	if strings.Contains(strings.Join(rt.Args(""), " "), "mcp_servers") {
+		t.Fatal("Args without url attached nexus")
+	}
+	// Disabled by default: no endpoint, Resolve unsupported.
+	rt2 := newRuntime(t, Config{})
+	run := start(t, rt2, map[string]string{"FAKE_CODEX_MODE": "fail"})
+	if err := run.Resolve(context.Background(), &nexusv1.ApprovalResolution{}); !errors.Is(err, ErrApprovalsUnsupported) {
+		t.Fatalf("resolve: %v", err)
+	}
+	collect(t, run)
 }

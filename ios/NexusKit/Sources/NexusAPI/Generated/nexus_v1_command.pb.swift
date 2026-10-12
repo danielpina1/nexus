@@ -253,6 +253,9 @@ public nonisolated struct Nexus_V1_ExecuteResponse: Sendable {
 
   public var choices: [String] = []
 
+  /// for WORKFLOW
+  public var workflowRunID: String = String()
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
@@ -559,7 +562,7 @@ nonisolated extension Nexus_V1_ExecuteRequest: SwiftProtobuf.Message, SwiftProto
 
 nonisolated extension Nexus_V1_ExecuteResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".ExecuteResponse"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}route\0\u{1}task\0\u{1}answer\0\u{1}sources\0\u{1}question\0\u{1}choices\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}route\0\u{1}task\0\u{1}answer\0\u{1}sources\0\u{1}question\0\u{1}choices\0\u{3}workflow_run_id\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -573,6 +576,7 @@ nonisolated extension Nexus_V1_ExecuteResponse: SwiftProtobuf.Message, SwiftProt
       case 4: try { try decoder.decodeRepeatedMessageField(value: &self.sources) }()
       case 5: try { try decoder.decodeSingularStringField(value: &self.question) }()
       case 6: try { try decoder.decodeRepeatedStringField(value: &self.choices) }()
+      case 7: try { try decoder.decodeSingularStringField(value: &self.workflowRunID) }()
       default: break
       }
     }
@@ -601,6 +605,9 @@ nonisolated extension Nexus_V1_ExecuteResponse: SwiftProtobuf.Message, SwiftProt
     if !self.choices.isEmpty {
       try visitor.visitRepeatedStringField(value: self.choices, fieldNumber: 6)
     }
+    if !self.workflowRunID.isEmpty {
+      try visitor.visitSingularStringField(value: self.workflowRunID, fieldNumber: 7)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -611,6 +618,7 @@ nonisolated extension Nexus_V1_ExecuteResponse: SwiftProtobuf.Message, SwiftProt
     if lhs.sources != rhs.sources {return false}
     if lhs.question != rhs.question {return false}
     if lhs.choices != rhs.choices {return false}
+    if lhs.workflowRunID != rhs.workflowRunID {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

@@ -204,6 +204,11 @@ func (c *collected) toolResults(tool string, calls map[string]string) []*nexusv1
 
 func drain(t *testing.T, run kernel.Run, timeout time.Duration) *collected {
 	t.Helper()
+	return drainWith(t, run, timeout, nil)
+}
+
+func drainWith(t *testing.T, run kernel.Run, timeout time.Duration, on func(*nexusv1.Event)) *collected {
+	t.Helper()
 	c := &collected{}
 	deadline := time.After(timeout)
 	for {
@@ -213,6 +218,9 @@ func drain(t *testing.T, run kernel.Run, timeout time.Duration) *collected {
 				return c
 			}
 			c.events = append(c.events, ev)
+			if on != nil {
+				on(ev)
+			}
 		case <-deadline:
 			for _, ev := range c.events {
 				t.Logf("event: %v", ev)
@@ -228,19 +236,10 @@ func TestGroceryFlow(t *testing.T) {
 	srv := httptest.NewServer(shop.handler())
 	defer srv.Close()
 
-	approvals := 0
-	approvalTool := kernel.ToolFunc{
-		S: kernel.ToolSpec{Name: "request_approval", Description: "ask for approval", InputSchema: json.RawMessage(`{"type":"object"}`), ActionClass: nexusv1.ActionClass_ACTION_CLASS_SPEND},
-		F: func(_ context.Context, c kernel.ToolCall) (kernel.ToolResult, error) {
-			approvals++
-			if !bytes.Contains(c.Input, []byte("att_")) {
-				return kernel.ToolResult{}, fmt.Errorf("approval without screenshot: %s", c.Input)
-			}
-			return kernel.ToolOutput(map[string]any{"approval_id": "apr_test", "state": "APPROVAL_STATE_APPROVED"})
-		},
-	}
 	askUser := kernel.ToolFunc{S: kernel.ToolSpec{Name: "ask_user", InputSchema: json.RawMessage(`{"type":"object"}`)},
-		F: func(context.Context, kernel.ToolCall) (kernel.ToolResult, error) { return kernel.ToolOutput(map[string]string{"answer": "ok"}) }}
+		F: func(context.Context, kernel.ToolCall) (kernel.ToolResult, error) {
+			return kernel.ToolOutput(map[string]string{"answer": "ok"})
+		}}
 
 	var shotID string
 	var finalizar int
@@ -295,27 +294,19 @@ func TestGroceryFlow(t *testing.T) {
 			}
 			_ = json.Unmarshal([]byte(last), &out)
 			shotID = out.AttachmentID
-			// Checkout without approval → blocked.
+			// Checkout → gated; the test denies the first approval.
 			return call(ToolClick, map[string]any{"ref": finalizar})
 		},
 		func(last string) kernel.ChatMessage {
-			if !strings.Contains(last, "BLOCKED (spend)") {
-				t.Errorf("checkout not gated: %s", last)
+			if !strings.Contains(last, "NOT DONE (spend)") || !strings.Contains(last, "denied") {
+				t.Errorf("denied checkout: %s", last)
 			}
-			// An invented approval id is not accepted either.
-			return call(ToolClick, map[string]any{"ref": finalizar, "approval_id": "apr_made_up"})
-		},
-		func(last string) kernel.ChatMessage {
-			if !strings.Contains(last, "BLOCKED (spend)") {
-				t.Errorf("invented approval accepted: %s", last)
+			shop.mu.Lock()
+			if shop.ordered {
+				t.Error("ordered despite denial")
 			}
-			return call("request_approval", map[string]any{"action_class": "spend", "title": "Checkout 0,99 €", "previews": []string{shotID}})
-		},
-		func(last string) kernel.ChatMessage {
-			if !strings.Contains(last, `"browser_approval_id":"apr_test"`) {
-				t.Errorf("approval result: %s", last)
-			}
-			return call(ToolClick, map[string]any{"ref": finalizar, "approval_id": "apr_test"})
+			shop.mu.Unlock()
+			return call(ToolClick, map[string]any{"ref": finalizar})
 		},
 		func(last string) kernel.ChatMessage {
 			if !strings.Contains(last, `"checkout_click":true`) || !strings.Contains(last, "Encomenda confirmada") {
@@ -337,17 +328,60 @@ func TestGroceryFlow(t *testing.T) {
 		Assignment: &nexusv1.RunAssignment{
 			RunId: "run_1", TaskId: "tsk_1", Prompt: "Compra leite",
 			Instructions: "# Grocery test\nBuy what the user asks.",
-			Agent:        &nexusv1.Agent{Id: "grocery-test", Model: "smart", Tools: []string{"browser", "request_approval", "ask_user"}},
+			Agent:        &nexusv1.Agent{Id: "grocery-test", Model: "smart", Tools: []string{"browser", "ask_user"}},
 			Context:      ctxStruct,
 		},
 		Workdir: t.TempDir(),
-		Tools:   []kernel.Tool{approvalTool, askUser},
+		Tools:   []kernel.Tool{askUser},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := drain(t, run, 2*time.Minute)
+	var approvalsSeen []*nexusv1.Approval
+	c := drainWith(t, run, 2*time.Minute, func(ev *nexusv1.Event) {
+		ap := ev.GetApproval()
+		if ap == nil {
+			return
+		}
+		approvalsSeen = append(approvalsSeen, ap)
+		state := nexusv1.ApprovalState_APPROVAL_STATE_DENIED
+		if len(approvalsSeen) == 2 {
+			state = nexusv1.ApprovalState_APPROVAL_STATE_APPROVED
+		}
+		if err := run.Resolve(context.Background(), &nexusv1.ApprovalResolution{RunId: "run_1", Approval: &nexusv1.Approval{Id: ap.GetId(), State: state}}); err != nil {
+			t.Errorf("resolve: %v", err)
+		}
+	})
 	<-run.(*Run).BrowserClosed()
+	if len(approvalsSeen) != 2 {
+		t.Fatalf("approvals %d", len(approvalsSeen))
+	}
+	for _, ap := range approvalsSeen {
+		p := ap.GetPayload().AsMap()
+		if ap.GetActionClass() != nexusv1.ActionClass_ACTION_CLASS_SPEND || ap.GetLevel() != nexusv1.TrustLevel_TRUST_LEVEL_BIOMETRIC ||
+			p["element"] != "Finalizar compra" || !strings.HasSuffix(fmt.Sprint(p["url"]), "/cart") ||
+			!strings.Contains(fmt.Sprint(p["page_text"]), "Leite Mimosa Sem Lactose 1L") || !strings.HasPrefix(fmt.Sprint(p["screenshot"]), "att_") {
+			t.Errorf("approval %v payload %v", ap.GetTitle(), p)
+		}
+	}
+	// Event order around a gated click: ToolCall → ArtifactAdded (screenshot
+	// of the cart) → Approval → ToolResult.
+	var order []string
+	for _, ev := range c.events {
+		switch {
+		case ev.GetToolCall() != nil && ev.GetToolCall().GetTool() == ToolClick:
+			order = append(order, "call")
+		case ev.GetArtifact() != nil:
+			order = append(order, "artifact")
+		case ev.GetApproval() != nil:
+			order = append(order, "approval")
+		case ev.GetToolResult() != nil:
+			order = append(order, "result")
+		}
+	}
+	if got := strings.Join(order, ","); !strings.Contains(got, "call,artifact,approval,result,call,artifact,approval,result") {
+		t.Errorf("event order: %s", got)
+	}
 
 	last := c.events[len(c.events)-1].GetTaskUpdated().GetTask()
 	if last.GetState() != nexusv1.TaskState_TASK_STATE_SUCCEEDED {
@@ -355,14 +389,14 @@ func TestGroceryFlow(t *testing.T) {
 	}
 	shop.mu.Lock()
 	defer shop.mu.Unlock()
-	if !shop.ordered || len(shop.cart) != 1 || approvals != 1 {
-		t.Errorf("ordered=%v cart=%v approvals=%d", shop.ordered, shop.cart, approvals)
+	if !shop.ordered || len(shop.cart) != 1 {
+		t.Errorf("ordered=%v cart=%v", shop.ordered, shop.cart)
 	}
 	var arts int
 	for _, ev := range c.events {
 		if a := ev.GetArtifact().GetAttachment(); a != nil {
 			arts++
-			if a.GetMimeType() != "image/png" || !bytes.HasPrefix(a.GetData(), []byte("\x89PNG")) || a.GetId() != shotID {
+			if a.GetMimeType() != "image/png" || !bytes.HasPrefix(a.GetData(), []byte("\x89PNG")) {
 				t.Errorf("artifact %s %s %d bytes", a.GetId(), a.GetMimeType(), len(a.GetData()))
 			}
 		}
@@ -370,8 +404,8 @@ func TestGroceryFlow(t *testing.T) {
 			t.Errorf("click class %v", tc.GetActionClass())
 		}
 	}
-	if arts != 1 {
-		t.Errorf("artifacts %d", arts)
+	if arts != 3 || shotID == "" { // the agent's own + one per approval
+		t.Errorf("artifacts %d (shot %q)", arts, shotID)
 	}
 }
 
@@ -457,7 +491,7 @@ func TestSnapshotInBrowser(t *testing.T) {
 	})
 	defer s.Close()
 	cls, _ := NewClassifier(nil, nil)
-	k := &toolkit{s: s, cls: cls, ledger: newLedger(), maxChars: 12000, inlineMax: 1 << 20, log: discardLogger()}
+	k := &toolkit{s: s, cls: cls, maxChars: 12000, inlineMax: 1 << 20, log: discardLogger()}
 	ctx := context.Background()
 	if _, err := k.navigate(ctx, kernel.ToolCall{Input: json.RawMessage(`{"url":"` + srv.URL + `"}`)}); err != nil {
 		t.Fatal(err)
