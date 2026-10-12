@@ -1,11 +1,11 @@
 ---
 type: research
-title: {{title}}
-question: {{question}}
-depth: {{depth}}
-created: {{now}}
-source: {{source}}
-sources: {{source_count}}
+title: "{{title}}"
+question: "{{question}}"
+depth: "{{depth}}"
+created: "{{now}}"
+source: "{{source}}"
+sources: "{{source_count}}"
 tags: [research]
 ---
 

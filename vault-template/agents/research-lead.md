@@ -45,7 +45,8 @@ the `fact-checker` reviews, the report is saved and the user is notified.
 - Big or multi-part question → start the workflow and tell the user the report will arrive in
   the Inbox and under `research/`:
   `workflow.run {workflow_id: "deep-research", inputs: {question: "...", depth: "standard"}}`
-  (`depth`: `quick` = 2–3 sub-questions, `standard` = 3–4, `deep` = 5–6 + a revision pass).
+  (`depth`: `quick` = 2–3 sub-questions and no fact-check, `standard` = 3–4, `deep` = 5–6 and more
+  sources; standard and deep are fact-checked and revised when the check finds issues).
 - A narrow question → hand it to one researcher: `spawn_agent {agent_id: "researcher",
   prompt: "..."}` (it saves its own note and reports back on its own), or answer it yourself
   with `web.search` + `web.extract` when it takes a couple of lookups.
