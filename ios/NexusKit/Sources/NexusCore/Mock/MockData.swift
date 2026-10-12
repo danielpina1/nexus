@@ -27,10 +27,12 @@ public enum MockData {
             return a
         }
         return [
-            agent("code-fixer", "Code fixer", "hammer.fill", "claude-code", "Fixes failing tests and opens PRs"),
-            agent("grocery", "Grocery", "cart.fill", "browser", "Fills the Continente cart"),
-            agent("inbox", "Inbox triage", "tray.full.fill", "openai", "Sorts and drafts email replies"),
-            agent("research", "Research", "magnifyingglass", "anthrex", "Deep research with sources"),
+            agent("assistant", "Assistant", "sparkles", "openai", "Everyday tasks, calendar and email"),
+            agent("code-fixer", "Code fixer", "hammer", "claude-code", "Fixes failing tests and opens PRs"),
+            agent("grocery-continente", "Grocery (Continente)", "cart", "browser", "Fills the Continente cart"),
+            agent("ops", "Ops", "server.rack", "openai", "Keeps the machines healthy"),
+            agent("librarian", "Librarian", "books.vertical", "ollama", "Files captures into the vault"),
+            agent("researcher", "Researcher", "magnifyingglass", "claude-code", "Deep research with sources"),
         ]
     }()
 
@@ -60,9 +62,9 @@ public enum MockData {
             return n
         }
         return [
-            node("node_mac", "mac-mini", "macos", online: true, cpu: 23, runs: 2),
-            node("node_srv", "server", "linux", online: true, cpu: 8, runs: 0),
-            node("node_mbp", "macbook", "macos", online: false, cpu: 0, runs: 0, battery: 54),
+            node("node_mac", "mac-studio", "macos", online: true, cpu: 38, runs: 2),
+            node("node_srv", "home-server", "linux", online: true, cpu: 7, runs: 1),
+            node("node_gpu", "gpu-box", "linux", online: true, cpu: 72, runs: 1),
         ]
     }()
 
@@ -90,10 +92,10 @@ public enum MockData {
         return [
             task("tsk_fix", "Fix flaky tests in nexus", agent: "code-fixer", state: .running, node: "node_mac", cents: 81, ago: 360),
             task("tsk_fix_a", "Run test suite", agent: "code-fixer", state: .succeeded, node: "node_mac", cents: 12, ago: 300, summary: "4/5 passing", parent: "tsk_fix"),
-            task("tsk_groc", "Weekly groceries", agent: "grocery", state: .waitingApproval, node: "node_mac", cents: 31, ago: 900),
-            task("tsk_mail", "Triage inbox", agent: "inbox", state: .waitingInput, node: "node_srv", cents: 4, ago: 1200),
-            task("tsk_res", "Compare heat pumps", agent: "research", state: .succeeded, node: "node_srv", cents: 54, ago: 86_000, summary: "Daikin Altherma 3 wins on COP; report saved to vault."),
-            task("tsk_old", "Rename photos", agent: "code-fixer", state: .failed, node: "node_mbp", cents: 2, ago: 172_000, summary: "Node offline"),
+            task("tsk_groc", "Weekly groceries", agent: "grocery-continente", state: .waitingApproval, node: "node_mac", cents: 31, ago: 900),
+            task("tsk_mail", "Triage inbox", agent: "assistant", state: .waitingInput, node: "node_srv", cents: 4, ago: 1200),
+            task("tsk_res", "Compare heat pumps", agent: "researcher", state: .succeeded, node: "node_srv", cents: 54, ago: 86_000, summary: "Daikin Altherma 3 wins on COP; report saved to vault."),
+            task("tsk_old", "Rename photos", agent: "code-fixer", state: .failed, node: "node_gpu", cents: 2, ago: 172_000, summary: "Node offline"),
         ]
     }()
 
@@ -102,7 +104,7 @@ public enum MockData {
         a.id = "apr_demo_checkout"
         a.taskID = "tsk_groc"
         a.runID = "run_tsk_groc"
-        a.agentID = "grocery"
+        a.agentID = "grocery-continente"
         a.actionClass = .spend
         a.level = .biometric
         a.title = "Checkout €84.30 at Continente"

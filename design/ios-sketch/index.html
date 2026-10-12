@@ -1,0 +1,873 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nexus iOS Sketch</title>
+<meta name="description" content="HTML/CSS sketch of the Nexus iPhone app, widgets and Live Activities, mirroring the SwiftUI views in ios/.">
+<link rel="stylesheet" href="ios.css">
+<script src="icons.js"></script>
+</head>
+<body>
+
+<header class="page-head">
+  <h1>Nexus for iPhone — sketch</h1>
+  <p>Faithful HTML/CSS mock-ups of the SwiftUI views in <code>ios/App</code>, <code>ios/Widgets</code> and <code>NexusKit</code>
+     (same sections, labels, components and SF Symbols), on an iPhone 16 Pro (393×852 pt). Sample data follows the web dashboard mock.
+     Tags: <b>implemented</b> = exists in the Swift code; <b>new</b> = added with the remote-access work; <b>aspirational</b> = depends on the Hub or is iOS system UI.</p>
+  <div class="toggles">
+    <a href="?" id="t-light">Light</a>
+    <a href="?theme=dark" id="t-dark">Dark</a>
+  </div>
+</header>
+
+<main class="grid">
+
+<!-- ============================================================ 1a ONBOARDING -->
+<figure class="shot" id="onboarding">
+<div class="capture">
+<div class="device plain" data-net="wifi">
+  <div class="scroll" style="padding:0 16px">
+    <div style="height:94px"></div>
+    <div class="vstack" style="align-items:center; gap:24px; text-align:center">
+      <i class="sf c-accent" data-i="circle.hexagongrid.fill" style="width:72px;height:72px"></i>
+      <div class="t-large">Nexus</div>
+      <div class="sec2 t-body" style="margin-top:-6px">Your agents, machines and vault — controlled from your phone, approved with Face ID.</div>
+      <div class="vstack gap12" style="width:100%">
+        <span class="b large prominent"><i class="sf" data-i="qrcode.viewfinder"></i>Scan pairing code</span>
+        <div class="t-foot sec2">Run <code>nexusd pair --device</code> on your Hub, or open Security → Pair device on the web dashboard.</div>
+        <div class="hstack gap10" style="align-items:flex-start; text-align:left; background:var(--fill-2); border-radius:12px; padding:12px">
+          <i class="sf c-accent" data-i="house.fill" style="width:20px;height:20px;margin-top:1px"></i>
+          <div class="vstack gap2">
+            <div class="t-subb">Pair at home on Wi-Fi</div>
+            <div class="t-foot sec2">Afterwards the same Hub address works everywhere: directly at home, and through your UniFi VPN (WireGuard or Teleport) when you're out.</div>
+          </div>
+        </div>
+      </div>
+      <div style="width:100%; text-align:left; background:var(--fill-2); border-radius:12px; padding:14px">
+        <div class="t-head" style="margin-bottom:10px">Or paste the pairing link</div>
+        <div class="t-foot mono ter" style="margin-bottom:8px">nexus://pair?…</div>
+        <div style="text-align:right" class="ter">Continue</div>
+      </div>
+      <div class="vstack gap8 t-sub c-accent" style="align-items:center">
+        <span class="lbl"><i class="sf" data-i="hammer"></i>Connect with a dev token</span>
+        <span class="lbl"><i class="sf" data-i="play.rectangle"></i>Explore demo mode</span>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+<figcaption><b>1a · Onboarding</b><span>OnboardingView: scan the pairing QR, paste the link, dev token or demo mode — with the new “Pair at home on Wi-Fi” hint.</span><br><span class="tag">implemented</span><span class="tag new">new: pair-at-home hint</span></figcaption>
+</figure>
+
+<!-- ============================================================ 1b PAIRING / SAFETY CODE -->
+<figure class="shot" id="pairing">
+<div class="capture">
+<div class="device" data-net="wifi">
+  <div class="scroll">
+    <div style="height:98px"></div>
+    <div class="large-title">Pair</div>
+    <div class="list">
+      <div class="sec">
+        <div class="sec-h">Hub</div>
+        <div class="group">
+          <div class="row"><span class="lbl t-foot mono"><i class="sf c-accent" data-i="server.rack"></i>https://nexus.home.arpa:7700</span></div>
+          <div class="row"><span class="grow">CA fingerprint</span><span class="val t-cap mono">3f9a1c0e5b7d2a84…</span></div>
+        </div>
+      </div>
+      <div class="sec">
+        <div class="sec-h">Safety code</div>
+        <div class="group">
+          <div class="row" style="justify-content:center; padding:18px 8px; font-size:40px; letter-spacing:4px">🦊🌵🚲🍋🎻🐙</div>
+          <div class="row t-foot sec2">Check that your Hub shows exactly the same emoji, in the same order. If not, cancel — someone may be intercepting the pairing.</div>
+        </div>
+      </div>
+      <div class="sec">
+        <div class="group">
+          <div class="row btn"><span class="lbl"><i class="sf" data-i="checkmark.seal.fill"></i>They match — finish pairing</span></div>
+          <div class="row btn destructive">They don't match</div>
+        </div>
+      </div>
+      <div class="sec-f" style="padding-top:0">Pairing went through <span class="mono">https://nexus.home.arpa:7700</span> — the first Hub URL from the QR that answered <span class="mono">/healthz</span>.</div>
+    </div>
+  </div>
+  <div class="navbar"><span class="nav-btn back"><i class="sf" data-i="chevron.left"></i>Back</span><span></span></div>
+</div>
+</div>
+<figcaption><b>1b · Pairing — safety code</b><span>PairingView after <code>DeviceService.Pair</code>: 6-emoji safety code computed on the phone from the QR's Hub key, compared with the Hub's screen.</span><br><span class="tag">implemented</span><span class="tag new">new: probes every QR URL</span></figcaption>
+</figure>
+
+<!-- ============================================================ 2a HOME -->
+<figure class="shot" id="home">
+<div class="capture">
+<div class="device" data-tab="home" data-net="wifi">
+  <div class="scroll">
+    <div style="height:98px"></div>
+    <div class="large-title">Nexus</div>
+    <div class="list">
+      <div class="sec">
+        <div class="group"><div class="row top vstack" style="align-items:flex-start; gap:6px; display:flex; flex-direction:column">
+          <span class="lbl t-head c-orange"><i class="sf" data-i="sun.max.fill"></i>Good morning — Saturday brief</span>
+          <span class="t-sub">3 agents running and 3 things need you. Groceries are being bought now; gpu-box disk is at 91 %; the code fixer is ready to push a fix for nexus.</span>
+        </div></div>
+      </div>
+      <div class="sec">
+        <div class="sec-h">Inbox <span class="r">€1.27 today</span></div>
+        <div class="group">
+          <div class="row ind-56">
+            <span class="agent s36"><i class="sf" data-i="server.rack"></i></span>
+            <div class="grow vstack gap2">
+              <span class="t-subb">Delete 38 GB on gpu-box</span>
+              <span class="t-cap sec2 clamp2">Remove llama-4-scout-q4.gguf (21 GB, unused 14 days) and prune dangling Docker images (17 GB).</span>
+              <span class="t-cap2 c-orange">Expires in 2 hours</span>
+            </div>
+            <i class="sf c-orange" data-i="faceid" style="width:20px;height:20px"></i>
+          </div>
+          <div class="row ind-56">
+            <span class="agent s36"><i class="sf" data-i="hammer"></i></span>
+            <div class="grow vstack gap2">
+              <span class="t-subb">Push fix/subscribe-replay and open a PR</span>
+              <span class="t-cap sec2 clamp2">3 files changed, +42 −13. All 214 tests pass (5 runs). Opens a PR against main in danielpina1/nexus.</span>
+              <span class="t-cap2 c-orange">Expires in 56 minutes</span>
+            </div>
+            <i class="sf c-orange" data-i="hand.raised.fill" style="width:18px;height:18px"></i>
+          </div>
+          <div class="row" style="display:block; padding-top:13px; padding-bottom:13px">
+            <span class="lbl t-subb"><i class="sf c-accent" data-i="questionmark.bubble.fill"></i>Which slot should I book with Dr. Silva?</span>
+            <div class="hstack gap8" style="margin:9px 0; overflow:hidden">
+              <span class="b bordered mini">Tue 14 Oct, 10:00</span><span class="b bordered mini">Thu 16 Oct, 15:30</span><span class="b bordered mini">Neither — look at…</span>
+            </div>
+            <div class="hstack gap8"><span class="field" style="flex:1">Reply…</span><span class="ter">Send</span></div>
+          </div>
+          <div class="row top">
+            <i class="sf c-red" data-i="exclamationmark.triangle.fill" style="width:20px;height:20px;margin:0 2px"></i>
+            <div class="grow vstack gap2">
+              <span class="t-subb">gpu-box disk at 91 %</span>
+              <span class="t-cap sec2">Watchdog: disk usage crossed 90 %. Ops proposed a cleanup that needs your Face ID.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="navbar"><span class="pill"><span class="dot green"></span>Live</span><span class="nav-btn"><i class="sf" data-i="gearshape"></i></span></div>
+</div>
+</div>
+<figcaption><b>2a · Home</b><span>Brief card, ranked Inbox (Face ID approvals first, then approvals, questions with choice buttons, alerts) and today's cost.</span><br><span class="tag">implemented</span></figcaption>
+</figure>
+
+<!-- ============================================================ 2b HOME scrolled -->
+<figure class="shot" id="home-running">
+<div class="capture">
+<div class="device" data-tab="home" data-net="wifi">
+  <div class="scroll">
+    <div style="height:110px"></div>
+    <div class="list">
+      <div class="sec">
+        <div class="group">
+          <div class="row top"><i class="sf c-accent" data-i="lightbulb.fill" style="width:20px;height:20px;margin:0 2px"></i>
+            <div class="grow vstack gap2"><span class="t-subb">Let Code fixer push branches in nexus without asking?</span><span class="t-cap sec2 clamp2">You approved the last 5 pushes from Code fixer to github.com/danielpina1/nexus. Lower code_push to notify for this repo?</span></div></div>
+          <div class="row top"><i class="sf c-accent" data-i="brain.head.profile" style="width:20px;height:20px;margin:0 2px"></i>
+            <div class="grow vstack gap2"><span class="t-subb">Does Rui Costa work at Sonae?</span><span class="t-cap sec2">Librarian extracted this from your call notes (confidence 72 %).</span></div></div>
+        </div>
+      </div>
+      <div class="sec">
+        <div class="sec-h">Running</div>
+        <div class="group">
+          <div class="row ind-56"><span class="agent s32"><i class="sf" data-i="cart"></i></span><div class="grow vstack gap2"><span class="t-sub clamp1">Fill Continente cart</span><span class="hstack gap6"><span class="badge c-blue"><i class="sf" data-i="play.circle.fill"></i>Running</span><span class="t-cap sec2">· mac-studio</span></span></div><span class="t-cap sec2">€0.21</span></div>
+          <div class="row ind-56"><span class="agent s32"><i class="sf" data-i="books.vertical"></i></span><div class="grow vstack gap2"><span class="t-sub clamp1">Process 6 new captures</span><span class="hstack gap6"><span class="badge c-blue"><i class="sf" data-i="play.circle.fill"></i>Running</span><span class="t-cap sec2">· gpu-box</span></span></div><span class="t-cap sec2">€0.00</span></div>
+          <div class="row ind-56"><span class="agent s32"><i class="sf" data-i="hammer"></i></span><div class="grow vstack gap2"><span class="t-sub clamp1">Fix failing TestSubscribeReplay</span><span class="hstack gap6"><span class="badge c-orange"><i class="sf" data-i="hand.raised.fill"></i>Waiting for approval</span><span class="t-cap sec2">· mac-studio</span></span></div><span class="t-cap sec2">€0.81</span></div>
+          <div class="row ind-56"><span class="agent s32"><i class="sf" data-i="sparkles"></i></span><div class="grow vstack gap2"><span class="t-sub clamp1">Book a dentist appointment</span><span class="hstack gap6"><span class="badge c-orange"><i class="sf" data-i="questionmark.bubble.fill"></i>Waiting for you</span><span class="t-cap sec2">· home-server</span></span></div><span class="t-cap sec2">€0.02</span></div>
+        </div>
+      </div>
+      <div class="sec">
+        <div class="sec-h">Machines</div>
+        <div class="group"><div class="row" style="padding:8px 0 8px 16px; gap:10px; overflow:hidden">
+          <div style="background:var(--fill-2); border-radius:12px; padding:10px; flex:none" class="vstack gap4"><span class="hstack gap6"><span class="dot green"></span><span class="t-subb">mac-studio</span></span><span class="t-cap2 sec2">CPU 38% · 2 runs</span></div>
+          <div style="background:var(--fill-2); border-radius:12px; padding:10px; flex:none" class="vstack gap4"><span class="hstack gap6"><span class="dot green"></span><span class="t-subb">home-server</span></span><span class="t-cap2 sec2">CPU 7% · 1 run</span></div>
+          <div style="background:var(--fill-2); border-radius:12px; padding:10px; flex:none" class="vstack gap4"><span class="hstack gap6"><span class="dot green"></span><span class="t-subb">gpu-box</span></span><span class="t-cap2 sec2">CPU 72% · 1 run</span></div>
+        </div></div>
+      </div>
+      <div class="sec">
+        <div class="sec-h">Favourites</div>
+        <div class="group"><div class="row" style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
+          <div class="hstack gap8" style="background:var(--fill-2); border-radius:10px; padding:8px"><span class="agent s24"><i class="sf" data-i="sparkles"></i></span><span class="t-cap semi">Assistant</span></div>
+          <div class="hstack gap8" style="background:var(--fill-2); border-radius:10px; padding:8px"><span class="agent s24"><i class="sf" data-i="hammer"></i></span><span class="t-cap semi">Code fixer</span></div>
+          <div class="hstack gap8" style="background:var(--fill-2); border-radius:10px; padding:8px"><span class="agent s24"><i class="sf" data-i="cart"></i></span><span class="t-cap semi clamp1">Grocery (Continente)</span></div>
+          <div class="hstack gap8" style="background:var(--fill-2); border-radius:10px; padding:8px"><span class="agent s24"><i class="sf" data-i="server.rack"></i></span><span class="t-cap semi">Ops</span></div>
+          <div class="hstack gap8" style="background:var(--fill-2); border-radius:10px; padding:8px"><span class="agent s24"><i class="sf" data-i="books.vertical"></i></span><span class="t-cap semi">Librarian</span></div>
+          <div class="hstack gap8" style="background:var(--fill-2); border-radius:10px; padding:8px"><span class="agent s24"><i class="sf" data-i="magnifyingglass"></i></span><span class="t-cap semi">Researcher</span></div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+  <div class="navbar inline"><span class="pill"><span class="dot green"></span>Live</span><span class="nav-title">Nexus</span><span class="nav-btn"><i class="sf" data-i="gearshape"></i></span></div>
+</div>
+</div>
+<figcaption><b>2b · Home, scrolled</b><span>Suggestion and fact-review cards, Running tasks (compact live rows), the machines strip and favourite agents (one tap runs them).</span><br><span class="tag">implemented</span></figcaption>
+</figure>
+
+<!-- ============================================================ 3 CHAT LIVE RUN -->
+<figure class="shot" id="chat">
+<div class="capture">
+<div class="device plain" data-net="wifi">
+  <div class="scroll bottom" style="padding:0 16px 110px">
+    <div class="vstack gap10">
+      <div class="tool"><div class="tl"><i class="sf sec2" data-i="checkmark.circle"></i><span class="t-cap mono">bash</span><span class="t-cap2 sec2">61.0s</span><i class="sf chev-r" data-i="chevron.right"></i></div></div>
+      <span class="lbl t-cap"><i class="sf" data-i="doc"></i>fix-subscribe-replay.diff · 2 KB</span>
+      <div class="out"><span class="agent s24"><i class="sf" data-i="hammer"></i></span><div class="md">Fixed: listener is attached before the replay query and duplicates are dropped by seq. All tests pass (5 runs). Ready to push.</div></div>
+      <span class="lbl t-subb c-accent"><i class="sf" data-i="hand.raised.fill"></i>Approval needed: Push fix/subscribe-replay and open a PR</span>
+      <div class="vstack gap6">
+        <div class="hstack gap8"><span class="badge c-orange"><i class="sf" data-i="hand.raised.fill"></i>Waiting for approval</span><span class="spacer"></span><span class="t-cap sec2">€0.81</span></div>
+        <div class="hstack gap8"><span class="b bordered small"><i class="sf" data-i="arrowshape.turn.up.left"></i>Reply</span><span class="b bordered small"><i class="sf" data-i="bolt.fill"></i>Try harder</span><span class="b bordered small red"><i class="sf" data-i="stop.fill"></i>Stop</span></div>
+      </div>
+      <div style="border-top:0.5px solid var(--sep); margin:6px 0"></div>
+      <div class="bubble-user"><div>Buy the usual — budget €160, lactose-free milk</div></div>
+      <div class="out"><span class="agent s24"><i class="sf" data-i="cart"></i></span><div class="md">Opening continente.pt with the saved session…</div></div>
+      <div class="tool"><div class="tl"><i class="sf sec2" data-i="checkmark.circle"></i><span class="t-cap mono">browser.open</span><span class="t-cap2 sec2">2.4s</span><i class="sf chev-r" data-i="chevron.right"></i></div></div>
+      <div class="out"><span class="agent s24"><i class="sf" data-i="cart"></i></span><div class="md">Logged in as Daniel. Delivery slot Sat 9–11 available ✓<br>✓ 6× Leite Mimosa sem lactose 1L — €5.94</div></div>
+      <div class="tool"><div class="tl"><i class="sf sec2" data-i="checkmark.circle"></i><span class="t-cap mono">browser.search</span><span class="t-cap2 sec2">1.8s</span><i class="sf chev-r" data-i="chevron.right"></i></div></div>
+      <div class="out"><span class="agent s24"><i class="sf" data-i="cart"></i></span><div class="md">✓ 2× Café Delta Lote Chávena 250g — €7.98</div></div>
+      <div class="tool">
+        <div class="tl"><i class="sf sec2" data-i="checkmark.circle"></i><span class="t-cap mono">browser.search</span><span class="t-cap2 sec2">2.1s</span><i class="sf chev-r" data-i="chevron.down"></i></div>
+        <div class="body">
+          <span class="semi">Input</span><span class="mono">{"query":"Ovos classe M (12)","store":"continente.pt"}</span>
+          <span class="semi">Output</span><span class="mono">{"best":"Ovos classe M (12)","in_stock":true,"price_eur":2.89}</span>
+        </div>
+      </div>
+      <div class="out"><span class="agent s24"><i class="sf" data-i="cart"></i></span><div class="md">✓ 1× Ovos classe M (12) — €2.89</div></div>
+      <div class="tool"><div class="tl"><i class="sf sec2" data-i="gearshape.2"></i><span class="t-cap mono">browser.search</span><span class="spinner mini"></span><i class="sf chev-r" data-i="chevron.right"></i></div></div>
+      <div class="vstack gap6">
+        <div class="hstack gap8"><span class="badge c-blue"><i class="sf" data-i="play.circle.fill"></i>Running</span><span class="spacer"></span><span class="t-cap sec2">€0.21</span></div>
+        <div class="hstack gap8"><span class="b bordered small"><i class="sf" data-i="arrowshape.turn.up.left"></i>Reply</span><span class="b bordered small"><i class="sf" data-i="bolt.fill"></i>Try harder</span><span class="b bordered small red"><i class="sf" data-i="stop.fill"></i>Stop</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="navbar inline"><span class="nav-btn back"><i class="sf" data-i="chevron.left"></i>Chat</span><span class="nav-title">Nexus</span><span></span></div>
+  <div class="composer"><div class="crow"><i class="sf" data-i="photo.on.rectangle.angled"></i><span class="field rounded-cap">Ask Nexus…</span><i class="sf send off" data-i="arrow.up.circle.fill"></i></div></div>
+</div>
+</div>
+<figcaption><b>3 · Chat — live run</b><span>The auto-routed “Nexus” thread: code fixer waiting on a push approval, grocery agent streaming the Continente cart (collapsible tool calls, one expanded; in-flight call spinning), Reply / Try harder / Stop.</span><br><span class="tag">implemented</span><span class="tag new">spinner only on the growing chunk</span></figcaption>
+</figure>
+
+<!-- ============================================================ 4 APPROVAL SHEET -->
+<figure class="shot" id="approval">
+<div class="capture">
+<div class="device" data-net="wifi" data-sb="light">
+  <div class="sheet-backdrop"></div>
+  <div class="peek"></div>
+  <div class="sheet">
+    <div class="navbar inline" style="top:0"><span class="nav-btn">Close</span><span class="nav-title">Approval</span><span></span></div>
+    <div class="scroll" style="top:44px; padding:16px 16px 40px">
+      <div class="vstack gap12" style="margin-top:-74px">
+        <div class="hstack gap12"><span class="agent s44"><i class="sf" data-i="cart"></i></span><div class="grow vstack gap2"><span class="t-head">Grocery (Continente)</span><span class="t-sub sec2">Spend · mac-studio</span></div><i class="sf c-orange" data-i="faceid" style="width:26px;height:26px"></i></div>
+        <div class="vstack gap6"><div class="t-title2">Checkout €84.30 at Continente</div><div class="t-body">22 items · 2 substitutions · delivery Sat 9–11</div><span class="lbl t-foot sec2"><i class="sf" data-i="timer"></i>Expires in 58 minutes</span></div>
+        <div style="background:var(--fill-2); border-radius:12px; padding:10px 12px" class="vstack gap6">
+          <div class="hstack"><span class="t-head">Exact action</span><span class="spacer"></span><span class="t-cap c-accent">Raw</span></div>
+          <div class="hstack t-sub"><span class="sec2">items</span><span class="spacer"></span>22</div><div style="border-top:.5px solid var(--sep)"></div>
+          <div class="hstack t-sub"><span class="sec2">slot</span><span class="spacer"></span>Sat 09:00-11:00</div><div style="border-top:.5px solid var(--sep)"></div>
+          <div class="hstack t-sub"><span class="sec2">store</span><span class="spacer"></span>Continente</div><div style="border-top:.5px solid var(--sep)"></div>
+          <div class="hstack t-sub"><span class="sec2">total</span><span class="spacer"></span>84.30 EUR</div>
+        </div>
+        <!-- approval.previews[0]: cart screenshot taken by the browser agent -->
+        <div style="border-radius:12px; overflow:hidden; border:.5px solid var(--sep); background:#fff; color:#1c1c1e; font-size:11px">
+          <div style="background:#e8eaef; padding:6px 10px; display:flex; justify-content:space-between; font-weight:600"><span>continente.pt · Carrinho (22)</span><span>€84,30</span></div>
+          <div style="padding:6px 10px; display:grid; grid-template-columns:22px 1fr auto; gap:5px 8px; align-items:center">
+            <span>🥛</span><span>Leite Mimosa sem lactose 1L ×6</span><b>€5,94</b>
+            <span>☕</span><span>Café Delta Lote Chávena 250g ×2</span><b>€7,98</b>
+            <span style="color:#b25000">⇄</span><span style="color:#b25000">Iogurte natural s/ lactose → Mimosa 4×</span><b>€3,98</b>
+          </div>
+          <div style="padding:4px 10px 7px; color:#6e6e73">+19 more · entrega sáb 09:00–11:00</div>
+        </div>
+        <div class="vstack gap6">
+          <span class="lbl t-cap c-green"><i class="sf" data-i="checkmark.shield.fill"></i>Hash recomputed on this iPhone from the action above</span>
+          <span class="t-cap semi">Action hash</span>
+          <span class="t-cap2 mono sec2" style="word-break:break-all">9c1f4e0b7a52d6e3f81b2c49a07d5e6f3b8c1a2d4e5f60718293a4b5c6d7e8f9</span>
+          <span class="t-cap2 sec2">Your signature covers exactly this action. If a single item or cent changes, the machine rejects it.</span>
+        </div>
+        <span class="field">Comment (optional)</span>
+        <div class="hstack t-sub"><span>Remember for this agent and action</span><span class="spacer"></span><span class="toggle"></span></div>
+        <div class="vstack gap10">
+          <span class="b large prominent green"><i class="sf" data-i="faceid"></i>Approve with Face ID</span>
+          <span class="b large bordered red"><i class="sf" data-i="xmark"></i>Deny</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+<figcaption><b>4 · Approval sheet (Face ID)</b><span>“What you see is what you sign”: exact action fields, the cart screenshot preview, the action hash recomputed on the phone, then Face ID unlocks the Secure Enclave approval key.</span><br><span class="tag">implemented</span><span class="tag aspire">screenshot only if the Hub sends <code>approval.previews</code></span><span class="tag aspire">Face ID HUD = iOS system UI</span></figcaption>
+</figure>
+
+<!-- ============================================================ 5a TASKS -->
+<figure class="shot" id="tasks">
+<div class="capture">
+<div class="device" data-tab="tasks" data-net="wifi">
+  <div class="scroll">
+    <div style="height:98px"></div>
+    <div class="large-title">Tasks</div>
+    <div class="list">
+      <div class="seg" style="margin:0 0 18px"><span class="on">Running</span><span>Scheduled</span><span>Done</span></div>
+      <div class="group">
+        <div class="row ind-56"><span class="agent s32"><i class="sf" data-i="sparkles"></i></span><div class="grow vstack gap4"><span class="t-sub clamp2">Groceries — the usual</span><span class="hstack gap6"><span class="badge c-blue"><i class="sf" data-i="play.circle.fill"></i>Running</span><span class="t-cap sec2">· 1 min. ago</span></span></div><span class="t-cap sec2">€0.25</span><i class="sf chev" data-i="chevron.right"></i></div>
+        <div class="row ind-56"><span class="agent s32"><i class="sf" data-i="books.vertical"></i></span><div class="grow vstack gap4"><span class="t-sub clamp2">Process 6 new captures</span><span class="hstack gap6"><span class="badge c-blue"><i class="sf" data-i="play.circle.fill"></i>Running</span><span class="t-cap sec2">· now</span></span></div><span class="t-cap sec2">€0.00</span><i class="sf chev" data-i="chevron.right"></i></div>
+        <div class="row ind-56"><span class="agent s32"><i class="sf" data-i="hammer"></i></span><div class="grow vstack gap4"><span class="t-sub clamp2">Fix failing TestSubscribeReplay</span><span class="hstack gap6"><span class="badge c-orange"><i class="sf" data-i="hand.raised.fill"></i>Waiting for approval</span><span class="t-cap sec2">· 4 min. ago</span></span></div><span class="t-cap sec2">€0.81</span><i class="sf chev" data-i="chevron.right"></i></div>
+        <div class="row ind-56"><span class="agent s32"><i class="sf" data-i="sparkles"></i></span><div class="grow vstack gap4"><span class="t-sub clamp2">Book a dentist appointment</span><span class="hstack gap6"><span class="badge c-orange"><i class="sf" data-i="questionmark.bubble.fill"></i>Waiting for you</span><span class="t-cap sec2">· 14 min. ago</span></span></div><span class="t-cap sec2">€0.02</span><i class="sf chev" data-i="chevron.right"></i></div>
+        <div class="row ind-56"><span class="agent s32"><i class="sf" data-i="server.rack"></i></span><div class="grow vstack gap4"><span class="t-sub clamp2">Free disk space on gpu-box</span><span class="hstack gap6"><span class="badge c-orange"><i class="sf" data-i="hand.raised.fill"></i>Waiting for approval</span><span class="t-cap sec2">· 40 min. ago</span></span></div><span class="t-cap sec2">€0.03</span><i class="sf chev" data-i="chevron.right"></i></div>
+      </div>
+    </div>
+  </div>
+  <div class="navbar"><span class="pill"><span class="dot green"></span>Live</span><span class="nav-btn"><i class="sf" data-i="gearshape"></i></span></div>
+</div>
+</div>
+<figcaption><b>5a · Tasks</b><span>Running / Scheduled / Done; root tasks only (the groceries workflow hides its two subtasks), with state badge, age and cost.</span><br><span class="tag">implemented</span></figcaption>
+</figure>
+
+<!-- ============================================================ 5b TASK DETAIL -->
+<figure class="shot" id="task-detail">
+<div class="capture">
+<div class="device plain" data-tab="tasks" data-net="wifi">
+  <div class="scroll" style="padding:0 16px">
+    <div style="height:110px"></div>
+    <div class="vstack gap16">
+      <div class="hstack gap12"><span class="agent s44"><i class="sf" data-i="hammer"></i></span><div class="vstack gap2"><span class="t-head">Code fixer</span><span class="hstack gap6"><span class="badge c-orange"><i class="sf" data-i="hand.raised.fill"></i>Waiting for approval</span><span class="t-cap sec2">· mac-studio</span><span class="t-cap sec2">· €0.81</span></span></div></div>
+      <div class="vstack gap6">
+        <div class="hstack gap8"><span class="badge c-orange"><i class="sf" data-i="hand.raised.fill"></i>Waiting for approval</span><span class="spacer"></span><span class="t-cap sec2">€0.81</span></div>
+        <div class="hstack gap8"><span class="b bordered small"><i class="sf" data-i="arrowshape.turn.up.left"></i>Reply</span><span class="b bordered small"><i class="sf" data-i="bolt.fill"></i>Try harder</span><span class="b bordered small red"><i class="sf" data-i="stop.fill"></i>Stop</span></div>
+      </div>
+      <span class="b reg prominent" style="align-self:flex-start"><i class="sf" data-i="livephoto"></i>Follow live</span>
+      <span class="t-head">Timeline</span>
+      <div class="vstack gap10">
+        <div class="bubble-user"><div>TestSubscribeReplay fails on CI in backend/internal/events — fix it.</div></div>
+        <span class="lbl t-cap sec2"><i class="sf" data-i="play.circle.fill"></i>Running</span>
+        <div class="out"><span class="agent s24"><i class="sf" data-i="hammer"></i></span><div class="md">Creating worktree ~/.nexus/worktrees/fix-subscribe-replay…</div></div>
+        <div class="tool">
+          <div class="tl"><i class="sf sec2" data-i="checkmark.circle"></i><span class="t-cap mono">bash</span><span class="t-cap2 sec2">18.4s</span><i class="sf chev-r" data-i="chevron.down"></i></div>
+          <div class="body"><span class="semi">Input</span><span class="mono">{"cmd":"go test ./internal/events/... -run TestSubscribeReplay -count=20"}</span><span class="semi">Output</span><span class="mono">{"exit":1,"stdout":"--- FAIL: TestSubscribeReplay (0.02s)\n stream_test.go:88: got 9 events, want 10\nFAIL (7/20 runs)"}</span></div>
+        </div>
+        <div class="out"><span class="agent s24"><i class="sf" data-i="hammer"></i></span><div class="md">Reproduced: 7/20 runs fail. The subscriber can miss the event published between the replay query and attaching the live listener.</div></div>
+        <div class="tool"><div class="tl"><i class="sf sec2" data-i="checkmark.circle"></i><span class="t-cap mono">edit</span><span class="t-cap2 sec2">0.9s</span><i class="sf chev-r" data-i="chevron.right"></i></div></div>
+        <div class="tool"><div class="tl"><i class="sf sec2" data-i="checkmark.circle"></i><span class="t-cap mono">bash</span><span class="t-cap2 sec2">61.0s</span><i class="sf chev-r" data-i="chevron.right"></i></div></div>
+        <span class="t-cap2 sec2">€0.81 · claude-sonnet · 241000→18400 tokens</span>
+        <span class="lbl t-cap sec2"><i class="sf" data-i="hand.raised.fill"></i>Waiting for approval</span>
+      </div>
+    </div>
+  </div>
+  <div class="navbar inline"><span class="nav-btn back"><i class="sf" data-i="chevron.left"></i>Tasks</span><span class="nav-title" style="padding:0 90px" ><span class="clamp1" style="display:block">Fix failing TestSubscribeReplay</span></span><span></span></div>
+  <div class="composer" style="bottom:83px; padding-bottom:8px"><div class="crow"><i class="sf" data-i="photo.on.rectangle.angled"></i><span class="field rounded-cap">Message…</span><i class="sf send off" data-i="arrow.up.circle.fill"></i></div></div>
+</div>
+</div>
+<figcaption><b>5b · Task detail — timeline</b><span>Header, run controls, “Follow live” (starts a Run Live Activity), and the full timeline with status changes, tool input/output and token cost; reply composer at the bottom.</span><br><span class="tag">implemented</span></figcaption>
+</figure>
+
+<!-- ============================================================ 6 VAULT NOTE -->
+<figure class="shot" id="vault">
+<div class="capture">
+<div class="device plain" data-tab="vault" data-net="wifi">
+  <div class="scroll" style="padding:0 16px">
+    <div style="height:114px"></div>
+    <div class="vstack gap12">
+      <span class="t-cap c-accent">#shopping #preferences</span>
+      <div class="t-title2" style="font-size:22px">Shopping preferences</div>
+      <div class="vstack gap8 t-body" style="line-height:22px">
+        <div class="hstack gap6" style="align-items:baseline"><span>•</span><span>Store:: <b>Continente</b> (home delivery, Saturday morning slots)</span></div>
+        <div class="hstack gap6" style="align-items:baseline"><span>•</span><span>Budget per order:: €160, alert above €180</span></div>
+        <div class="hstack gap6" style="align-items:baseline"><span>•</span><span>Dietary rules:: lactose-free for <b>Ana Pina</b>; no palm oil</span></div>
+        <div class="hstack gap6" style="align-items:baseline"><span>•</span><span>Preferred brands:: <b>Leite Mimosa meio-gordo</b>, <b>Café Delta Lote Chávena</b>, <b>Pão de forma Bimbo</b></span></div>
+        <div class="hstack gap6" style="align-items:baseline"><span>•</span><span>Substitutions allowed:: same brand other size; otherwise ask</span></div>
+        <div>Lessons from past runs live in the <b>Grocery (Continente)</b> agent note.</div>
+      </div>
+      <div style="border-top:0.5px solid var(--sep); margin-top:4px"></div>
+      <span class="t-head">Backlinks</span>
+      <div class="vstack gap10 c-accent">
+        <span class="lbl"><i class="sf" data-i="link"></i>Grocery (Continente)</span>
+        <span class="lbl"><i class="sf" data-i="link"></i>2026-10-04 Groceries</span>
+        <span class="lbl"><i class="sf" data-i="link"></i>Continente</span>
+        <span class="lbl"><i class="sf" data-i="link"></i>Ana Pina</span>
+      </div>
+      <span class="t-cap2 sec2">Updated 2 days ago</span>
+    </div>
+  </div>
+  <div class="navbar inline"><span class="nav-btn back"><i class="sf" data-i="chevron.left"></i>Vault</span><span class="nav-title">Shopping preferences</span><span></span></div>
+</div>
+</div>
+<figcaption><b>6 · Vault note</b><span>NoteView: tags, Markdown rendered block by block (wiki-links shown bold), backlinks you can follow, last update.</span><br><span class="tag">implemented</span></figcaption>
+</figure>
+
+<!-- ============================================================ 7a MACHINES -->
+<figure class="shot" id="machines">
+<div class="capture">
+<div class="device" data-tab="machines" data-net="wifi">
+  <div class="scroll">
+    <div style="height:98px"></div>
+    <div class="large-title">Machines</div>
+    <div class="list">
+      <div class="sec"><div class="group">
+        <div class="row ind-56"><i class="sf" data-i="desktopcomputer" style="width:32px;height:22px"></i><div class="grow vstack gap2"><span class="hstack gap6"><span class="dot green"></span><span class="t-head">mac-studio</span></span><span class="t-cap sec2">CPU 38% · RAM 61% · disk 54%</span></div><span class="lbl t-cap c-blue"><i class="sf" data-i="play.circle.fill"></i>2</span><i class="sf chev" data-i="chevron.right"></i></div>
+        <div class="row ind-56"><i class="sf" data-i="server.rack" style="width:32px;height:22px"></i><div class="grow vstack gap2"><span class="hstack gap6"><span class="dot green"></span><span class="t-head">home-server</span></span><span class="t-cap sec2">CPU 7% · RAM 43% · disk 62%</span></div><span class="lbl t-cap c-blue"><i class="sf" data-i="play.circle.fill"></i>1</span><i class="sf chev" data-i="chevron.right"></i></div>
+        <div class="row ind-56"><i class="sf" data-i="server.rack" style="width:32px;height:22px"></i><div class="grow vstack gap2"><span class="hstack gap6"><span class="dot green"></span><span class="t-head">gpu-box</span></span><span class="t-cap sec2">CPU 72% · RAM 78% · disk 91%</span></div><span class="lbl t-cap c-blue"><i class="sf" data-i="play.circle.fill"></i>1</span><i class="sf chev" data-i="chevron.right"></i></div>
+      </div></div>
+      <div class="sec"><div class="group"><div class="row btn destructive"><span class="lbl"><i class="sf" data-i="stop.circle.fill"></i>Kill switch — stop everything</span></div></div></div>
+    </div>
+  </div>
+  <div class="navbar"><span class="pill"><span class="dot green"></span>Live</span><span class="nav-btn"><i class="sf" data-i="gearshape"></i></span></div>
+</div>
+</div>
+<figcaption><b>7a · Machines</b><span>Nodes with online dot, CPU / RAM / disk and active runs; kill switch (asks to confirm, then stops all tasks and pauses triggers).</span><br><span class="tag">implemented</span></figcaption>
+</figure>
+
+<!-- ============================================================ 7b MACHINE DETAIL -->
+<figure class="shot" id="machine-detail">
+<div class="capture">
+<div class="device" data-tab="machines" data-net="wifi">
+  <div class="scroll">
+    <div style="height:98px"></div>
+    <div class="large-title">gpu-box</div>
+    <div class="list">
+      <div class="sec"><div class="sec-h">Status</div><div class="group">
+        <div class="row"><span class="grow">Online</span><span class="val">Yes</span></div>
+        <div class="row"><span class="grow">CPU</span><span class="val">72%</span></div>
+        <div class="row"><span class="grow">Memory</span><span class="val">78%</span></div>
+        <div class="row"><span class="grow">Disk</span><span class="val">91%</span></div>
+        <div class="row"><span class="grow">Active runs</span><span class="val">1</span></div>
+        <div class="row"><span class="grow">System</span><span class="val">Ubuntu 24.04 / amd64</span></div>
+        <div class="row"><span class="grow">Tags</span><span class="val">gpu, any</span></div>
+      </div></div>
+      <div class="sec"><div class="sec-h">Runtimes</div><div class="group">
+        <div class="row"><span class="grow">ollama</span><span class="val">0.12.3</span><i class="sf c-green" data-i="checkmark.circle.fill"></i></div>
+        <div class="row"><span class="grow">vllm</span><span class="val">0.11.0</span><i class="sf sec2" data-i="xmark.circle"></i></div>
+        <div class="row"><span class="grow">shell</span><span class="val">bash 5.2</span><i class="sf c-green" data-i="checkmark.circle.fill"></i></div>
+      </div></div>
+      <div class="sec"><div class="sec-h">Running here</div><div class="group">
+        <div class="row ind-56"><span class="agent s32"><i class="sf" data-i="books.vertical"></i></span><div class="grow vstack gap2"><span class="t-sub">Process 6 new captures</span><span class="hstack gap6"><span class="badge c-blue"><i class="sf" data-i="play.circle.fill"></i>Running</span><span class="t-cap sec2">· now</span></span></div><span class="t-cap sec2">€0.00</span></div>
+      </div></div>
+      <div class="sec"><div class="group"><div class="row"><span class="lbl grow c-accent"><i class="sf" data-i="folder"></i><span style="color:var(--label)">Files</span></span><i class="sf chev" data-i="chevron.right"></i></div></div></div>
+    </div>
+  </div>
+  <div class="navbar"><span class="nav-btn back"><i class="sf" data-i="chevron.left"></i>Machines</span><span></span></div>
+</div>
+</div>
+<figcaption><b>7b · Machine detail</b><span>Status, runtimes installed, what runs here, file browser (and Wake-on-LAN when offline).</span><br><span class="tag">implemented</span></figcaption>
+</figure>
+
+<!-- ============================================================ 8a SETTINGS / REMOTE ACCESS -->
+<figure class="shot" id="settings">
+<div class="capture">
+<div class="device" data-net="cellvpn" data-sb="light">
+  <div class="sheet-backdrop"></div>
+  <div class="peek"></div>
+  <div class="sheet grouped">
+    <div class="navbar clear" style="top:0"><span></span><span class="nav-btn bold">Done</span></div>
+    <div class="scroll" style="top:44px">
+      <div class="large-title" style="padding-top:0">Settings</div>
+      <div class="list">
+        <div class="sec">
+          <div class="sec-h">Remote access</div>
+          <div class="group">
+            <div class="row"><span class="grow t-foot mono clamp1">https://nexus.home.arpa:7700</span><i class="sf c-green" data-i="checkmark.circle.fill"></i></div>
+            <div class="row"><span class="grow t-foot mono clamp1">https://10.20.0.10:7700</span></div>
+            <div class="row"><span class="grow">Route</span><span class="lbl c-green"><i class="sf" data-i="lock.shield.fill"></i>VPN</span></div>
+            <div class="row"><span class="grow">Network</span><span class="val">Cellular + VPN</span></div>
+            <div class="row"><span class="grow">Last contact</span><span class="val">now</span></div>
+            <div class="row btn"><span class="lbl"><i class="sf" data-i="antenna.radiowaves.left.and.right"></i>Test connection</span></div>
+            <div class="row"><span class="lbl grow"><i class="sf c-accent" data-i="questionmark.circle"></i>How to connect away from home</span><i class="sf chev" data-i="chevron.right"></i></div>
+          </div>
+          <div class="sec-f">Your Nexus is never exposed to the internet. Away from home the app reaches it through your UniFi VPN. Notifications and Live Activities arrive even with the VPN off.</div>
+        </div>
+        <div class="sec">
+          <div class="sec-h">Hub</div>
+          <div class="group">
+            <div class="row"><span class="grow">Event stream</span><span class="val">Live</span></div>
+            <div class="row"><span class="grow">Device ID</span><span class="val t-sub">dev_iphone</span></div>
+            <div class="row"><span class="grow">Paired</span><span class="val t-sub">31 Aug 2026 at 21:14</span></div>
+            <div class="row ter">Dev token (development only)</div>
+            <div class="row btn">Reconnect</div>
+          </div>
+        </div>
+        <div class="sec">
+          <div class="sec-h">Devices</div>
+          <div class="group">
+            <div class="row"><div class="grow vstack"><span>Daniel's iPhone 17 Pro (primary)</span><span class="t-cap sec2">Seen now</span></div><span class="t-cap sec2">This iPhone</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+<figcaption><b>8a · Settings → Remote access</b><span>Hub URLs from the QR (✓ = in use), current route (home Wi-Fi / VPN / unreachable), network, last contact, Test connection, and an offline how-to. Here: on cellular through WireGuard.</span><br><span class="tag new">new</span></figcaption>
+</figure>
+
+<!-- ============================================================ 8b REMOTE ACCESS HOW-TO -->
+<figure class="shot" id="remote-help">
+<div class="capture">
+<div class="device" data-net="cellvpn" data-sb="light">
+  <div class="sheet-backdrop"></div>
+  <div class="peek"></div>
+  <div class="sheet grouped">
+    <div class="navbar inline" style="top:0"><span class="nav-btn back"><i class="sf" data-i="chevron.left"></i>Settings</span><span class="nav-title">Remote access</span><span></span></div>
+    <div class="scroll" style="top:44px; padding-top:16px">
+      <div class="list">
+        <div class="sec"><div class="group"><div class="row t-sub">Your Nexus lives at home behind your UniFi gateway. On home Wi-Fi the app talks to it directly. Away from home, a VPN to your gateway makes it work exactly the same — no ports are opened to the internet.</div></div></div>
+        <div class="sec">
+          <div class="sec-h">WireGuard — recommended</div>
+          <div class="group t-sub">
+            <div class="row top"><span class="step">1</span><span>In the UniFi Network app or console: <b>Settings → VPN → VPN Server → Create → WireGuard</b>.</span></div>
+            <div class="row top"><span class="step">2</span><span>Add a client called <b>iPhone</b> and show its QR code.</span></div>
+            <div class="row top"><span class="step">3</span><span>Install the <b>WireGuard</b> app on this iPhone → <b>+</b> → <b>Create from QR code</b> → scan it.</span></div>
+            <div class="row top"><span class="step">4</span><span>Edit the tunnel → <b>On-Demand</b>: turn on <b>Cellular</b> and <b>Wi-Fi</b>, and choose <b>Except these SSIDs</b> → your home Wi-Fi.</span></div>
+            <div class="row top"><span class="step">5</span><span>Use your gateway as the tunnel's DNS so <b>nexus.home.arpa</b> resolves when you're away.</span></div>
+          </div>
+          <div class="sec-f">With On-Demand the tunnel comes up by itself whenever you leave home, including when you tap an approval notification.</div>
+        </div>
+        <div class="sec">
+          <div class="sec-h">Teleport — simplest</div>
+          <div class="group t-sub">
+            <div class="row top"><span class="step">1</span><span>In UniFi: <b>Settings → VPN → Teleport</b> → enable it and create an invite link.</span></div>
+            <div class="row top"><span class="step">2</span><span>Install <b>WiFiman</b> on this iPhone and open the invite.</span></div>
+            <div class="row top"><span class="step">3</span><span>When you're away, open WiFiman and tap <b>Connect</b> before using Nexus.</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+<figcaption><b>8b · Remote access how-to</b><span>Concise steps embedded in the app (docs links would not open while away): WireGuard On-Demand, Teleport, how to check, and what to know.</span><br><span class="tag new">new</span></figcaption>
+</figure>
+
+<!-- ============================================================ 9 LOCK SCREEN -->
+<figure class="shot" id="lockscreen">
+<div class="capture">
+<div class="device" data-net="cell" data-sb="light" data-hi="light">
+  <div class="wall"></div>
+  <div style="position:absolute; top:58px; left:0; right:0; text-align:center; color:#fff"><i class="sf" data-i="lock.fill" style="width:16px;height:16px"></i></div>
+  <div class="ls-date" style="top:84px">Saturday 11 October</div>
+  <div class="ls-time" style="top:108px">9:52</div>
+  <div style="position:absolute; top:232px; left:0; right:0; display:flex; justify-content:center; gap:10px; color:#fff">
+    <div style="width:72px; height:72px; border-radius:50%; background:rgba(255,255,255,.16); backdrop-filter:blur(10px); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px"><i class="sf" data-i="hand.raised.fill" style="width:18px;height:18px"></i><span class="t-head">3</span></div>
+    <div style="width:160px; height:72px; border-radius:16px; background:rgba(255,255,255,.16); backdrop-filter:blur(10px); padding:8px 10px" class="vstack gap2"><span class="lbl t-head"><i class="sf" data-i="circle.hexagongrid.fill"></i>Nexus</span><span class="t-cap">3 to approve · 1 question</span><span class="t-cap">5 running</span></div>
+  </div>
+  <!-- notification -->
+  <div class="glass notif" style="position:absolute; left:10px; right:10px; top:430px">
+    <div class="appicon" style="width:38px;height:38px"><i class="sf" data-i="circle.hexagongrid.fill"></i></div>
+    <div class="grow vstack gap2" style="flex:1; min-width:0">
+      <div class="hstack"><span class="t-subb">Approval needed — Ops</span><span class="spacer"></span><span class="t-cap" style="opacity:.6">2m ago</span></div>
+      <span class="t-sub">Delete 38 GB on gpu-box. Long-press to review, or “Review &amp; Face ID”.</span>
+    </div>
+  </div>
+  <!-- Run Live Activity (RunLockScreenView, waitingApproval) -->
+  <div class="glass" style="position:absolute; left:10px; right:10px; top:526px; padding:16px; border-radius:24px">
+    <div class="vstack gap8">
+      <div class="hstack gap8"><i class="sf c-orange" data-i="cart" style="width:20px;height:20px; color:#ff9f0a"></i><span class="t-head" style="white-space:nowrap">Grocery (Continente)</span><span class="t-sub clamp1" style="opacity:.6; min-width:44px; flex:0 1 auto">· mac-studio</span><span class="spacer"></span><span class="t-cap2 semi" style="color:#ff9f0a; white-space:nowrap">Waiting for approval</span></div>
+      <div class="t-subb">Checkout €84.30 at Continente</div>
+      <div class="t-cap" style="opacity:.6">22 items · 2 substitutions · delivery Sat 9–11 · €0.31</div>
+      <div class="hstack gap8"><span class="la-btn"><i class="sf" data-i="doc.text.magnifyingglass"></i>Review</span><span class="la-btn"><i class="sf" data-i="faceid"></i>Approve with Face ID</span></div>
+    </div>
+  </div>
+  <div style="position:absolute; bottom:44px; left:46px; width:50px; height:50px; border-radius:50%; background:rgba(0,0,0,.35); backdrop-filter:blur(10px); display:flex; align-items:center; justify-content:center; color:#fff"><i class="sf" data-i="flashlight" style="width:22px;height:22px"></i></div>
+  <div style="position:absolute; bottom:44px; right:46px; width:50px; height:50px; border-radius:50%; background:rgba(0,0,0,.35); backdrop-filter:blur(10px); display:flex; align-items:center; justify-content:center; color:#fff"><i class="sf" data-i="camera.fill" style="width:22px;height:22px"></i></div>
+</div>
+</div>
+<figcaption><b>9 · Lock Screen</b><span>Lock Screen widgets (circular + rectangular), an approval notification from the Hub, and the Run Live Activity waiting for a Face ID approval (buttons open the approval sheet).</span><br><span class="tag">implemented (widget, Live Activity)</span><span class="tag aspire">notification text = Hub push content</span></figcaption>
+</figure>
+
+<!-- ============================================================ 10 DYNAMIC ISLAND -->
+<figure class="shot" id="island">
+<div class="capture" style="display:flex; flex-direction:column; align-items:center; gap:18px; padding-bottom:12px">
+<div class="device plain" data-net="cell">
+  <!-- some other app underneath -->
+  <div class="scroll" style="padding:0 16px">
+    <div style="height:212px"></div>
+    <div class="vstack gap12" style="opacity:.55">
+      <div style="height:22px; width:60%; background:var(--fill-3); border-radius:6px"></div>
+      <div style="height:150px; background:linear-gradient(135deg,#9fb6d9,#c9d7ea); border-radius:14px"></div>
+      <div style="height:14px; width:92%; background:var(--fill-3); border-radius:5px"></div>
+      <div style="height:14px; width:85%; background:var(--fill-3); border-radius:5px"></div>
+      <div style="height:14px; width:70%; background:var(--fill-3); border-radius:5px"></div>
+      <div style="height:150px; background:linear-gradient(135deg,#d9c39f,#eadcc9); border-radius:14px"></div>
+      <div style="height:14px; width:88%; background:var(--fill-3); border-radius:5px"></div>
+      <div style="height:14px; width:64%; background:var(--fill-3); border-radius:5px"></div>
+    </div>
+  </div>
+  <!-- expanded Dynamic Island (RunLiveActivity, waitingApproval) -->
+  <div class="di expanded" data-no-island>
+    <div class="hstack" style="align-items:flex-start">
+      <span class="lbl t-head"><i class="sf" data-i="cart" style="color:#ff9f0a; width:20px; height:20px"></i>Grocery (Continente)</span>
+      <span class="spacer"></span><span class="t-cap" style="opacity:.6; margin-top:3px">mac-studio</span>
+    </div>
+    <div class="vstack gap6" style="margin-top:10px">
+      <span class="t-subb clamp1">Checkout €84.30 at Continente</span>
+      <span class="t-cap clamp1" style="opacity:.6">22 items · 2 substitutions · delivery Sat 9–11</span>
+      <div class="hstack gap8" style="margin-top:4px"><span class="la-btn" style="font-size:11px"><i class="sf" data-i="doc.text.magnifyingglass"></i>Review</span><span class="la-btn" style="font-size:11px"><i class="sf" data-i="faceid"></i>Approve with Face ID</span></div>
+    </div>
+  </div>
+</div>
+<div class="side-notes">
+  <div class="hstack gap10">
+    <div class="di compact chip-island"><span class="hstack gap4"><i class="sf" data-i="cart" style="color:#0a84ff"></i><span class="mono" style="font-size:11px">14/22</span></span><span class="mono" style="font-size:11px">€0.23</span></div>
+    <span class="t-cap" style="color:var(--page-muted)">running</span>
+  </div>
+  <div class="hstack gap10">
+    <div class="di compact chip-island"><i class="sf" data-i="hammer" style="color:#ff9f0a"></i><span class="hstack gap4" style="color:#ff9f0a; font-size:11px"><i class="sf" data-i="timer"></i>approve?</span></div>
+    <span class="t-cap" style="color:var(--page-muted)">waiting</span>
+  </div>
+  <div class="hstack gap10">
+    <div class="di compact chip-island"><span class="hstack gap4" style="font-size:11px"><i class="sf" data-i="play.circle.fill"></i>4</span><span class="hstack gap4" style="color:#ff9f0a; font-size:11px"><i class="sf" data-i="hand.raised.fill"></i>3</span></div>
+    <span class="t-cap" style="color:var(--page-muted)">Pulse</span>
+  </div>
+</div>
+</div>
+<figcaption><b>10 · Dynamic Island</b><span>Expanded Run activity waiting for approval (Review / Approve with Face ID), plus compact states: a running cart fill (step + cost), code fixer waiting (“approve?”), and the aggregate Pulse activity (running · waiting).</span><br><span class="tag">implemented</span><span class="tag aspire">“14/22” step + progress only via Hub <code>liveactivity</code> pushes</span></figcaption>
+</figure>
+
+<!-- ============================================================ 11a HOME SCREEN WIDGETS -->
+<figure class="shot" id="widgets">
+<div class="capture">
+<div class="device light" data-net="cell" data-sb="light" data-hi="light">
+  <div class="wall dim"></div>
+  <!-- Inbox widget (medium) -->
+  <div class="widget w-medium" style="position:absolute; top:70px; left:27px; padding:14px 16px">
+    <div class="vstack" style="gap:3px">
+      <div class="hstack gap6"><i class="sf c-accent" data-i="tray.full.fill"></i><span class="t-head">Nexus</span><span class="spacer"></span><span class="t-cap2 sec2">€1.27</span></div>
+      <div class="hstack gap10" style="align-items:baseline"><span style="font-size:40px; font-weight:700; line-height:44px; font-family:'Inter Display', var(--font)">6</span><span class="t-cap c-orange">3 need approval</span></div>
+      <div style="border-top:.5px solid var(--sep); margin:2px 0 3px"></div>
+      <span class="lbl t-cap c-accent clamp1"><i class="sf" data-i="cart"></i><span style="color:var(--label)">Fill Continente cart</span></span>
+      <span class="lbl t-cap c-accent clamp1"><i class="sf" data-i="hand.raised.fill"></i><span style="color:var(--label)">Fix failing TestSubscribeReplay</span></span>
+    </div>
+  </div>
+  <!-- Machines (small) -->
+  <div class="widget w-small" style="position:absolute; top:250px; left:27px">
+    <div class="vstack gap6">
+      <span class="lbl t-head"><i class="sf" data-i="desktopcomputer"></i>Machines</span>
+      <div class="hstack gap6 t-cap" style="white-space:nowrap"><span class="dot green"></span>mac-studio<span class="spacer"></span><span class="t-cap2 sec2">38%</span><span class="t-cap2">▶︎2</span></div>
+      <div class="hstack gap6 t-cap" style="white-space:nowrap"><span class="dot green"></span>home-server<span class="spacer"></span><span class="t-cap2 sec2">7%</span><span class="t-cap2">▶︎1</span></div>
+      <div class="hstack gap6 t-cap" style="white-space:nowrap"><span class="dot green"></span>gpu-box<span class="spacer"></span><span class="t-cap2 sec2">72%</span><span class="t-cap2">▶︎1</span></div>
+    </div>
+  </div>
+  <div class="home-grid" style="top:250px; left:207px; right:27px; grid-template-columns:repeat(2,64px); row-gap:14px">
+    <div class="home-app"><div class="appicon"><i class="sf" data-i="circle.hexagongrid.fill"></i></div>Nexus</div>
+    <div class="home-app"><div class="appicon" style="background:linear-gradient(#5fd068,#2fb24a)"><i class="sf" data-i="message.fill"></i></div>Messages</div>
+    <div class="home-app"><div class="appicon" style="background:linear-gradient(#a5d8ff,#3b9cf3)"><i class="sf" data-i="lock.shield.fill"></i></div>WireGuard</div>
+    <div class="home-app"><div class="appicon" style="background:linear-gradient(#69a7ff,#1f6fe5)"><i class="sf" data-i="wifi"></i></div>WiFiman</div>
+  </div>
+  <!-- Favourites (medium, interactive) -->
+  <div class="widget w-medium" style="position:absolute; top:430px; left:27px">
+    <div class="vstack gap8">
+      <span class="lbl t-head"><i class="sf" data-i="bolt.fill"></i>Run</span>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px">
+        <span class="b bordered mini semi"><i class="sf" data-i="sparkles"></i>Assistant</span>
+        <span class="b bordered mini semi"><i class="sf" data-i="hammer"></i>Code fixer</span>
+        <span class="b bordered mini semi" style="overflow:hidden"><i class="sf" data-i="cart"></i><span class="clamp1">Grocery (Contin…</span></span>
+        <span class="b bordered mini semi"><i class="sf" data-i="server.rack"></i>Ops</span>
+      </div>
+    </div>
+  </div>
+  <div class="glass dock" style="background:rgba(255,255,255,.22)">
+    <div class="appicon" style="background:linear-gradient(#5fd068,#2fb24a)"><i class="sf" data-i="phone.fill"></i></div>
+    <div class="appicon" style="background:linear-gradient(#fff,#e8e8ed); color:#1a73e8"><i class="sf" data-i="safari"></i></div>
+    <div class="appicon" style="background:linear-gradient(#5fd068,#2fb24a)"><i class="sf" data-i="message.fill"></i></div>
+    <div class="appicon"><i class="sf" data-i="circle.hexagongrid.fill"></i></div>
+  </div>
+</div>
+</div>
+<figcaption><b>11a · Home Screen widgets</b><span>Inbox (count, approvals, two running tasks), Machines, and the interactive Favourites widget whose buttons run agents through App Intents. Widgets read the snapshot the app writes to the App Group.</span><br><span class="tag">implemented</span></figcaption>
+</figure>
+
+<!-- ============================================================ 11b CONTROL CENTER -->
+<figure class="shot" id="controls">
+<div class="capture">
+<div class="device" data-net="cellvpn" data-sb="light" data-hi="light">
+  <div class="wall"></div>
+  <div style="position:absolute; inset:0; background:rgba(10,10,20,.55); backdrop-filter:blur(30px)"></div>
+  <div style="position:absolute; top:84px; left:24px; right:24px; display:grid; grid-template-columns:repeat(4, 1fr); gap:16px 14px; justify-items:center">
+    <div class="cc-tile" style="grid-column:span 2; width:160px; height:160px; display:grid; grid-template-columns:1fr 1fr; place-items:center; padding:12px">
+      <div class="cc-round"><i class="sf" data-i="airplane"></i></div>
+      <div class="cc-round on-green"><i class="sf" data-i="antenna.radiowaves.cell"></i></div>
+      <div class="cc-round" style="background:rgba(255,255,255,.22)"><i class="sf" data-i="wifi"></i></div>
+      <div class="cc-round on-blue"><i class="sf" data-i="bluetooth"></i></div>
+    </div>
+    <div class="cc-tile" style="grid-column:span 2; width:160px; height:160px; flex-direction:column; gap:8px; padding:14px; align-items:flex-start; justify-content:flex-end">
+      <div class="cc-round on-blue" style="width:44px;height:44px"><i class="sf" data-i="lock.shield.fill" style="width:22px;height:22px"></i></div>
+      <span class="t-subb">VPN</span><span class="t-cap" style="opacity:.7">WireGuard · Home</span>
+    </div>
+    <div class="vstack gap6" style="align-items:center"><div class="cc-round on-red"><i class="sf" data-i="stop.circle.fill"></i></div><span class="t-cap2" style="color:#fff; text-align:center">Kill switch</span></div>
+    <div class="vstack gap6" style="align-items:center"><div class="cc-round"><i class="sf" data-i="square.and.pencil"></i></div><span class="t-cap2" style="color:#fff">Capture</span></div>
+    <div class="vstack gap6" style="align-items:center"><div class="cc-round"><i class="sf" data-i="waveform"></i></div><span class="t-cap2" style="color:#fff; text-align:center">Talk to Nexus</span></div>
+    <div class="vstack gap6" style="align-items:center"><div class="cc-round"><i class="sf" data-i="flashlight"></i></div><span class="t-cap2" style="color:#fff">Torch</span></div>
+    <div class="vstack gap6" style="align-items:center"><div class="cc-round"><i class="sf" data-i="moon.fill"></i></div><span class="t-cap2" style="color:#fff">Focus</span></div>
+    <div class="vstack gap6" style="align-items:center"><div class="cc-round"><i class="sf" data-i="timer"></i></div><span class="t-cap2" style="color:#fff">Timer</span></div>
+    <div class="vstack gap6" style="align-items:center"><div class="cc-round"><i class="sf" data-i="camera.fill"></i></div><span class="t-cap2" style="color:#fff">Camera</span></div>
+    <div class="vstack gap6" style="align-items:center"><div class="cc-round"><i class="sf" data-i="qrcode.viewfinder"></i></div><span class="t-cap2" style="color:#fff">Scan</span></div>
+  </div>
+  <div style="position:absolute; left:24px; right:24px; top:540px; color:#fff; font-size:12px; opacity:.75; line-height:1.4; text-align:center">Nexus controls (red / pencil / waveform) open the app on the kill-switch confirmation, quick capture or the composer. The VPN tile is iOS's own control for the WireGuard tunnel.</div>
+</div>
+</div>
+<figcaption><b>11b · Control Center controls</b><span>iOS 18 controls: Kill switch (confirms in-app first), Capture, Talk to Nexus — next to the system VPN control used to reach the Hub when away.</span><br><span class="tag">implemented (Nexus controls)</span><span class="tag aspire">VPN tile = iOS system control</span></figcaption>
+</figure>
+
+<!-- ============================================================ 12a HUB UNREACHABLE — HOME -->
+<figure class="shot" id="unreachable">
+<div class="capture">
+<div class="device" data-tab="home" data-net="cell">
+  <div class="scroll">
+    <div style="height:98px"></div>
+    <div class="large-title">Nexus</div>
+    <div class="list">
+      <div class="sec">
+        <div class="unreach vstack gap8">
+          <div class="hstack gap10" style="align-items:flex-start">
+            <i class="sf sec2" data-i="house.and.flag" style="width:26px;height:26px"></i>
+            <div class="vstack gap2 grow"><span class="t-subb">Can't reach your Nexus at home</span><span class="t-foot sec2">Turn on your home VPN (WireGuard / WiFiman Teleport)</span></div>
+          </div>
+          <div class="hstack"><span class="lbl t-cap sec2"><i class="sf" data-i="tray.and.arrow.up"></i>2 queued — sent when you're back</span><span class="spacer"></span><span class="b bordered mini">Retry</span></div>
+        </div>
+      </div>
+      <div class="sec">
+        <div class="group"><div class="row top" style="flex-direction:column; align-items:flex-start; gap:6px">
+          <span class="lbl t-head c-orange"><i class="sf" data-i="sun.max.fill"></i>Good morning — Saturday brief</span>
+          <span class="t-sub">3 agents running and 3 things need you. Groceries are being bought now; gpu-box disk is at 91 %; the code fixer is ready to push a fix for nexus.</span>
+        </div></div>
+      </div>
+      <div class="sec">
+        <div class="sec-h">Inbox <span class="r">€1.27 today</span></div>
+        <div class="group">
+          <div class="row ind-56">
+            <span class="agent s36"><i class="sf" data-i="cart"></i></span>
+            <div class="grow vstack gap2"><span class="t-subb">Checkout €84.30 at Continente</span><span class="t-cap sec2 clamp2">22 items · 2 substitutions · delivery Sat 9–11</span><span class="t-cap2 c-orange">Expires in 47 minutes</span></div>
+            <i class="sf c-orange" data-i="faceid" style="width:20px;height:20px"></i>
+          </div>
+          <div class="row ind-56">
+            <span class="agent s36"><i class="sf" data-i="server.rack"></i></span>
+            <div class="grow vstack gap2"><span class="t-subb">Delete 38 GB on gpu-box</span><span class="t-cap sec2 clamp2">Remove llama-4-scout-q4.gguf (21 GB, unused 14 days) and prune dangling Docker images (17 GB).</span><span class="t-cap2 c-orange">Expires in 1 hour</span></div>
+            <i class="sf c-orange" data-i="faceid" style="width:20px;height:20px"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="navbar"><span class="pill"><span class="dot orange"></span>Away · VPN off?</span><span class="nav-btn"><i class="sf" data-i="gearshape"></i></span></div>
+</div>
+</div>
+<figcaption><b>12a · Hub unreachable — Home</b><span>Away from home with the VPN off: a calm banner (not an error), Retry, and the number of queued items. Cached approvals still open, can be reviewed and signed.</span><br><span class="tag new">new</span></figcaption>
+</figure>
+
+<!-- ============================================================ 12b UNREACHABLE — CHAT QUEUE -->
+<figure class="shot" id="unreachable-chat">
+<div class="capture">
+<div class="device plain" data-net="cell">
+  <div class="scroll" style="padding:0 16px">
+    <div style="height:230px"></div>
+    <div class="vstack gap10">
+      <div class="bubble-user"><div>What's on my calendar on Monday?</div></div>
+      <div class="out"><span class="agent s24"><i class="sf" data-i="sparkles"></i></span><div class="md">Monday 13 Oct: 09:30 stand-up, 12:30 lunch with Rui Costa (Cais do Sodré), 18:00 padel.</div></div>
+      <div class="vstack gap6"><div class="hstack gap8"><span class="badge c-green"><i class="sf" data-i="checkmark.circle.fill"></i>Done</span><span class="spacer"></span><span class="t-cap sec2">€0.01</span></div></div>
+      <div style="border-top:0.5px solid var(--sep); margin:6px 0"></div>
+      <div class="vstack gap4" style="align-items:flex-end">
+        <div class="bubble-user" style="opacity:.6"><div>Remind me to call the plumber tomorrow at 9</div></div>
+        <span class="lbl t-cap2 sec2"><i class="sf" data-i="clock"></i>Waiting for your Nexus — sent when you're connected</span>
+      </div>
+      <div class="vstack gap4" style="align-items:flex-end">
+        <div class="bubble-user" style="opacity:.6"><div>Add oat milk to the usual list</div></div>
+        <span class="lbl t-cap2 sec2"><i class="sf" data-i="clock"></i>Waiting for your Nexus — sent when you're connected</span>
+      </div>
+    </div>
+  </div>
+  <div class="navbar inline"><span class="nav-btn back"><i class="sf" data-i="chevron.left"></i>Chat</span><span class="nav-title">Nexus</span><span></span></div>
+  <div style="position:absolute; top:102px; left:16px; right:16px; z-index:29" class="unreach vstack gap8 plainbg">
+    <div class="hstack gap10" style="align-items:flex-start">
+      <i class="sf sec2" data-i="house.and.flag" style="width:26px;height:26px"></i>
+      <div class="vstack gap2 grow"><span class="t-subb">Can't reach your Nexus at home</span><span class="t-foot sec2">Turn on your home VPN (WireGuard / WiFiman Teleport)</span></div>
+    </div>
+    <div class="hstack"><span class="lbl t-cap sec2"><i class="sf" data-i="tray.and.arrow.up"></i>2 queued — sent when you're back</span><span class="spacer"></span><span class="b bordered mini">Retry</span></div>
+  </div>
+  <div class="composer"><div class="t-cap sec2" style="margin-bottom:6px">Queued — sent automatically when your Nexus is reachable.</div><div class="crow"><i class="sf" data-i="photo.on.rectangle.angled"></i><span class="field rounded-cap">Ask Nexus…</span><i class="sf send off" data-i="arrow.up.circle.fill"></i></div></div>
+</div>
+</div>
+<figcaption><b>12b · Hub unreachable — Chat queue</b><span>Commands typed while away are kept in a small App Group outbox (with idempotency keys) and shown as pending bubbles; they are sent in order as soon as <code>/healthz</code> answers again.</span><br><span class="tag new">new</span></figcaption>
+</figure>
+
+<!-- ============================================================ 12c QUEUED APPROVAL -->
+<figure class="shot" id="unreachable-approval">
+<div class="capture">
+<div class="device" data-net="cell" data-sb="light">
+  <div class="sheet-backdrop"></div>
+  <div class="peek"></div>
+  <div class="sheet">
+    <div class="navbar inline" style="top:0"><span class="nav-btn">Close</span><span class="nav-title">Approval</span><span></span></div>
+    <div class="scroll" style="top:44px; display:flex; align-items:center; justify-content:center; padding:24px">
+      <div class="vstack gap16" style="align-items:center; text-align:center; margin-top:-40px">
+        <i class="sf c-green" data-i="checkmark.seal.fill" style="width:52px;height:52px"></i>
+        <div class="t-title3 bold">Approved — waiting to send</div>
+        <div class="t-body sec2">Your Face ID–signed decision is stored on this iPhone and will be sent as soon as your Nexus at home is reachable. Turn on your home VPN to send it now.</div>
+        <span class="lbl t-foot sec2" style="align-items:flex-start; text-align:left"><i class="sf" data-i="timer" style="margin-top:2px"></i>Valid until 10:39. If it can't be delivered by then, it is dropped and nothing happens.</span>
+        <span class="b reg prominent">Done</span>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+<figcaption><b>12c · Approval signed while away</b><span>Tapping an approval notification with the VPN off: the cached approval opens, Face ID signs it, and the signed decision waits in the outbox until the Hub answers — or is dropped with a message once it expires.</span><br><span class="tag new">new</span></figcaption>
+</figure>
+
+</main>
+
+<script>
+// ---- shared device chrome: status bar, Dynamic Island, home indicator, tab bar ----
+(function () {
+  const params = new URLSearchParams(location.search);
+  if (params.get("theme") === "dark") document.documentElement.setAttribute("data-theme", "dark"), document.body.setAttribute("data-theme", "dark");
+  document.getElementById(params.get("theme") === "dark" ? "t-dark" : "t-light").classList.add("on");
+  const only = params.get("screen");
+  if (only) {
+    document.body.classList.add("single");
+    const el = document.getElementById(only);
+    if (el) el.classList.add("only");
+  }
+
+  const TABS = [
+    ["home", "Home", "house.fill"],
+    ["chat", "Chat", "bubble.left.and.bubble.right.fill"],
+    ["tasks", "Tasks", "list.bullet.rectangle.portrait.fill"],
+    ["vault", "Vault", "books.vertical.fill"],
+    ["machines", "Machines", "desktopcomputer"],
+  ];
+  const NET = {
+    wifi: '<i class="sf" data-i="antenna.radiowaves.cell" style="width:17px;height:12px"></i><i class="sf" data-i="wifi" style="width:17px;height:13px"></i>',
+    cell: '<i class="sf" data-i="antenna.radiowaves.cell" style="width:17px;height:12px"></i><span style="font-size:14px;font-weight:600">5G</span>',
+    cellvpn: '<i class="sf" data-i="antenna.radiowaves.cell" style="width:17px;height:12px"></i><span style="font-size:14px;font-weight:600">5G</span><span class="vpn">VPN</span>',
+  };
+
+  document.querySelectorAll(".device").forEach((d) => {
+    const sb = document.createElement("div");
+    sb.className = "statusbar" + (d.dataset.sb === "light" ? " light-text" : "");
+    sb.innerHTML = `<span>9:41</span><span class="sb-right">${NET[d.dataset.net || "wifi"] || ""}<i class="sf" data-i="battery" style="width:27px;height:13px"></i></span>`;
+    if (d.id !== "lockscreen") d.appendChild(sb);
+    if (!d.querySelector("[data-no-island]")) {
+      const isl = document.createElement("div");
+      isl.className = "island";
+      d.appendChild(isl);
+    }
+    if (d.dataset.tab) {
+      const tb = document.createElement("div");
+      tb.className = "tabbar";
+      tb.innerHTML = TABS.map(([id, label, icon]) =>
+        `<div class="tab${id === d.dataset.tab ? " on" : ""}"><i class="sf" data-i="${icon}"></i>${label}</div>`).join("");
+      d.appendChild(tb);
+    }
+    const hi = document.createElement("div");
+    hi.className = "home-indicator" + (d.dataset.hi === "light" ? " light" : "");
+    d.appendChild(hi);
+  });
+  // lock screen: status bar without the time (iOS shows the big clock instead)
+  const ls = document.querySelector("#lockscreen .device");
+  if (ls) ls.querySelector(".statusbar span").textContent = "";
+  if (window.SF) window.SF.render();
+})();
+</script>
+<style>
+  .step { flex:none; width:20px; height:20px; border-radius:50%; background:var(--accent); color:#fff; font-size:12px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; margin-top:0; }
+  .row.top .step { margin-top: 0; }
+</style>
+</body>
+</html>

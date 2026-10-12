@@ -250,7 +250,7 @@ struct RunActionButtons: View {
 }
 
 #Preview("Lock Screen", as: .content, using: RunActivityAttributes(
-    taskId: "tsk_fix", agentId: "code-fixer", agentName: "Code fixer", agentSymbol: "hammer.fill", nodeName: "mac-mini"
+    taskId: "tsk_fix", agentId: "code-fixer", agentName: "Code fixer", agentSymbol: "hammer", nodeName: "mac-studio"
 )) {
     RunLiveActivity()
 } contentStates: {

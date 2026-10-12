@@ -140,6 +140,7 @@ body.single .shot figcaption { display: none; }
 /* screen content area */
 .screen { position: absolute; inset: 0; overflow: hidden; }
 .scroll { position: absolute; left: 0; right: 0; top: 0; bottom: 0; overflow: hidden; }
+.scroll.bottom { display: flex; flex-direction: column; justify-content: flex-end; }
 
 /* ---------- navigation bar ---------- */
 .navbar {
@@ -306,7 +307,7 @@ code { font-family: var(--mono); font-size: 0.88em; letter-spacing: 0; }
 .tool .body { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
 .composer {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 30; background: var(--bar); backdrop-filter: blur(20px);
-  border-top: 0.5px solid var(--sep); padding: 8px 16px 34px;
+  border-top: 0.5px solid var(--sep); padding: 8px 16px 34px; background: var(--bg);
 }
 .composer .crow { display: flex; align-items: flex-end; gap: 8px; }
 .composer .crow > i.sf { color: var(--accent); width: 24px; height: 24px; margin-bottom: 5px; }
@@ -337,7 +338,7 @@ code { font-family: var(--mono); font-size: 0.88em; letter-spacing: 0; }
   background: linear-gradient(160deg, #7c83ff, #4c52d9 70%);
 }
 .appicon i.sf { width: 58%; height: 58%; }
-.la-btn { background: rgba(255,255,255,.18); color: #fff; border-radius: 999px; font-size: 13px; font-weight: 500; padding: 7px 10px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; flex: 1; }
+.la-btn { white-space: nowrap; background: rgba(255,255,255,.18); color: #fff; border-radius: 999px; font-size: 12px; font-weight: 500; padding: 7px 8px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; flex: 1; }
 .la-btn i.sf { width: 14px; height: 14px; }
 
 /* dynamic island */
@@ -346,7 +347,9 @@ code { font-family: var(--mono); font-size: 0.88em; letter-spacing: 0; }
 }
 .di.compact { top: 11px; height: 37px; border-radius: 20px; width: 250px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; font-size: 13px; }
 .di.expanded { top: 11px; width: 371px; border-radius: 46px; padding: 18px 20px 18px; }
-.chip-island { position: relative; left: auto; transform: none; display: inline-flex; }
+.chip-island { position: relative; left: auto; top: auto !important; transform: none; display: inline-flex; }
+.side-notes > .hstack { width: 340px; }
+.side-notes > .hstack > .t-cap { width: 70px; }
 
 /* widgets */
 .widget { border-radius: 22px; padding: 14px; color: #000; background: rgba(255,255,255,.88); }
@@ -386,3 +389,6 @@ code { font-family: var(--mono); font-size: 0.88em; letter-spacing: 0; }
 
 /* annotation chips next to a device */
 .side-notes { display: flex; flex-direction: column; gap: 14px; align-items: center; }
+
+.navbar.inline::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: 54px; background: var(--bar); }
+.navbar.inline.clear::before { display: none; }

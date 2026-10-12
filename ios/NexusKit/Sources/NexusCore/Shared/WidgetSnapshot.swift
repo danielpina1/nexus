@@ -78,9 +78,9 @@ public struct WidgetSnapshot: Codable, Equatable, Sendable {
         runningCount: 2,
         costCentsToday: 42,
         machines: [
-            Machine(id: "node_mac", name: "mac-mini", online: true, cpuPercent: 23, activeRuns: 2),
-            Machine(id: "node_srv", name: "server", online: true, cpuPercent: 8, activeRuns: 0),
-            Machine(id: "node_mbp", name: "macbook", online: false, cpuPercent: 0, activeRuns: 0),
+            Machine(id: "node_mac", name: "mac-studio", online: true, cpuPercent: 23, activeRuns: 2),
+            Machine(id: "node_srv", name: "home-server", online: true, cpuPercent: 7, activeRuns: 0),
+            Machine(id: "node_mbp", name: "gpu-box", online: true, cpuPercent: 72, activeRuns: 1),
         ],
         running: [
             RunningTask(id: "tsk_1", title: "Fix flaky tests", agentSymbol: "hammer.fill", waitingForYou: false),
