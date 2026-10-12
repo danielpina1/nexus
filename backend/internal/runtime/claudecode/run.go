@@ -17,6 +17,7 @@ import (
 	nexusv1 "github.com/danielpina1/nexus/backend/gen/nexus/v1"
 	"github.com/danielpina1/nexus/backend/internal/runtime/agentloop"
 	"github.com/danielpina1/nexus/backend/internal/runtime/agentloop/cliproc"
+	"github.com/danielpina1/nexus/backend/internal/runtime/approvalgate"
 )
 
 // exitGrace is how long the CLI may linger after its result before it is killed.
@@ -32,10 +33,17 @@ type run struct {
 	events        chan *nexusv1.Event
 	stderr        *cliproc.Tail
 
+	// Nexus MCP bridge (nil when disabled).
+	gate    *approvalgate.Gate
+	cleanup func()
+
 	mu          sync.Mutex
 	stdin       io.WriteCloser
 	stdinClosed bool
 	cancelled   bool
+
+	emitMu       sync.Mutex
+	eventsClosed bool
 
 	// reader-goroutine state
 	terminal   bool
@@ -45,34 +53,38 @@ type run struct {
 	toolNames  map[string]string
 }
 
-func startRun(cmd *exec.Cmd, taskID, runID, prompt string, log *slog.Logger) (*run, error) {
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return nil, err
-	}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, err
-	}
-	r := &run{
+func newRun(taskID, runID string, log *slog.Logger) *run {
+	return &run{
 		taskID: taskID, runID: runID, log: log,
 		events:     make(chan *nexusv1.Event, 256),
 		stderr:     &cliproc.Tail{N: 4096},
-		stdin:      stdin,
 		toolStarts: map[string]time.Time{},
 		toolNames:  map[string]string{},
 	}
+}
+
+// start launches cmd and writes the prompt.
+func (r *run) start(cmd *exec.Cmd, prompt string) error {
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return err
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	r.stdin = stdin
 	cmd.Stderr = r.stderr
 	proc, err := cliproc.Start(cmd)
 	if err != nil {
-		return nil, fmt.Errorf("claude-code: start %s: %w", cmd.Path, err)
+		return fmt.Errorf("claude-code: start %s: %w", cmd.Path, err)
 	}
 	r.proc = proc
 	if err := r.writeUser(prompt); err != nil {
 		proc.Kill(time.Second)
 	}
 	go r.read(stdout)
-	return r, nil
+	return nil
 }
 
 func (r *run) Events() <-chan *nexusv1.Event { return r.events }
@@ -123,28 +135,65 @@ func (r *run) Send(_ context.Context, in *nexusv1.RunInput) error {
 	return r.writeUser(text)
 }
 
-func (r *run) Resolve(context.Context, *nexusv1.ApprovalResolution) error {
-	return ErrApprovalsUnsupported
+// Resolve feeds a (node-verified) approval decision to the permission prompt
+// or Nexus tool call waiting for it.
+func (r *run) Resolve(ctx context.Context, res *nexusv1.ApprovalResolution) error {
+	if r.gate == nil {
+		return ErrApprovalsUnsupported
+	}
+	return r.gate.Resolve(ctx, res)
 }
 
 func (r *run) Cancel(context.Context) error {
 	r.mu.Lock()
 	r.cancelled = true
 	r.mu.Unlock()
+	if r.gate != nil {
+		r.gate.Close() // releases waiting permission prompts (deny)
+	}
 	r.closeStdin()
 	r.proc.Kill(3 * time.Second)
 	return nil
 }
 
-func (r *run) emit(ev *nexusv1.Event) { r.events <- ev }
+// emit is safe from any goroutine (the MCP bridge emits approvals); events
+// after the channel is closed are dropped.
+func (r *run) emit(ev *nexusv1.Event) {
+	r.emitMu.Lock()
+	defer r.emitMu.Unlock()
+	if r.eventsClosed {
+		return
+	}
+	r.events <- ev
+}
+
+func (r *run) closeEvents() {
+	r.emitMu.Lock()
+	defer r.emitMu.Unlock()
+	if !r.eventsClosed {
+		r.eventsClosed = true
+		close(r.events)
+	}
+}
+
+// stopBridge closes the approval gate and the MCP endpoint.
+func (r *run) stopBridge() {
+	if r.gate != nil {
+		r.gate.Close()
+	}
+	if r.cleanup != nil {
+		r.cleanup()
+	}
+}
 
 func (r *run) read(stdout io.Reader) {
-	defer close(r.events)
+	defer r.closeEvents()
 	if err := cliproc.ReadLines(stdout, r.handleLine); err != nil {
 		r.log.Warn("claude-code: reading stdout", "err", err)
 	}
 	r.closeStdin()
 	waitErr := r.proc.Wait()
+	r.stopBridge()
 	if r.terminal {
 		return
 	}

@@ -18,7 +18,16 @@
 // emission blocks when the buffer is full.
 //
 // Tool errors (unknown tool, bad arguments, Invoke errors, panics) are given
-// back to the model as tool results, never fatal. ask_user and
+// back to the model as tool results, never fatal.
+//
+// Ask before acting: every tool call goes through an approvalgate.Gate with
+// the tool's ToolSpec.ActionClass (unspecified classes fail safe to
+// approve). AUTO runs at once, NOTIFY runs and emits a Notice, APPROVE and
+// BIOMETRIC emit an Approval (payload {tool, input}) + TaskUpdated
+// WAITING_APPROVAL and wait for Resolve; a denial is returned to the model as
+// the tool result {"error":"denied by user"} (the run continues and a
+// TaskUpdated RUNNING is emitted). Config.Agent supplies the agent policy
+// that can tighten levels. ask_user and
 // request_approval are ordinary (hub) tools from the loop's point of view:
 // they block until answered. Send appends a user message that the model sees
 // before its next step (an answer to a question is phrased as such).
@@ -36,6 +45,7 @@ import (
 	"time"
 
 	nexusv1 "github.com/danielpina1/nexus/backend/gen/nexus/v1"
+	"github.com/danielpina1/nexus/backend/internal/runtime/approvalgate"
 	"github.com/danielpina1/nexus/backend/kernel"
 )
 
@@ -70,6 +80,12 @@ type Config struct {
 	History []kernel.ChatMessage
 	Tools   []kernel.Tool
 	Limits  Limits
+	// Agent supplies the policy map used to gate tool calls (nil: built-in
+	// defaults only).
+	Agent *nexusv1.Agent
+	// Gate overrides the approval gate (nil: one is created for the run and
+	// closed when it ends).
+	Gate *approvalgate.Gate
 
 	TaskID, RunID, AgentID, NodeID string
 	Runtime                        string // reported in Cost.runtime
@@ -85,12 +101,14 @@ type Config struct {
 
 // Run is a running loop. It implements kernel.Run.
 type Run struct {
-	cfg    Config
-	tools  map[string]kernel.Tool
-	events chan *nexusv1.Event
-	cancel context.CancelFunc
-	done   chan struct{}
-	log    *slog.Logger
+	cfg     Config
+	tools   map[string]kernel.Tool
+	gate    *approvalgate.Gate
+	ownGate bool
+	events  chan *nexusv1.Event
+	cancel  context.CancelFunc
+	done    chan struct{}
+	log     *slog.Logger
 
 	mu        sync.Mutex
 	pending   []string
@@ -126,6 +144,18 @@ func Start(ctx context.Context, cfg Config) (*Run, error) {
 	}
 	for _, t := range cfg.Tools {
 		r.tools[t.Spec().Name] = t
+	}
+	r.gate = cfg.Gate
+	if r.gate == nil {
+		agent := cfg.Agent
+		if agent == nil {
+			agent = &nexusv1.Agent{Id: cfg.AgentID}
+		}
+		r.gate = approvalgate.New(approvalgate.Config{
+			TaskID: cfg.TaskID, RunID: cfg.RunID, Agent: agent, NodeID: cfg.NodeID,
+			Emit: r.emit, Log: r.log,
+		})
+		r.ownGate = true
 	}
 	// The run outlives the Start ctx only through its own context.
 	runCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
@@ -180,9 +210,11 @@ func FormatInput(in *nexusv1.RunInput) string {
 	return answer
 }
 
-// Resolve is a no-op: approvals in the native loop go through the
-// request_approval hub tool, which blocks until decided.
-func (r *Run) Resolve(context.Context, *nexusv1.ApprovalResolution) error { return nil }
+// Resolve delivers an approval decision (already verified by the node) to a
+// gated tool call waiting for it.
+func (r *Run) Resolve(ctx context.Context, res *nexusv1.ApprovalResolution) error {
+	return r.gate.Resolve(ctx, res)
+}
 
 // Cancel stops the run; the terminal event is TaskUpdated CANCELLED.
 func (r *Run) Cancel(context.Context) error {
@@ -204,6 +236,9 @@ type outcome struct {
 func (r *Run) loop(ctx context.Context) {
 	defer close(r.done)
 	defer r.cancel()
+	if r.ownGate {
+		defer r.gate.Close()
+	}
 	total := &nexusv1.Cost{Runtime: r.cfg.Runtime}
 	out := r.run(ctx, total)
 	if out.state == nexusv1.TaskState_TASK_STATE_UNSPECIFIED {
@@ -390,6 +425,9 @@ func (r *Run) execTool(ctx context.Context, tc kernel.LLMToolCall) string {
 	if !json.Valid([]byte(args)) {
 		return fail("tool arguments are not valid JSON: " + truncate(args, 200))
 	}
+	if msg := r.gateTool(ctx, tc.Name, args, class); msg != "" {
+		return fail(msg)
+	}
 	res, err := invokeSafe(ctx, tool, kernel.ToolCall{
 		ID: tc.ID, TaskID: cfg.TaskID, RunID: cfg.RunID, AgentID: cfg.AgentID, NodeID: cfg.NodeID,
 		Input: json.RawMessage(args),
@@ -409,6 +447,41 @@ func (r *Run) execTool(ctx context.Context, tc kernel.LLMToolCall) string {
 		out = out[:maxToolResultBytes] + "\n…[truncated]"
 	}
 	return out
+}
+
+// gateTool applies the approval gate to a tool call; it returns "" when the
+// call may proceed, else the error given back to the model.
+func (r *Run) gateTool(ctx context.Context, name, args string, class nexusv1.ActionClass) string {
+	var input any
+	_ = json.Unmarshal([]byte(args), &input)
+	who := r.cfg.Agent.GetName()
+	if who == "" {
+		who = nonEmpty(r.cfg.AgentID, "Agent")
+	}
+	out, err := r.gate.Check(ctx, approvalgate.Request{
+		Class:   class,
+		Title:   fmt.Sprintf("%s wants to use %s", who, name),
+		Summary: truncate(args, 500),
+		Payload: map[string]any{"tool": name, "input": input},
+	})
+	switch {
+	case err != nil:
+		return "approval failed: " + err.Error()
+	case !out.Approved:
+		r.gate.Resume()
+		if out.Reason == "" || out.Reason == "denied" {
+			return "denied by user"
+		}
+		return "not approved: " + out.Reason
+	}
+	return ""
+}
+
+func nonEmpty(s, def string) string {
+	if s == "" {
+		return def
+	}
+	return s
 }
 
 func invokeSafe(ctx context.Context, t kernel.Tool, c kernel.ToolCall) (res kernel.ToolResult, err error) {

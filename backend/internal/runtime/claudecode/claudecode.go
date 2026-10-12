@@ -25,11 +25,27 @@
 // If the process exits without a result the run FAILS with the stderr tail;
 // Cancel kills the process group and the run ends CANCELLED.
 //
-// TODO(approvals): route Claude Code permission prompts to Nexus approvals by
-// attaching a Nexus MCP server exposing a permission tool and passing
-// --permission-prompt-tool mcp__nexus__approve. Until then permissions follow
-// permission_mode / the CLI's own settings, and Resolve returns
-// ErrApprovalsUnsupported.
+// Nexus MCP + approvals (nexus_mcp, default true): for each run the node
+// starts a loopback Streamable-HTTP MCP endpoint (internal/mcp) at
+// http://127.0.0.1:<port>/mcp/<random token>, exposing the run's Nexus tools
+// (RunSpec.Tools: memory.search → memory_search, vault.write, ask_user,
+// notify, spawn_agent, node tools…) plus nexus_permission, an implementation
+// of Claude Code's permission-prompt-tool contract. The endpoint URL is
+// written to <run workspace>/.nexus-mcp.json (0600) and passed with
+//
+//	--mcp-config <file> --permission-prompt-tool mcp__nexus__nexus_permission
+//
+// (the latter omitted when permission_mode is bypassPermissions). Every
+// permission prompt is classified (PermissionClass: Bash/Write/Edit/
+// MultiEdit/NotebookEdit → compute, Bash with git push → code_push, rm -rf /
+// forced push → destructive, Read/Grep/Glob/LS/WebFetch/WebSearch → read,
+// mcp__nexus__* → the Nexus tool's class, unknown → approve) and run through
+// the approval gate with the agent's policy: auto/notify allow at once,
+// approve/biometric emit an Approval and wait for Resolve. Nexus tool calls
+// are gated again in tools/call unless the permission prompt just approved
+// that exact call. The endpoint and gate are closed when the CLI exits; Cancel
+// denies pending prompts. MCP_TOOL_TIMEOUT is set (unless already set) so the
+// CLI waits for human approvals.
 //
 // Configuration (module section "runtime.claudecode"):
 //
@@ -50,11 +66,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
+	"time"
 
+	"github.com/danielpina1/nexus/backend/internal/mcp"
 	"github.com/danielpina1/nexus/backend/internal/runtime/agentloop"
 	"github.com/danielpina1/nexus/backend/internal/runtime/agentloop/cliproc"
+	"github.com/danielpina1/nexus/backend/internal/runtime/approvalgate"
 	"github.com/danielpina1/nexus/backend/kernel"
 )
 
@@ -64,7 +87,7 @@ func init() {
 
 // ErrApprovalsUnsupported is returned by Resolve until the MCP permission
 // bridge exists.
-var ErrApprovalsUnsupported = errors.New("claude-code: approval routing not implemented (see TODO in package doc)")
+var ErrApprovalsUnsupported = errors.New("claude-code: approvals need the Nexus MCP bridge (runtime.claudecode.nexus_mcp)")
 
 // Config is the module configuration.
 type Config struct {
@@ -74,6 +97,7 @@ type Config struct {
 	Models             map[string]string `yaml:"models"`
 	PermissionMode     string            `yaml:"permission_mode"`
 	MCPConfig          []string          `yaml:"mcp_config"`
+	NexusMCP           *bool             `yaml:"nexus_mcp"`
 	AppendInstructions *bool             `yaml:"append_instructions"`
 	Env                map[string]string `yaml:"env"`
 	Workdirs           map[string]string `yaml:"workdirs"`
@@ -119,8 +143,16 @@ func New(cfg Config, h kernel.Host) *Runtime {
 func (r *Runtime) Name() string { return "claude-code" }
 
 func (r *Runtime) Capabilities() kernel.RuntimeCapabilities {
-	return kernel.RuntimeCapabilities{Streaming: true, Steering: true, NativeTools: true}
+	return kernel.RuntimeCapabilities{Streaming: true, Steering: true, NativeTools: true, ApprovalHooks: r.nexusMCP()}
 }
+
+func (r *Runtime) nexusMCP() bool { return r.cfg.NexusMCP == nil || *r.cfg.NexusMCP }
+
+// PermissionTool is the --permission-prompt-tool value.
+var PermissionTool = mcp.ClaudeToolName(mcp.ServerName, mcp.PermissionToolName)
+
+// MCPConfigFile is the per-run MCP config written into the run workspace.
+const MCPConfigFile = ".nexus-mcp.json"
 
 func (r *Runtime) Available(ctx context.Context) (string, bool) {
 	return cliproc.Version(ctx, r.cfg.Binary)
@@ -138,8 +170,15 @@ func (r *Runtime) claudeModel(alias string) string {
 	return r.cfg.Model
 }
 
-// Args builds the CLI arguments for an assignment.
+// Args builds the CLI arguments for an assignment (without the Nexus MCP
+// bridge; see ArgsWithNexus).
 func (r *Runtime) Args(model, instructions string) []string {
+	return r.ArgsWithNexus(model, instructions, "")
+}
+
+// ArgsWithNexus builds the CLI arguments; nexusConfig is the per-run MCP
+// config file ("" = no bridge).
+func (r *Runtime) ArgsWithNexus(model, instructions, nexusConfig string) []string {
 	args := []string{"-p", "--output-format", "stream-json", "--input-format", "stream-json", "--verbose"}
 	if m := r.claudeModel(model); m != "" {
 		args = append(args, "--model", m)
@@ -150,13 +189,19 @@ func (r *Runtime) Args(model, instructions string) []string {
 	for _, f := range r.cfg.MCPConfig {
 		args = append(args, "--mcp-config", f)
 	}
+	if nexusConfig != "" {
+		args = append(args, "--mcp-config", nexusConfig)
+		if r.cfg.PermissionMode != "bypassPermissions" {
+			args = append(args, "--permission-prompt-tool", PermissionTool)
+		}
+	}
 	if (r.cfg.AppendInstructions == nil || *r.cfg.AppendInstructions) && strings.TrimSpace(instructions) != "" {
 		args = append(args, "--append-system-prompt", instructions)
 	}
 	return append(args, r.cfg.Args...)
 }
 
-func (r *Runtime) Start(_ context.Context, spec kernel.RunSpec) (kernel.Run, error) {
+func (r *Runtime) Start(ctx context.Context, spec kernel.RunSpec) (kernel.Run, error) {
 	a := spec.Assignment
 	if a == nil {
 		return nil, errors.New("claude-code: no assignment")
@@ -165,11 +210,84 @@ func (r *Runtime) Start(_ context.Context, spec kernel.RunSpec) (kernel.Run, err
 	if err != nil {
 		return nil, fmt.Errorf("claude-code: %w", err)
 	}
-	cmd := exec.Command(r.cfg.Binary, r.Args(a.GetAgent().GetModel(), a.GetInstructions())...)
-	cmd.Dir = dir
-	cmd.Env = cliproc.Env(spec.Env, r.cfg.Env, map[string]string{
+	log := r.host.Logger().With("runtime", "claude-code", "run_id", a.GetRunId())
+	run := newRun(a.GetTaskId(), a.GetRunId(), log)
+	env := map[string]string{
 		"NEXUS_RUN_ID":  a.GetRunId(),
 		"NEXUS_TASK_ID": a.GetTaskId(),
+	}
+	nexusConfig := ""
+	if r.nexusMCP() {
+		file, err := r.startBridge(run, spec)
+		if err != nil {
+			return nil, fmt.Errorf("claude-code: nexus mcp: %w", err)
+		}
+		nexusConfig = file
+		if !envSet("MCP_TOOL_TIMEOUT", spec.Env, r.cfg.Env) {
+			env["MCP_TOOL_TIMEOUT"] = strconv.FormatInt((approvalgate.DefaultTTL + 2*time.Minute).Milliseconds(), 10)
+		}
+	}
+	cmd := exec.Command(r.cfg.Binary, r.ArgsWithNexus(a.GetAgent().GetModel(), a.GetInstructions(), nexusConfig)...)
+	cmd.Dir = dir
+	cmd.Env = cliproc.Env(spec.Env, r.cfg.Env, env)
+	if err := run.start(cmd, agentloop.BuildPrompt(a)); err != nil {
+		run.stopBridge()
+		return nil, err
+	}
+	return run, nil
+}
+
+func envSet(key string, maps ...map[string]string) bool {
+	for _, m := range maps {
+		if _, ok := m[key]; ok {
+			return true
+		}
+	}
+	_, ok := os.LookupEnv(key)
+	return ok
+}
+
+// startBridge starts the run's Nexus MCP endpoint and writes its client
+// config into the run workspace; it returns the config path.
+func (r *Runtime) startBridge(run *run, spec kernel.RunSpec) (string, error) {
+	a := spec.Assignment
+	run.gate = approvalgate.New(approvalgate.Config{
+		TaskID: a.GetTaskId(), RunID: a.GetRunId(), Agent: a.GetAgent(), NodeID: spec.Env["NEXUS_NODE_ID"],
+		Emit: run.emit, Log: run.log,
 	})
-	return startRun(cmd, a.GetTaskId(), a.GetRunId(), agentloop.BuildPrompt(a), r.host.Logger().With("runtime", "claude-code", "run_id", a.GetRunId()))
+	who := "Claude Code"
+	if n := a.GetAgent().GetName(); n != "" {
+		who = n + " (Claude Code)"
+	}
+	bridge, err := mcp.NewBridge(mcp.RunConfig{
+		Tools: spec.Tools, Gate: run.gate, Permission: true, Classify: PermissionClass, Who: who,
+		TaskID: a.GetTaskId(), RunID: a.GetRunId(), AgentID: a.GetAgent().GetId(), NodeID: spec.Env["NEXUS_NODE_ID"],
+		Log: run.log,
+	})
+	if err != nil {
+		run.gate.Close()
+		return "", err
+	}
+	ep, err := mcp.Listen(bridge.Server)
+	if err != nil {
+		run.gate.Close()
+		return "", err
+	}
+	file := filepath.Join(spec.Workdir, MCPConfigFile)
+	cleanup := func() {
+		_ = ep.Close()
+		_ = os.Remove(file)
+	}
+	conf, err := mcp.ClientConfig(mcp.ServerName, ep.URL())
+	if err == nil {
+		err = os.WriteFile(file, conf, 0o600)
+	}
+	if err != nil {
+		run.gate.Close()
+		cleanup()
+		return "", err
+	}
+	var once sync.Once
+	run.cleanup = func() { once.Do(cleanup) }
+	return file, nil
 }

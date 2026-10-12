@@ -8,6 +8,15 @@
 //     placeholder is replaced by the shell-quoted prompt;
 //  2. the prompt;
 //  3. the agent instructions.
+//
+// Ask before acting: the command is gated with action class COMPUTE
+// (payload {action:"shell.exec", command, workdir, node}) through
+// internal/runtime/approvalgate. At the default level (auto) it runs at once;
+// when the agent policy tightens compute to approve/biometric (the vault's
+// shell agent sets `compute: approve`) the run emits an Approval, waits in
+// WAITING_APPROVAL and only starts the process after Resolve delivers an
+// approval. A denial ends the run FAILED "denied by user"; Cancel while
+// waiting ends it CANCELLED.
 package shell
 
 import (
@@ -26,6 +35,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	nexusv1 "github.com/danielpina1/nexus/backend/gen/nexus/v1"
+	"github.com/danielpina1/nexus/backend/internal/runtime/approvalgate"
 	"github.com/danielpina1/nexus/backend/kernel"
 )
 
@@ -70,7 +80,7 @@ type Runtime struct {
 
 func (*Runtime) Name() string { return "shell" }
 func (*Runtime) Capabilities() kernel.RuntimeCapabilities {
-	return kernel.RuntimeCapabilities{Streaming: true}
+	return kernel.RuntimeCapabilities{Streaming: true, ApprovalHooks: true}
 }
 
 func (r *Runtime) shell() string {
@@ -125,31 +135,124 @@ func (r *Runtime) Start(ctx context.Context, spec kernel.RunSpec) (kernel.Run, e
 	}
 	cmd.Env = append(cmd.Env, "NEXUS_RUN_ID="+a.RunId, "NEXUS_TASK_ID="+a.TaskId)
 	setProcessGroup(cmd)
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, err
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return nil, err
-	}
-	if err := cmd.Start(); err != nil {
-		return nil, err
-	}
+
 	run := &run{a: a, cmd: cmd, events: make(chan *nexusv1.Event, 64)}
-	go run.wait(ctx, timeout, stdout, stderr)
+	node := NodeName(spec)
+	run.gate = approvalgate.New(approvalgate.Config{
+		TaskID: a.TaskId, RunID: a.RunId, Agent: a.GetAgent(), NodeID: spec.Env["NEXUS_NODE_ID"], Emit: run.emit,
+	})
+	req := approvalgate.Request{
+		Class:   nexusv1.ActionClass_ACTION_CLASS_COMPUTE,
+		Title:   "Run a shell command on " + node,
+		Summary: truncate(script, 500),
+		Payload: map[string]any{"action": "shell.exec", "command": script, "workdir": spec.Workdir, "node": node},
+	}
+	if !run.gate.NeedsApproval(req.Class) {
+		// auto / notify: run right away (Start reports start errors).
+		if _, err := run.gate.Check(ctx, req); err != nil {
+			return nil, err
+		}
+		stdout, stderr, err := run.startProcess()
+		if err != nil {
+			return nil, err
+		}
+		go run.wait(ctx, timeout, stdout, stderr)
+		return run, nil
+	}
+	go run.gated(ctx, req, timeout)
 	return run, nil
+}
+
+// NodeName identifies this machine in approval payloads: NEXUS_NODE_ID from
+// the run env when the node provides it, else the host name.
+func NodeName(spec kernel.RunSpec) string {
+	if id := spec.Env["NEXUS_NODE_ID"]; id != "" {
+		return id
+	}
+	h, _ := os.Hostname()
+	return h
+}
+
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "…"
 }
 
 type run struct {
 	a      *nexusv1.RunAssignment
 	cmd    *exec.Cmd
+	gate   *approvalgate.Gate
 	events chan *nexusv1.Event
 
 	mu        sync.Mutex
+	started   bool
 	cancelled bool
 	timedOut  bool
 	last      []string // last output lines for the summary
+}
+
+var errCancelled = errors.New("shell: cancelled")
+
+// startProcess starts the command unless the run was cancelled.
+func (r *run) startProcess() (io.Reader, io.Reader, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.cancelled {
+		return nil, nil, errCancelled
+	}
+	stdout, err := r.cmd.StdoutPipe()
+	if err != nil {
+		return nil, nil, err
+	}
+	stderr, err := r.cmd.StderrPipe()
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := r.cmd.Start(); err != nil {
+		return nil, nil, err
+	}
+	r.started = true
+	return stdout, stderr, nil
+}
+
+// gated waits for the approval, then runs the command.
+func (r *run) gated(ctx context.Context, req approvalgate.Request, timeout time.Duration) {
+	finish := func(state nexusv1.TaskState, summary string) {
+		r.gate.Close()
+		r.state(state, summary, nil)
+		close(r.events)
+	}
+	out, err := r.gate.Check(ctx, req)
+	r.mu.Lock()
+	cancelled := r.cancelled
+	r.mu.Unlock()
+	switch {
+	case cancelled || errors.Is(err, approvalgate.ErrClosed) || ctx.Err() != nil:
+		finish(nexusv1.TaskState_TASK_STATE_CANCELLED, "cancelled")
+		return
+	case err != nil:
+		finish(nexusv1.TaskState_TASK_STATE_FAILED, "approval failed: "+err.Error())
+		return
+	case !out.Approved:
+		summary := "denied by user"
+		if out.Reason != "" && out.Reason != "denied" {
+			summary = "not approved: " + out.Reason
+		}
+		finish(nexusv1.TaskState_TASK_STATE_FAILED, summary)
+		return
+	}
+	stdout, stderr, err := r.startProcess()
+	if errors.Is(err, errCancelled) {
+		finish(nexusv1.TaskState_TASK_STATE_CANCELLED, "cancelled")
+		return
+	}
+	if err != nil {
+		finish(nexusv1.TaskState_TASK_STATE_FAILED, "shell: "+err.Error())
+		return
+	}
+	r.wait(ctx, timeout, stdout, stderr)
 }
 
 func (r *run) Events() <-chan *nexusv1.Event { return r.events }
@@ -158,15 +261,28 @@ func (r *run) Send(context.Context, *nexusv1.RunInput) error {
 	return errors.New("shell: runtime does not accept input")
 }
 
-func (r *run) Resolve(context.Context, *nexusv1.ApprovalResolution) error {
-	return errors.New("shell: runtime does not request approvals")
+// Resolve delivers an approval decision (already verified by the node) to
+// the pending command approval.
+func (r *run) Resolve(ctx context.Context, res *nexusv1.ApprovalResolution) error {
+	return r.gate.Resolve(ctx, res)
 }
 
 func (r *run) Cancel(context.Context) error {
 	r.mu.Lock()
 	r.cancelled = true
+	started := r.started
 	r.mu.Unlock()
+	r.gate.Close()
+	if !started {
+		return nil
+	}
 	return killGroup(r.cmd)
+}
+
+func (r *run) state(s nexusv1.TaskState, summary string, result *structpb.Struct) {
+	r.emit(&nexusv1.Event{Body: &nexusv1.Event_TaskUpdated{TaskUpdated: &nexusv1.TaskUpdated{Task: &nexusv1.Task{
+		Id: r.a.TaskId, CurrentRunId: r.a.RunId, State: s, Summary: summary, Result: result,
+	}}}})
 }
 
 func (r *run) emit(ev *nexusv1.Event) {
@@ -193,6 +309,7 @@ func (r *run) pipe(wg *sync.WaitGroup, rd io.Reader, prefix string) {
 
 func (r *run) wait(ctx context.Context, timeout time.Duration, stdout, stderr io.Reader) {
 	defer close(r.events)
+	defer r.gate.Close()
 	timer := time.AfterFunc(timeout, func() {
 		r.mu.Lock()
 		r.timedOut = true
@@ -238,7 +355,5 @@ func (r *run) wait(ctx context.Context, timeout time.Duration, stdout, stderr io
 	}
 	result, _ := structpb.NewStruct(map[string]any{"exit_code": exit})
 	r.emit(&nexusv1.Event{Body: &nexusv1.Event_RunOutput{RunOutput: &nexusv1.RunOutput{IsFinal: true}}})
-	r.emit(&nexusv1.Event{Body: &nexusv1.Event_TaskUpdated{TaskUpdated: &nexusv1.TaskUpdated{Task: &nexusv1.Task{
-		Id: r.a.TaskId, CurrentRunId: r.a.RunId, State: state, Summary: summary, Result: result,
-	}}}})
+	r.state(state, summary, result)
 }

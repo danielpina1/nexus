@@ -1,6 +1,8 @@
 #!/bin/sh
 # Fake Claude Code CLI emitting realistic stream-json for tests.
-# Modes (FAKE_CLAUDE_MODE): success (default), send, error, crash, hang.
+# Modes (FAKE_CLAUDE_MODE): success (default), send, error, crash, hang,
+# permission (calls the Nexus MCP permission tool + a Nexus tool with curl),
+# idle (waits for one more stdin line, then succeeds).
 if [ "$1" = "--version" ]; then
   printf "%s\n" "9.9.9 (Claude Code)"
   exit 0
@@ -41,6 +43,28 @@ crash)
   ;;
 hang)
   sleep 30
+  ;;
+idle)
+  IFS= read -r second
+  say '{"type":"result","subtype":"success","is_error":false,"result":"idle done","session_id":"sess-1"}'
+  ;;
+permission)
+  cfg=""; prev=""
+  for a in "$@"; do [ "$prev" = "--mcp-config" ] && cfg="$a"; prev="$a"; done
+  url=$(sed -n 's/.*"url": *"\([^"]*\)".*/\1/p' "$cfg")
+  post() { curl -sS --noproxy '*' -X POST -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' --data "$1" "$url"; }
+  post '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"fake-claude","version":"1"}}}' > /dev/null
+  post '{"jsonrpc":"2.0","method":"notifications/initialized"}' > /dev/null
+  say '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_9","name":"Bash","input":{"command":"git push origin main"}}]},"session_id":"sess-1"}'
+  resp=$(post '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nexus_permission","arguments":{"tool_name":"Bash","input":{"command":"git push origin main"},"tool_use_id":"toolu_9"}}}')
+  case "$resp" in
+    *'behavior\":\"allow'*) verdict=allow ;;
+    *'behavior\":\"deny'*) verdict=deny ;;
+    *) verdict="error: $resp" ;;
+  esac
+  mem=$(post '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"memory_search","arguments":{"query":"milk"}}}')
+  case "$mem" in *'milk!'*) mem=ok ;; *) mem="error: $mem" ;; esac
+  say '{"type":"result","subtype":"success","is_error":false,"result":"verdict: '"$verdict"' memory: '"$mem"'","session_id":"sess-1"}'
   ;;
 esac
 # Like the real CLI in stream-json input mode: wait for stdin to close.

@@ -124,7 +124,7 @@ var failTool = kernel.ToolFunc{
 }
 
 var panicTool = kernel.ToolFunc{
-	S: kernel.ToolSpec{Name: "boom"},
+	S: kernel.ToolSpec{Name: "boom", ActionClass: nexusv1.ActionClass_ACTION_CLASS_COMPUTE},
 	F: func(context.Context, kernel.ToolCall) (kernel.ToolResult, error) { panic("kaboom") },
 }
 
@@ -371,5 +371,142 @@ func TestFormatInputAndJSONToStruct(t *testing.T) {
 	}
 	if JSONToStruct(nil) != nil {
 		t.Error("nil expected")
+	}
+}
+
+func TestGatedToolApproveAndDeny(t *testing.T) {
+	var invoked []string
+	var mu sync.Mutex
+	sendTool := kernel.ToolFunc{
+		S: kernel.ToolSpec{Name: "email.send", ActionClass: nexusv1.ActionClass_ACTION_CLASS_WRITE_EXTERNAL},
+		F: func(_ context.Context, c kernel.ToolCall) (kernel.ToolResult, error) {
+			mu.Lock()
+			invoked = append(invoked, c.ID)
+			mu.Unlock()
+			return kernel.ToolOutput(map[string]bool{"sent": true})
+		},
+	}
+	f := &fakeLLM{steps: []step{
+		callTools(kernel.LLMToolCall{ID: "c1", Name: "email.send", Arguments: `{"to":"a@b.c"}`}),
+		callTools(kernel.LLMToolCall{ID: "c2", Name: "email.send", Arguments: `{"to":"x@y.z"}`}),
+		answer("done", 0),
+	}}
+	cfg := baseCfg(f)
+	cfg.Tools = []kernel.Tool{sendTool}
+	cfg.Agent = &nexusv1.Agent{Id: "assistant", Name: "Assistant"}
+	r, err := Start(context.Background(), cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var evs []*nexusv1.Event
+	decisions := []bool{false, true}
+	timeout := time.After(10 * time.Second)
+loop:
+	for {
+		select {
+		case ev, ok := <-r.Events():
+			if !ok {
+				break loop
+			}
+			evs = append(evs, ev)
+			if a := ev.GetApproval(); a != nil {
+				approve := decisions[0]
+				decisions = decisions[1:]
+				if a.Payload.Fields["tool"].GetStringValue() != "email.send" || a.Level != nexusv1.TrustLevel_TRUST_LEVEL_APPROVE ||
+					a.Title != "Assistant wants to use email.send" || a.AgentId != "assistant" {
+					t.Errorf("approval %v", a)
+				}
+				go func() {
+					_ = r.Resolve(context.Background(), &nexusv1.ApprovalResolution{
+						Approval: &nexusv1.Approval{Id: a.Id},
+						Decision: &nexusv1.SignedApproval{ApprovalId: a.Id, Approve: approve, ActionSha256: a.PayloadHash},
+					})
+				}()
+			}
+		case <-timeout:
+			t.Fatal("timeout")
+		}
+	}
+	last := evs[len(evs)-1].GetTaskUpdated().GetTask()
+	if last.GetState() != nexusv1.TaskState_TASK_STATE_SUCCEEDED {
+		t.Fatalf("task %v", last)
+	}
+	if len(decisions) != 0 {
+		t.Fatalf("approvals left unasked: %v", decisions)
+	}
+	mu.Lock()
+	if len(invoked) != 1 || invoked[0] != "c2" {
+		t.Fatalf("invoked %v", invoked)
+	}
+	mu.Unlock()
+	var states []nexusv1.TaskState
+	for _, ev := range evs {
+		if tu := ev.GetTaskUpdated(); tu != nil {
+			states = append(states, tu.Task.State)
+		}
+	}
+	want := []nexusv1.TaskState{nexusv1.TaskState_TASK_STATE_WAITING_APPROVAL, nexusv1.TaskState_TASK_STATE_RUNNING,
+		nexusv1.TaskState_TASK_STATE_WAITING_APPROVAL, nexusv1.TaskState_TASK_STATE_RUNNING, nexusv1.TaskState_TASK_STATE_SUCCEEDED}
+	if len(states) != len(want) {
+		t.Fatalf("states %v", states)
+	}
+	for i := range want {
+		if states[i] != want[i] {
+			t.Fatalf("states %v", states)
+		}
+	}
+	// The model saw the denial as the first tool result.
+	var tools []kernel.ChatMessage
+	for _, m := range f.requests()[2].Messages {
+		if m.Role == "tool" {
+			tools = append(tools, m)
+		}
+	}
+	if len(tools) != 2 || tools[0].Content != `{"error":"denied by user"}` || !strings.Contains(tools[1].Content, "sent") {
+		t.Fatalf("tool messages %+v", tools)
+	}
+}
+
+func TestGatedToolCancel(t *testing.T) {
+	tool := kernel.ToolFunc{
+		S: kernel.ToolSpec{Name: "git.push", ActionClass: nexusv1.ActionClass_ACTION_CLASS_CODE_PUSH},
+		F: func(context.Context, kernel.ToolCall) (kernel.ToolResult, error) {
+			t.Error("tool invoked without approval")
+			return kernel.ToolResult{}, nil
+		},
+	}
+	f := &fakeLLM{steps: []step{callTools(kernel.LLMToolCall{ID: "c1", Name: "git.push", Arguments: `{}`})}}
+	cfg := baseCfg(f)
+	cfg.Tools = []kernel.Tool{tool}
+	r, _ := Start(context.Background(), cfg)
+	for ev := range r.Events() {
+		if ev.GetApproval() != nil {
+			_ = r.Cancel(context.Background())
+		}
+		if IsTerminal(ev) {
+			if st := ev.GetTaskUpdated().GetTask().GetState(); st != nexusv1.TaskState_TASK_STATE_CANCELLED {
+				t.Fatalf("state %s", st)
+			}
+		}
+	}
+}
+
+func TestAgentPolicyTightensTool(t *testing.T) {
+	f := &fakeLLM{steps: []step{callTools(kernel.LLMToolCall{ID: "c1", Name: "memory.search", Arguments: `{"q":"x"}`}), answer("ok", 0)}}
+	cfg := baseCfg(f)
+	cfg.Tools = []kernel.Tool{echoTool}
+	cfg.Agent = &nexusv1.Agent{Policy: map[string]nexusv1.TrustLevel{"read": nexusv1.TrustLevel_TRUST_LEVEL_APPROVE}}
+	r, _ := Start(context.Background(), cfg)
+	asked := false
+	for ev := range r.Events() {
+		if a := ev.GetApproval(); a != nil {
+			asked = true
+			go func() {
+				_ = r.Resolve(context.Background(), &nexusv1.ApprovalResolution{Approval: &nexusv1.Approval{Id: a.Id, State: nexusv1.ApprovalState_APPROVAL_STATE_APPROVED}})
+			}()
+		}
+	}
+	if !asked {
+		t.Fatal("agent policy read: approve did not gate memory.search")
 	}
 }
