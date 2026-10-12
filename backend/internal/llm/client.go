@@ -3,6 +3,8 @@ package llm
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,9 +14,9 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	nexusv1 "github.com/danielpina1/nexus/backend/gen/nexus/v1"
@@ -31,14 +33,19 @@ type ProviderScoper interface {
 	HasProvider(name string) bool
 }
 
-// APIError is a non-2xx response from a provider.
+// APIError is a non-2xx response (or an error object in a 2xx body) from a
+// provider. StatusCode is 0 for errors reported inside a stream.
 type APIError struct {
 	Provider   string
 	StatusCode int
 	Message    string
+	URL        string
 }
 
 func (e *APIError) Error() string {
+	if e.StatusCode == 0 {
+		return fmt.Sprintf("llm: %s: %s", e.Provider, e.Message)
+	}
 	return fmt.Sprintf("llm: %s: HTTP %d: %s", e.Provider, e.StatusCode, e.Message)
 }
 
@@ -47,14 +54,48 @@ func (e *APIError) Retryable() bool {
 	return e.StatusCode == http.StatusTooManyRequests || e.StatusCode >= 500
 }
 
+// ChainError reports the failures of every target tried for one call.
+type ChainError struct {
+	Model string
+	Errs  []error
+}
+
+func (e *ChainError) Error() string {
+	parts := make([]string, len(e.Errs))
+	for i, err := range e.Errs {
+		parts[i] = err.Error()
+	}
+	return fmt.Sprintf("llm: %s: all %d targets failed: %s", e.Model, len(e.Errs), strings.Join(parts, "; "))
+}
+
+func (e *ChainError) Unwrap() []error { return e.Errs }
+
+// ErrNoEmbeddings is returned when the provider's API has no embeddings endpoint.
+var ErrNoEmbeddings = errors.New("this provider's API has no embeddings endpoint; point the embed alias at an openai-compatible provider")
+
 // Client implements kernel.LLM.
 type Client struct {
 	cfg             Config
-	httpc           *http.Client
+	httpc           *http.Client            // override for every provider (tests)
+	clients         map[string]*http.Client // per provider (TLS settings)
+	bases           map[string]string       // normalised base URLs
 	log             *slog.Logger
 	getenv          func(string) string
 	backoff         func(attempt int) time.Duration
 	defaultProvider string
+	st              *sharedState
+}
+
+// sharedState is shared by scoped copies of a Client.
+type sharedState struct {
+	health *healthTracker
+
+	mu         sync.Mutex
+	discovered map[string][]ModelInfo // provider -> models
+	auto       map[string]Target      // alias -> auto-selected target
+	discErr    error
+	discAt     time.Time
+	discMu     sync.Mutex // serialises discovery
 }
 
 var (
@@ -65,7 +106,8 @@ var (
 // Option configures a Client.
 type Option func(*Client)
 
-// WithHTTPClient sets the HTTP client (tests, custom transports).
+// WithHTTPClient sets the HTTP client used for every provider (tests,
+// custom transports). It replaces the per-provider TLS configuration.
 func WithHTTPClient(h *http.Client) Option { return func(c *Client) { c.httpc = h } }
 
 // WithLogger sets the logger.
@@ -79,36 +121,60 @@ func WithBackoff(f func(attempt int) time.Duration) Option {
 	return func(c *Client) { c.backoff = f }
 }
 
-// New builds a client. It fails when no providers are configured or an alias
-// points at an unknown provider.
+// New builds a client. It fails when no providers are configured, a
+// provider is invalid (base_url, api, auth, TLS) or an alias points at an
+// unknown provider.
 func New(cfg Config, opts ...Option) (*Client, error) {
-	if len(cfg.Providers) == 0 {
-		return nil, errors.New("llm: no providers configured")
-	}
-	for name, p := range cfg.Providers {
-		if strings.TrimSpace(p.BaseURL) == "" {
-			return nil, fmt.Errorf("llm: provider %q has no base_url", name)
-		}
-	}
-	for alias, a := range cfg.Aliases {
-		if a.Provider != "" {
-			if _, ok := cfg.Providers[a.Provider]; !ok {
-				return nil, fmt.Errorf("llm: alias %q uses unknown provider %q", alias, a.Provider)
-			}
-		}
+	if err := cfg.validate(); err != nil {
+		return nil, err
 	}
 	c := &Client{
 		cfg:     cfg,
-		httpc:   &http.Client{},
+		clients: map[string]*http.Client{},
+		bases:   map[string]string{},
 		log:     slog.Default(),
 		getenv:  os.Getenv,
 		backoff: defaultBackoff,
+		st: &sharedState{
+			health:     newHealthTracker(cfg.Health, cfg.providerNames()),
+			discovered: map[string][]ModelInfo{},
+			auto:       map[string]Target{},
+		},
+	}
+	for name, p := range cfg.Providers {
+		base, _ := NormalizeBaseURL(p.BaseURL) // validated above
+		c.bases[name] = base
+		hc, err := providerHTTPClient(p)
+		if err != nil {
+			return nil, fmt.Errorf("llm: provider %q: %w", name, err)
+		}
+		c.clients[name] = hc
 	}
 	c.defaultProvider = cfg.defaultProvider()
 	for _, o := range opts {
 		o(c)
 	}
 	return c, nil
+}
+
+func providerHTTPClient(p ProviderConfig) (*http.Client, error) {
+	if p.CAFile == "" {
+		return &http.Client{}, nil
+	}
+	pem, err := os.ReadFile(p.CAFile)
+	if err != nil {
+		return nil, fmt.Errorf("ca_file: %w", err)
+	}
+	pool, err := x509.SystemCertPool()
+	if err != nil || pool == nil {
+		pool = x509.NewCertPool()
+	}
+	if !pool.AppendCertsFromPEM(pem) {
+		return nil, fmt.Errorf("ca_file %s: no PEM certificates found", p.CAFile)
+	}
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr.TLSClientConfig = &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}
+	return &http.Client{Transport: tr}, nil
 }
 
 func defaultBackoff(attempt int) time.Duration {
@@ -119,8 +185,15 @@ func defaultBackoff(attempt int) time.Duration {
 	return d + time.Duration(rand.Int64N(int64(d/4)+1))
 }
 
+// Config returns the client's configuration.
+func (c *Client) Config() Config { return c.cfg }
+
+// DefaultProvider returns the provider used for raw model names.
+func (c *Client) DefaultProvider() string { return c.defaultProvider }
+
 // WithDefaultProvider returns a copy whose unknown-alias provider is name
-// (if configured; otherwise the receiver is returned unchanged).
+// (if configured; otherwise the receiver is returned unchanged). The copy
+// shares health and discovery state.
 func (c *Client) WithDefaultProvider(name string) kernel.LLM {
 	if !c.HasProvider(name) {
 		return c
@@ -136,248 +209,103 @@ func (c *Client) HasProvider(name string) bool {
 	return ok
 }
 
-// Resolve maps a model alias to provider and concrete model.
+func (c *Client) baseURL(provider string) string { return c.bases[provider] }
+
+func (c *Client) httpClient(provider string) *http.Client {
+	if c.httpc != nil {
+		return c.httpc
+	}
+	if hc := c.clients[provider]; hc != nil {
+		return hc
+	}
+	return http.DefaultClient
+}
+
+// ---- alias resolution ----
+
+// Resolve maps a model alias to its primary provider and concrete model
+// without network access (auto aliases discovered earlier are used).
 func (c *Client) Resolve(model string) (provider, concrete string, err error) {
-	if a, ok := c.cfg.Aliases[model]; ok {
-		provider = a.Provider
-		if provider == "" {
-			provider = c.defaultProvider
-		}
-		concrete = a.Model
-		if concrete == "" {
-			concrete = model
-		}
-		return provider, concrete, nil
+	ts, err := c.chain(context.Background(), model, false)
+	if err != nil {
+		return "", "", err
 	}
+	return ts[0].Provider, ts[0].Model, nil
+}
+
+// ResolveChain returns the ordered targets (primary, then fallbacks) for a
+// model alias, running model discovery when aliases_auto needs it.
+func (c *Client) ResolveChain(ctx context.Context, model string) ([]Target, error) {
+	return c.chain(ctx, model, true)
+}
+
+func (c *Client) chain(ctx context.Context, model string, discover bool) ([]Target, error) {
 	if model == "" {
-		return "", "", errors.New("llm: empty model")
+		return nil, errors.New("llm: empty model")
 	}
-	if c.defaultProvider == "" {
-		return "", "", errors.New("llm: no default provider")
-	}
-	return c.defaultProvider, model, nil
-}
-
-// ---- wire types (OpenAI chat completions) ----
-
-type wireFunc struct {
-	Name      string `json:"name,omitempty"`
-	Arguments string `json:"arguments"`
-}
-
-type wireToolCall struct {
-	Index    *int     `json:"index,omitempty"`
-	ID       string   `json:"id,omitempty"`
-	Type     string   `json:"type,omitempty"`
-	Function wireFunc `json:"function"`
-}
-
-type wireMessage struct {
-	Role       string          `json:"role"`
-	Content    json.RawMessage `json:"content"`
-	Name       string          `json:"name,omitempty"`
-	ToolCallID string          `json:"tool_call_id,omitempty"`
-	ToolCalls  []wireToolCall  `json:"tool_calls,omitempty"`
-}
-
-type wireFuncDef struct {
-	Name        string          `json:"name"`
-	Description string          `json:"description,omitempty"`
-	Parameters  json.RawMessage `json:"parameters"`
-}
-
-type wireTool struct {
-	Type     string      `json:"type"`
-	Function wireFuncDef `json:"function"`
-}
-
-type responseFormat struct {
-	Type string `json:"type"`
-}
-
-type streamOptions struct {
-	IncludeUsage bool `json:"include_usage"`
-}
-
-type wireRequest struct {
-	Model          string          `json:"model"`
-	Messages       []wireMessage   `json:"messages"`
-	Tools          []wireTool      `json:"tools,omitempty"`
-	MaxTokens      int             `json:"max_tokens,omitempty"`
-	Temperature    *float64        `json:"temperature,omitempty"`
-	ResponseFormat *responseFormat `json:"response_format,omitempty"`
-	Stream         bool            `json:"stream,omitempty"`
-	StreamOptions  *streamOptions  `json:"stream_options,omitempty"`
-}
-
-type wireUsage struct {
-	PromptTokens     int64 `json:"prompt_tokens"`
-	CompletionTokens int64 `json:"completion_tokens"`
-}
-
-type wireError struct {
-	Message string `json:"message"`
-	Type    string `json:"type"`
-}
-
-type wireResponse struct {
-	Model   string `json:"model"`
-	Choices []struct {
-		Message      wireMessage `json:"message"`
-		FinishReason string      `json:"finish_reason"`
-	} `json:"choices"`
-	Usage *wireUsage `json:"usage"`
-	Error *wireError `json:"error"`
-}
-
-// ---- tool name mapping ----
-//
-// OpenAI function names must match ^[a-zA-Z0-9_-]{1,64}$, while Nexus tool
-// names are dot-separated ("memory.search"). Names are sanitised on the way
-// out and mapped back on the way in, so callers only see Nexus names.
-
-type nameMap struct {
-	toWire   map[string]string
-	fromWire map[string]string
-}
-
-func sanitizeName(n string) string {
-	var b strings.Builder
-	for _, r := range n {
-		switch {
-		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '_', r == '-':
-			b.WriteRune(r)
-		default:
-			b.WriteByte('_')
-		}
-	}
-	s := b.String()
-	if s == "" {
-		s = "tool"
-	}
-	if len(s) > 64 {
-		s = s[:64]
-	}
-	return s
-}
-
-func newNameMap(specs []kernel.ToolSpec) *nameMap {
-	m := &nameMap{toWire: map[string]string{}, fromWire: map[string]string{}}
-	for _, s := range specs {
-		m.add(s.Name)
-	}
-	return m
-}
-
-func (m *nameMap) add(name string) string {
-	if w, ok := m.toWire[name]; ok {
-		return w
-	}
-	w := sanitizeName(name)
-	base := w
-	for i := 2; ; i++ {
-		if _, taken := m.fromWire[w]; !taken {
-			break
-		}
-		suffix := "_" + strconv.Itoa(i)
-		if len(base)+len(suffix) > 64 {
-			base = base[:64-len(suffix)]
-		}
-		w = base + suffix
-	}
-	m.toWire[name] = w
-	m.fromWire[w] = name
-	return w
-}
-
-func (m *nameMap) back(w string) string {
-	if n, ok := m.fromWire[w]; ok {
-		return n
-	}
-	return w
-}
-
-// ---- request building ----
-
-func jsonString(s string) json.RawMessage {
-	b, _ := json.Marshal(s)
-	return b
-}
-
-func (c *Client) buildRequest(req kernel.ChatRequest, model string, stream bool, pc ProviderConfig) (*wireRequest, *nameMap) {
-	nm := newNameMap(req.Tools)
-	wr := &wireRequest{
-		Model:       model,
-		MaxTokens:   req.MaxTokens,
-		Temperature: req.Temperature,
-		Stream:      stream,
-	}
-	if stream && !pc.NoStreamUsage {
-		wr.StreamOptions = &streamOptions{IncludeUsage: true}
-	}
-	if req.JSON {
-		wr.ResponseFormat = &responseFormat{Type: "json_object"}
-	}
-	for _, t := range req.Tools {
-		params := t.InputSchema
-		if len(bytes.TrimSpace(params)) == 0 || string(bytes.TrimSpace(params)) == "null" {
-			params = json.RawMessage(`{"type":"object","properties":{}}`)
-		}
-		wr.Tools = append(wr.Tools, wireTool{
-			Type: "function",
-			Function: wireFuncDef{
-				Name:        nm.add(t.Name),
-				Description: t.Description,
-				Parameters:  params,
-			},
-		})
-	}
-	for _, m := range req.Messages {
-		wm := wireMessage{Role: m.Role, Name: m.Name, ToolCallID: m.ToolCallID}
-		if m.Role == "assistant" && m.Content == "" && len(m.ToolCalls) > 0 {
-			wm.Content = json.RawMessage("null")
-		} else {
-			wm.Content = jsonString(m.Content)
-		}
-		for _, tc := range m.ToolCalls {
-			args := tc.Arguments
-			if strings.TrimSpace(args) == "" {
-				args = "{}"
+	a, configured := c.cfg.Aliases[model]
+	if !configured {
+		if c.cfg.AliasesAuto && len(c.cfg.preferences(model)) > 0 {
+			if t, ok := c.autoTarget(ctx, model, discover); ok {
+				return []Target{t}, nil
 			}
-			wm.ToolCalls = append(wm.ToolCalls, wireToolCall{
-				ID:       tc.ID,
-				Type:     "function",
-				Function: wireFunc{Name: nm.add(tc.Name), Arguments: args},
-			})
 		}
-		wr.Messages = append(wr.Messages, wm)
+		if c.defaultProvider == "" {
+			return nil, errors.New("llm: no default provider")
+		}
+		return []Target{{c.defaultProvider, model}}, nil
 	}
-	return wr, nm
+	provider := a.Provider
+	if provider == "" {
+		provider = c.defaultProvider
+	}
+	var out []Target
+	switch {
+	case !isPlaceholder(a.Model):
+		out = append(out, Target{provider, a.Model})
+	case strings.TrimSpace(a.Model) == "" && !c.cfg.AliasesAuto:
+		// Legacy: an alias without a model uses the alias name as model.
+		out = append(out, Target{provider, model})
+	case c.cfg.AliasesAuto:
+		if t, ok := c.autoTarget(ctx, model, discover); ok {
+			out = append(out, t)
+		}
+	}
+	for _, f := range a.Fallback {
+		p := f.Provider
+		if p == "" {
+			p = c.defaultProvider
+		}
+		out = append(out, Target{p, f.Model})
+	}
+	if len(out) == 0 {
+		if c.cfg.AliasesAuto {
+			msg := "no discovered model matches its preferences"
+			if err := c.discoveryErr(); err != nil {
+				msg = "model discovery failed: " + err.Error()
+			}
+			return nil, fmt.Errorf("llm: alias %q has no model (%s); set llm.aliases.%s.model", model, msg, model)
+		}
+		return nil, fmt.Errorf("llm: alias %q has placeholder model %q; set llm.aliases.%s.model or enable aliases_auto", model, a.Model, model)
+	}
+	return out, nil
 }
 
-// contentText decodes an OpenAI content field (string, null, or an array of
-// {type:"text", text} parts).
-func contentText(raw json.RawMessage) string {
-	raw = bytes.TrimSpace(raw)
-	if len(raw) == 0 || string(raw) == "null" {
-		return ""
+// orderTargets puts targets whose provider is cooling down last (they are
+// still tried, as a last resort, when everything else fails).
+func (c *Client) orderTargets(ts []Target) []Target {
+	if len(ts) < 2 {
+		return ts
 	}
-	var s string
-	if err := json.Unmarshal(raw, &s); err == nil {
-		return s
-	}
-	var parts []struct {
-		Type string `json:"type"`
-		Text string `json:"text"`
-	}
-	if err := json.Unmarshal(raw, &parts); err == nil {
-		var b strings.Builder
-		for _, p := range parts {
-			b.WriteString(p.Text)
+	var ok, cooling []Target
+	for _, t := range ts {
+		if c.st.health.available(t.Provider) {
+			ok = append(ok, t)
+		} else {
+			cooling = append(cooling, t)
 		}
-		return b.String()
 	}
-	return string(raw)
+	return append(ok, cooling...)
 }
 
 // ---- HTTP with retries ----
@@ -393,14 +321,41 @@ func (b *cancelBody) Close() error {
 	return err
 }
 
-// post sends body to provider path, retrying on 429/5xx/network errors.
-// The returned response has a 2xx status; the caller must close its body.
-func (c *Client) post(ctx context.Context, provider, path string, body []byte) (*http.Response, error) {
-	pc := c.cfg.Providers[provider]
-	url := strings.TrimRight(pc.BaseURL, "/") + path
+func (c *Client) setHeaders(hreq *http.Request, pc ProviderConfig) {
+	if pc.api() == APIAnthropic {
+		hreq.Header.Set("anthropic-version", pc.anthropicVersion())
+	}
+	mode, header := pc.authMode()
+	if mode != AuthNone && pc.APIKeyEnv != "" {
+		if key := c.getenv(pc.APIKeyEnv); key != "" {
+			if mode == AuthHeader {
+				hreq.Header.Set(header, key)
+			} else {
+				hreq.Header.Set("Authorization", "Bearer "+key)
+			}
+		}
+	}
+	for k, v := range pc.Headers {
+		hreq.Header.Set(k, v)
+	}
+}
+
+// do sends a request to provider path, retrying on 429/5xx/network errors.
+// body nil means GET. The returned response has a 2xx status; the caller
+// must close its body.
+func (c *Client) do(ctx context.Context, provider, path string, body []byte) (*http.Response, error) {
+	pc, ok := c.cfg.Providers[provider]
+	if !ok {
+		return nil, fmt.Errorf("llm: unknown provider %q", provider)
+	}
+	url := c.baseURL(provider) + path
 	timeout := pc.Timeout
 	if timeout <= 0 {
 		timeout = defaultTimeout
+	}
+	method := http.MethodPost
+	if body == nil {
+		method = http.MethodGet
 	}
 	maxRetries := c.cfg.maxRetries()
 	var lastErr error
@@ -409,22 +364,23 @@ func (c *Client) post(ctx context.Context, provider, path string, body []byte) (
 			return nil, err
 		}
 		rctx, cancel := context.WithTimeout(ctx, timeout)
-		hreq, err := http.NewRequestWithContext(rctx, http.MethodPost, url, bytes.NewReader(body))
+		var rd io.Reader
+		if body != nil {
+			rd = bytes.NewReader(body)
+		}
+		hreq, err := http.NewRequestWithContext(rctx, method, url, rd)
 		if err != nil {
 			cancel()
 			return nil, err
 		}
-		hreq.Header.Set("Content-Type", "application/json")
-		hreq.Header.Set("Accept", "application/json, text/event-stream")
-		if pc.APIKeyEnv != "" {
-			if key := c.getenv(pc.APIKeyEnv); key != "" {
-				hreq.Header.Set("Authorization", "Bearer "+key)
-			}
+		if body != nil {
+			hreq.Header.Set("Content-Type", "application/json")
+			hreq.Header.Set("Accept", "application/json, text/event-stream")
+		} else {
+			hreq.Header.Set("Accept", "application/json")
 		}
-		for k, v := range pc.Headers {
-			hreq.Header.Set(k, v)
-		}
-		resp, err := c.httpc.Do(hreq)
+		c.setHeaders(hreq, pc)
+		resp, err := c.httpClient(provider).Do(hreq)
 		var retryAfter time.Duration
 		if err != nil {
 			cancel()
@@ -432,6 +388,9 @@ func (c *Client) post(ctx context.Context, provider, path string, body []byte) (
 				return nil, ctx.Err()
 			}
 			lastErr = fmt.Errorf("llm: %s: %w", provider, err)
+			if isTLSError(err) {
+				return nil, lastErr // retrying will not fix certificates
+			}
 		} else if resp.StatusCode/100 == 2 {
 			resp.Body = &cancelBody{ReadCloser: resp.Body, cancel: cancel}
 			return resp, nil
@@ -439,7 +398,7 @@ func (c *Client) post(ctx context.Context, provider, path string, body []byte) (
 			msg, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
 			resp.Body.Close()
 			cancel()
-			apiErr := &APIError{Provider: provider, StatusCode: resp.StatusCode, Message: errorMessage(msg)}
+			apiErr := &APIError{Provider: provider, StatusCode: resp.StatusCode, Message: errorMessage(msg), URL: url}
 			if !apiErr.Retryable() {
 				return nil, apiErr
 			}
@@ -471,36 +430,66 @@ func (c *Client) post(ctx context.Context, provider, path string, body []byte) (
 	}
 }
 
+func isTLSError(err error) bool {
+	var ua x509.UnknownAuthorityError
+	var hn x509.HostnameError
+	var ci x509.CertificateInvalidError
+	var rh tls.RecordHeaderError
+	var cv *tls.CertificateVerificationError
+	return errors.As(err, &ua) || errors.As(err, &hn) || errors.As(err, &ci) || errors.As(err, &rh) || errors.As(err, &cv)
+}
+
 func errorMessage(body []byte) string {
 	var e struct {
-		Error json.RawMessage `json:"error"`
+		Error   json.RawMessage `json:"error"`
+		Message string          `json:"message"`
+		Detail  json.RawMessage `json:"detail"`
 	}
-	if json.Unmarshal(body, &e) == nil && len(e.Error) > 0 {
-		var we wireError
-		if json.Unmarshal(e.Error, &we) == nil && we.Message != "" {
-			return we.Message
+	if json.Unmarshal(body, &e) == nil {
+		if len(e.Error) > 0 {
+			var we wireError
+			if json.Unmarshal(e.Error, &we) == nil && we.Message != "" {
+				return we.Message
+			}
+			var s string
+			if json.Unmarshal(e.Error, &s) == nil && s != "" {
+				return s
+			}
 		}
-		var s string
-		if json.Unmarshal(e.Error, &s) == nil && s != "" {
-			return s
+		if e.Message != "" {
+			return e.Message
+		}
+		if len(e.Detail) > 0 {
+			var s string
+			if json.Unmarshal(e.Detail, &s) == nil && s != "" {
+				return s
+			}
+			return string(e.Detail)
 		}
 	}
 	s := strings.TrimSpace(string(body))
 	if s == "" {
 		return "(empty body)"
 	}
-	return s
+	if strings.HasPrefix(strings.ToLower(s), "<!doctype") || strings.HasPrefix(strings.ToLower(s), "<html") {
+		return "(HTML page — the base_url probably points at a web UI, not the API)"
+	}
+	return truncate(s, 300)
 }
 
 // ---- cost ----
 
-func (c *Client) cost(provider, model string, u *wireUsage) *nexusv1.Cost {
+type usage struct {
+	input, output int64
+}
+
+func (c *Client) cost(provider, model string, u *usage) *nexusv1.Cost {
 	if u == nil {
 		return nil
 	}
 	cost := &nexusv1.Cost{
-		InputTokens:  u.PromptTokens,
-		OutputTokens: u.CompletionTokens,
+		InputTokens:  u.input,
+		OutputTokens: u.output,
 		Model:        model,
 		Amount:       &nexusv1.Money{Currency: c.cfg.currency()},
 	}
@@ -509,7 +498,7 @@ func (c *Client) cost(provider, model string, u *wireUsage) *nexusv1.Cost {
 		p, ok = c.cfg.Prices[model]
 	}
 	if ok {
-		major := (float64(u.PromptTokens)*p.Input + float64(u.CompletionTokens)*p.Output) / 1e6
+		major := (float64(u.input)*p.Input + float64(u.output)*p.Output) / 1e6
 		// Round up to whole minor units: budgets must never under-count spend.
 		cost.Amount.MinorUnits = int64(math.Ceil(major*100 - 1e-9))
 	}
@@ -518,134 +507,200 @@ func (c *Client) cost(provider, model string, u *wireUsage) *nexusv1.Cost {
 
 // ---- kernel.LLM ----
 
+// Stop reasons (normalised across APIs).
+const (
+	StopEnd           = "stop"
+	StopLength        = "length"
+	StopToolCalls     = "tool_calls"
+	StopContentFilter = "content_filter"
+)
+
+func normalizeStop(s string) string {
+	switch s {
+	case "stop", "end_turn", "stop_sequence", "eos":
+		return StopEnd
+	case "length", "max_tokens", "model_context_window_exceeded":
+		return StopLength
+	case "tool_calls", "tool_use", "function_call":
+		return StopToolCalls
+	case "content_filter", "refusal", "safety":
+		return StopContentFilter
+	}
+	return s
+}
+
+// ChatResult is a chat response with routing details.
+type ChatResult struct {
+	Response *kernel.ChatResponse
+	// Target actually used.
+	Target Target
+	// StopReason is normalised: stop, length, tool_calls, content_filter
+	// (other provider values pass through).
+	StopReason string
+	Latency    time.Duration
+	// Deltas is the number of streamed content deltas.
+	Deltas int
+	// Fallbacks is how many targets failed before this one.
+	Fallbacks int
+}
+
 // Chat performs a non-streaming chat completion.
 func (c *Client) Chat(ctx context.Context, req kernel.ChatRequest) (*kernel.ChatResponse, error) {
-	provider, model, err := c.Resolve(req.Model)
+	res, err := c.ChatEx(ctx, req, false, nil)
 	if err != nil {
 		return nil, err
 	}
-	wr, nm := c.buildRequest(req, model, false, c.cfg.Providers[provider])
-	body, err := json.Marshal(wr)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := c.post(ctx, provider, "/chat/completions", body)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	return c.decodeResponse(resp, provider, model, nm, nil)
+	return res.Response, nil
 }
 
-func (c *Client) decodeResponse(resp *http.Response, provider, model string, nm *nameMap, onDelta func(string)) (*kernel.ChatResponse, error) {
-	var out wireResponse
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return nil, fmt.Errorf("llm: %s: decode response: %w", provider, err)
-	}
-	if out.Error != nil && out.Error.Message != "" {
-		return nil, &APIError{Provider: provider, StatusCode: resp.StatusCode, Message: out.Error.Message}
-	}
-	if len(out.Choices) == 0 {
-		return nil, fmt.Errorf("llm: %s: response has no choices", provider)
-	}
-	m := out.Choices[0].Message
-	msg := kernel.ChatMessage{Role: "assistant", Content: contentText(m.Content)}
-	for i, tc := range m.ToolCalls {
-		id := tc.ID
-		if id == "" {
-			id = fmt.Sprintf("call_%d", i)
-		}
-		msg.ToolCalls = append(msg.ToolCalls, kernel.LLMToolCall{
-			ID: id, Name: nm.back(tc.Function.Name), Arguments: tc.Function.Arguments,
-		})
-	}
-	if msg.Content != "" && onDelta != nil {
-		onDelta(msg.Content)
-	}
-	return &kernel.ChatResponse{Message: msg, Cost: c.cost(provider, model, out.Usage)}, nil
-}
-
-// ChatStream performs a streaming chat completion (SSE), calling onDelta for
-// each content delta. Tool call deltas are assembled by index.
+// ChatStream performs a streaming chat completion, calling onDelta for
+// each content delta. Tool call deltas are assembled.
 func (c *Client) ChatStream(ctx context.Context, req kernel.ChatRequest, onDelta func(string)) (*kernel.ChatResponse, error) {
-	provider, model, err := c.Resolve(req.Model)
+	res, err := c.ChatEx(ctx, req, true, onDelta)
 	if err != nil {
 		return nil, err
 	}
-	wr, nm := c.buildRequest(req, model, true, c.cfg.Providers[provider])
-	body, err := json.Marshal(wr)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := c.post(ctx, provider, "/chat/completions", body)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+	return res.Response, nil
+}
 
-	// Some servers ignore stream=true and answer with plain JSON.
-	if ct := resp.Header.Get("Content-Type"); strings.HasPrefix(ct, "application/json") {
-		return c.decodeResponse(resp, provider, model, nm, onDelta)
+// ChatEx resolves req.Model to its target chain and tries each target in
+// turn (healthy providers first). A streaming call only falls back while
+// no content has been delivered.
+func (c *Client) ChatEx(ctx context.Context, req kernel.ChatRequest, stream bool, onDelta func(string)) (*ChatResult, error) {
+	targets, err := c.chain(ctx, req.Model, true)
+	if err != nil {
+		return nil, err
 	}
-
-	acc := newStreamAccumulator(onDelta)
-	if err := readSSE(resp.Body, acc.handle); err != nil {
+	targets = c.orderTargets(targets)
+	emitted := false
+	wrapped := func(s string) {
+		emitted = true
+		if onDelta != nil {
+			onDelta(s)
+		}
+	}
+	var errs []error
+	for i, t := range targets {
+		res, err := c.ChatTarget(ctx, t, req, stream, wrapped)
+		if err == nil {
+			res.Fallbacks = i
+			return res, nil
+		}
+		errs = append(errs, err)
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		return nil, fmt.Errorf("llm: %s: stream: %w", provider, err)
-	}
-	msg := kernel.ChatMessage{Role: "assistant", Content: acc.content.String()}
-	for i, tc := range acc.toolCalls() {
-		id := tc.id
-		if id == "" {
-			id = fmt.Sprintf("call_%d", i)
+		if emitted || !shouldFallback(err) || i == len(targets)-1 {
+			break
 		}
-		msg.ToolCalls = append(msg.ToolCalls, kernel.LLMToolCall{
-			ID: id, Name: nm.back(tc.name.String()), Arguments: tc.args.String(),
-		})
+		c.st.health.fellBack(t.Provider)
+		c.log.Warn("llm: falling back", "model", req.Model, "from", t.String(), "to", targets[i+1].String(), "err", err)
 	}
-	return &kernel.ChatResponse{Message: msg, Cost: c.cost(provider, model, acc.usage)}, nil
+	if len(errs) == 1 {
+		return nil, errs[0]
+	}
+	return nil, &ChainError{Model: req.Model, Errs: errs}
 }
 
-// Embed calls /embeddings and returns vectors in input order.
+// ChatTarget sends req to one concrete target (no alias resolution, no
+// fallback) and records provider health.
+func (c *Client) ChatTarget(ctx context.Context, t Target, req kernel.ChatRequest, stream bool, onDelta func(string)) (*ChatResult, error) {
+	pc, ok := c.cfg.Providers[t.Provider]
+	if !ok {
+		return nil, fmt.Errorf("llm: unknown provider %q", t.Provider)
+	}
+	deltas := 0
+	counted := func(s string) {
+		deltas++
+		if onDelta != nil {
+			onDelta(s)
+		}
+	}
+	start := time.Now()
+	var res *ChatResult
+	var err error
+	if pc.api() == APIAnthropic {
+		res, err = c.anthropicChat(ctx, t, pc, req, stream, counted)
+	} else {
+		res, err = c.openaiChat(ctx, t, pc, req, stream, counted)
+	}
+	lat := time.Since(start)
+	c.record(ctx, t.Provider, err, lat)
+	if err != nil {
+		return nil, err
+	}
+	res.Target = t
+	res.Latency = lat
+	res.Deltas = deltas
+	return res, nil
+}
+
+func (c *Client) record(ctx context.Context, provider string, err error, lat time.Duration) {
+	switch {
+	case err == nil:
+		c.st.health.success(provider, lat)
+	case ctx.Err() != nil:
+		// caller gave up; says nothing about the provider
+	case isProviderFailure(err):
+		if c.st.health.failure(provider, err) {
+			s := c.st.health.snapshot(provider)
+			c.log.Warn("llm: provider degraded", "provider", provider, "cooldown", s.Cooldown, "failures", s.ConsecutiveFailures, "err", err)
+		}
+	default:
+		c.st.health.neutral(provider)
+	}
+}
+
+// Embed returns vectors in input order. Fallbacks are only used when they
+// serve the same model name: vectors from different models are not
+// comparable.
 func (c *Client) Embed(ctx context.Context, model string, inputs []string) ([][]float32, error) {
 	if len(inputs) == 0 {
 		return nil, nil
 	}
-	provider, concrete, err := c.Resolve(model)
+	targets, err := c.chain(ctx, model, true)
 	if err != nil {
 		return nil, err
 	}
-	body, err := json.Marshal(map[string]any{"model": concrete, "input": inputs})
-	if err != nil {
-		return nil, err
+	same := targets[:1]
+	for _, t := range targets[1:] {
+		if t.Model == targets[0].Model {
+			same = append(same, t)
+		}
 	}
-	resp, err := c.post(ctx, provider, "/embeddings", body)
-	if err != nil {
-		return nil, err
+	same = c.orderTargets(same)
+	var errs []error
+	for i, t := range same {
+		vecs, err := c.EmbedTarget(ctx, t, inputs)
+		if err == nil {
+			return vecs, nil
+		}
+		errs = append(errs, err)
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		if !shouldFallback(err) || i == len(same)-1 {
+			break
+		}
+		c.st.health.fellBack(t.Provider)
 	}
-	defer resp.Body.Close()
-	var out struct {
-		Data []struct {
-			Index     int       `json:"index"`
-			Embedding []float32 `json:"embedding"`
-		} `json:"data"`
-		Error *wireError `json:"error"`
+	if len(errs) == 1 {
+		return nil, errs[0]
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return nil, fmt.Errorf("llm: %s: decode embeddings: %w", provider, err)
+	return nil, &ChainError{Model: model, Errs: errs}
+}
+
+// EmbedTarget embeds inputs with one concrete target.
+func (c *Client) EmbedTarget(ctx context.Context, t Target, inputs []string) ([][]float32, error) {
+	pc, ok := c.cfg.Providers[t.Provider]
+	if !ok {
+		return nil, fmt.Errorf("llm: unknown provider %q", t.Provider)
 	}
-	if out.Error != nil && out.Error.Message != "" {
-		return nil, &APIError{Provider: provider, StatusCode: resp.StatusCode, Message: out.Error.Message}
+	if pc.api() == APIAnthropic {
+		return nil, fmt.Errorf("llm: %s: %w", t.Provider, ErrNoEmbeddings)
 	}
-	if len(out.Data) != len(inputs) {
-		return nil, fmt.Errorf("llm: %s: got %d embeddings for %d inputs", provider, len(out.Data), len(inputs))
-	}
-	sort.SliceStable(out.Data, func(i, j int) bool { return out.Data[i].Index < out.Data[j].Index })
-	vecs := make([][]float32, len(out.Data))
-	for i, d := range out.Data {
-		vecs[i] = d.Embedding
-	}
-	return vecs, nil
+	start := time.Now()
+	vecs, err := c.openaiEmbed(ctx, t, inputs)
+	c.record(ctx, t.Provider, err, time.Since(start))
+	return vecs, err
 }
