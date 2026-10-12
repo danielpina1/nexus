@@ -247,7 +247,8 @@ struct MachinesStrip: View {
                                     .frame(width: 8, height: 8)
                                 Text(node.name).font(.subheadline.weight(.semibold))
                             }
-                            Text(status?.online == true ? "CPU \(Int(status?.cpuPercent ?? 0))% · \(status?.activeRuns ?? 0) runs" : "offline")
+                            let runs = Int(status?.activeRuns ?? 0)
+                            Text(status?.online == true ? "CPU \(Int(status?.cpuPercent ?? 0))% · \(runs) run\(runs == 1 ? "" : "s")" : "offline")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }

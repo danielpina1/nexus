@@ -220,12 +220,13 @@ struct RunTimelineView: View {
 
     var body: some View {
         let entries = store.timelines[task.id] ?? []
+        let lastEntryID = entries.last?.id
         VStack(alignment: .leading, spacing: 10) {
             if entries.isEmpty || !entries.contains(where: { if case .userMessage = $0.kind { return true }; return false }) {
                 UserBubble(text: task.prompt.isEmpty ? task.displayTitle : task.prompt)
             }
             ForEach(entries) { entry in
-                entryView(entry)
+                entryView(entry, isLast: entry.id == lastEntryID)
             }
             if task.state.isTerminal && !task.summary.isEmpty {
                 Label(task.summary, systemImage: task.state == .succeeded ? "checkmark.seal.fill" : "xmark.octagon")
@@ -236,7 +237,7 @@ struct RunTimelineView: View {
     }
 
     @ViewBuilder
-    private func entryView(_ entry: TimelineItem) -> some View {
+    private func entryView(_ entry: TimelineItem, isLast: Bool) -> some View {
         switch entry.kind {
         case .userMessage(let text):
             UserBubble(text: text)
@@ -247,7 +248,8 @@ struct RunTimelineView: View {
                     MarkdownText(markdown: text)
                         .font(.body)
                         .textSelection(.enabled)
-                    if !isFinal && task.state.isActive {
+                    // Streaming indicator only on the chunk that is still growing.
+                    if !isFinal && isLast && task.state.isActive {
                         ProgressView().controlSize(.mini)
                     }
                 }

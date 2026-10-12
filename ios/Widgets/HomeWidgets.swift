@@ -204,7 +204,7 @@ struct LockScreenWidgetView: View {
         default:
             VStack(alignment: .leading, spacing: 2) {
                 Label("Nexus", systemImage: "circle.hexagongrid.fill").font(.headline)
-                Text("\(snapshot.pendingApprovals) to approve · \(snapshot.openQuestions) questions")
+                Text("\(snapshot.pendingApprovals) to approve · \(snapshot.openQuestions) question\(snapshot.openQuestions == 1 ? "" : "s")")
                     .font(.caption)
                 Text("\(snapshot.runningCount) running").font(.caption)
             }
