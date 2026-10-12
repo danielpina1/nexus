@@ -540,3 +540,16 @@ func TestWatcherPicksUpExternalEdits(t *testing.T) {
 		t.Fatal("listeners not notified")
 	}
 }
+
+func TestAgentCannotWriteConfiguration(t *testing.T) {
+	for _, p := range []string{"agents/x.md", "/shops/evil.md", "policies/default.md", "Workflows/w.md", "agents/../agents/y.md"} {
+		if err := checkAgentWritable(p); err == nil {
+			t.Fatalf("%s: agent write allowed", p)
+		}
+	}
+	for _, p := range []string{"research/x.md", "episodes/2026/a.md", "inbox/agents-note.md"} {
+		if err := checkAgentWritable(p); err != nil {
+			t.Fatalf("%s: %v", p, err)
+		}
+	}
+}

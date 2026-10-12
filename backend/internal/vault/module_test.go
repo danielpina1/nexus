@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/danielpina1/nexus/backend/internal/vault/agentdef"
 	"io/fs"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -63,11 +65,12 @@ func TestCatalog(t *testing.T) {
 	for _, a := range enabled {
 		ids = append(ids, a.Id)
 	}
-	if strings.Join(ids, ",") != "assistant,browser,code-fixer,echo,grocery-continente,librarian,ops,shell" {
-		t.Fatalf("enabled = %v", ids)
+	want := templateAgentIDs(t)
+	if strings.Join(ids, ",") != strings.Join(want, ",") {
+		t.Fatalf("enabled = %v, want %v", ids, want)
 	}
 	all, _ := c.ListAgents(ctx, true)
-	if len(all) != 11 {
+	if len(all) != len(want)+3 { // + broken, dupe, off
 		t.Fatalf("all = %d", len(all))
 	}
 	for _, a := range all {
@@ -183,7 +186,7 @@ func TestModule(t *testing.T) {
 	ac := nexusv1connect.NewAgentServiceClient(srv.Client(), srv.URL)
 
 	agents, err := ac.ListAgents(ctx, connect.NewRequest(&nexusv1.ListAgentsRequest{}))
-	if err != nil || len(agents.Msg.Agents) != 8 {
+	if err != nil || len(agents.Msg.Agents) != len(templateAgentIDs(t)) {
 		t.Fatalf("agents = %v %v", agents, err)
 	}
 	ga, err := ac.GetAgent(ctx, connect.NewRequest(&nexusv1.GetAgentRequest{Id: "librarian"}))
@@ -212,7 +215,7 @@ func TestModule(t *testing.T) {
 		t.Fatalf("get note = %v %v", gn, err)
 	}
 	sr, err := vc.Search(ctx, connect.NewRequest(&nexusv1.SearchRequest{Query: "continente", Types: []string{"agent"}}))
-	if err != nil || len(sr.Msg.Hits) != 1 || sr.Msg.Hits[0].Note.Id != "grocery-continente" {
+	if err != nil || len(sr.Msg.Hits) == 0 || sr.Msg.Hits[0].Note.Id != "grocery-continente" {
 		t.Fatalf("search = %v %v", sr, err)
 	}
 	gr, err := vc.Graph(ctx, connect.NewRequest(&nexusv1.GraphRequest{CenterId: "grocery-continente", Depth: 1}))
@@ -302,4 +305,27 @@ func TestModule(t *testing.T) {
 	if _, err := tool.Invoke(ctx, kernel.ToolCall{Input: []byte(`{"path":"x.md"}`)}); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("empty write: %v", err)
 	}
+}
+
+// templateAgentIDs lists the enabled agent ids shipped in vault-template, so
+// tests keep passing as agents are added.
+func templateAgentIDs(t *testing.T) []string {
+	t.Helper()
+	files, err := filepath.Glob(filepath.Join("..", "..", "..", "vault-template", "agents", "*.md"))
+	if err != nil || len(files) == 0 {
+		t.Fatalf("template agents: %v", err)
+	}
+	var ids []string
+	for _, f := range files {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		a, _ := agentdef.Parse("agents/"+filepath.Base(f), b)
+		if a.GetEnabled() {
+			ids = append(ids, a.GetId())
+		}
+	}
+	sort.Strings(ids)
+	return ids
 }

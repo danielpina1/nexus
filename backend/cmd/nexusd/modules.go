@@ -13,6 +13,7 @@ import (
 	_ "github.com/danielpina1/nexus/backend/internal/policy"
 	_ "github.com/danielpina1/nexus/backend/internal/router"
 	_ "github.com/danielpina1/nexus/backend/internal/security"
+	_ "github.com/danielpina1/nexus/backend/internal/shops"
 	_ "github.com/danielpina1/nexus/backend/internal/store"
 	_ "github.com/danielpina1/nexus/backend/internal/tasks"
 	_ "github.com/danielpina1/nexus/backend/internal/triggers"

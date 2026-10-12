@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -103,6 +104,9 @@ func Tools(v *Vault) []kernel.Tool {
 				if err := kernel.ToolInput(c, &in); err != nil {
 					return kernel.ToolResult{}, err
 				}
+				if err := checkAgentWritable(in.Path); err != nil {
+					return kernel.ToolResult{}, err
+				}
 				ctx = WithRunID(ctx, c.RunID)
 				msg := commitMsg(in.Message, "write "+in.Path, c)
 				var n *nexusv1.Note
@@ -141,6 +145,14 @@ func Tools(v *Vault) []kernel.Tool {
 				var in struct{ From, To, Relation string }
 				if err := kernel.ToolInput(c, &in); err != nil {
 					return kernel.ToolResult{}, err
+				}
+				if err := checkAgentWritable(in.From); err != nil {
+					return kernel.ToolResult{}, err
+				}
+				if cur, err := v.Read(ctx, in.From); err == nil && cur.GetRef() != nil {
+					if err := checkAgentWritable(cur.Ref.Path); err != nil {
+						return kernel.ToolResult{}, err
+					}
 				}
 				n, err := v.Link(WithRunID(ctx, c.RunID), in.From, in.To, in.Relation)
 				if err != nil {
@@ -262,4 +274,22 @@ func noteJSON(n *nexusv1.Note) noteOut {
 		Frontmatter: n.Frontmatter.AsMap(), Body: n.Body,
 		Links: refsOut(n.Links), Backlinks: refsOut(n.Backlinks), Commit: n.Commit,
 	}
+}
+
+// protectedDirs hold configuration (agents, their permissions, automations,
+// trusted shops). Agents must never change them: an agent that could write
+// agents/ or shops/ could widen its own tools, policies or allowed domains.
+// The owner edits them from the dashboard, the app or Obsidian, which use
+// VaultService, not these tools.
+var protectedDirs = []string{"agents/", "policies/", "workflows/", "shops/"}
+
+// checkAgentWritable rejects agent writes to configuration folders.
+func checkAgentWritable(path string) error {
+	p := strings.ToLower(strings.TrimLeft(filepath.ToSlash(filepath.Clean(path)), "/"))
+	for _, d := range protectedDirs {
+		if strings.HasPrefix(p, d) {
+			return fmt.Errorf("%w: %s is configuration; only the owner can change it (from the dashboard, the app or Obsidian)", ErrInvalid, d)
+		}
+	}
+	return nil
 }
