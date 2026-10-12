@@ -6,7 +6,7 @@
 // The two runtimes share one implementation. The only difference: for model
 // names that are not configured aliases, "ollama" sends them to the ollama
 // provider (when the LLM supports provider scoping and has that provider),
-// while "openai" uses the LLM's default provider (typically Unify Gateway).
+// while "openai" uses the LLM's default provider (see the llm module config).
 //
 // Configuration (module section "runtime.openai"):
 //

@@ -9,7 +9,7 @@ import "google/protobuf/timestamp.proto";
 enum Tier {
   TIER_UNSPECIFIED = 0;
   TIER_SIMPLE = 1; // local models
-  TIER_MEDIUM = 2; // cloud models via Unify Gateway
+  TIER_MEDIUM = 2; // stronger models (local or cloud)
   TIER_HEAVY = 3; // Claude Code, Codex, long autonomous work
 }
 

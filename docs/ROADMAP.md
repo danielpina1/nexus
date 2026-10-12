@@ -11,13 +11,13 @@
 - [~] Security core: private CA + mTLS 1.3, owner root key, device/node enrolment with safety
       codes, signed requests, sealed envelopes, edge-verified approvals, hash-chained audit log
 - [~] Pairing (devices + nodes) — App Attest verifier pending
-- [ ] Tailscale-based "Fortress" deployment guide
+- [x] "Fortress" deployment guide behind the UniFi Gateway ([NETWORK.md](NETWORK.md))
 
 **Demo:** pair a node and see it online from `nexus` CLI.
 
 ## Phase 1 — Talk to agents from the phone (MVP)
 - [x] Task engine + state machine
-- [x] Runtimes: `openai` (Unify Gateway), `ollama`, `shell`, `claude-code`
+- [x] Runtimes: `openai` (any OpenAI/Anthropic-compatible API), `ollama`, `shell`, `claude-code`
 - [x] Agents loaded from vault `agents/*.md`
 - [x] Router v1: rules + local LLM classifier
 - [~] Approvals (approve + biometric) — APNs in progress

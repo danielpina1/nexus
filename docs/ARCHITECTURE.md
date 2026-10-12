@@ -6,7 +6,7 @@ Nexus is a personal **agent operating system**: one hub that knows your machines
 knowledge, and lets you drive all of it from an iPhone app and a web dashboard.
 
 - **Agents** do the work. An agent is a configuration (a Markdown note) bound to a **runtime**:
-  Claude Code, Codex, a local model, any model via Unify Gateway, Anthrex, shell, browser…
+  Claude Code, Codex, a local model, local or cloud models, Anthrex, shell, browser…
 - **Nodes** are your machines. A small Go daemon on each one executes agents and tools.
 - **The Hub** routes, schedules, approves, remembers and notifies.
 - **The Vault** is the memory: an Obsidian-compatible folder of Markdown notes, indexed into a graph.
@@ -46,7 +46,7 @@ flowchart LR
     N4[Anthrex host]
   end
 
-  GW[Unify Gateway<br/>cloud LLMs]
+  GW[Cloud model APIs<br/>optional]
   LOCAL[Local models<br/>Ollama / llama.cpp]
   GIT[(Vault git remote)]
   OBS[Obsidian]
@@ -117,7 +117,7 @@ flowchart LR
 | Module | Responsibility |
 |---|---|
 | **NodeLink** | One long-lived bidirectional stream to the Hub (HTTP/2, mTLS). Heartbeats, assignments, events, reconnect with resume. |
-| **Runtime adapters** | Start/stream/steer/stop agents: `claude-code`, `codex`, `openai` (Unify Gateway / any OpenAI-compatible), `ollama`, `anthrex`, `shell`, `browser`. |
+| **Runtime adapters** | Start/stream/steer/stop agents: `claude-code`, `codex`, `openai` (any OpenAI/Anthropic-compatible API), `ollama`, `anthrex`, `shell`, `browser`. |
 | **Tool host** | Native tools: shell, filesystem, browser (Playwright), clipboard, screenshots, HTTP; plus external MCP servers configured on that machine. |
 | **Workspaces** | Each run gets a working directory (optionally a git worktree / container) with resource limits. |
 | **Local secrets** | API keys, cookies, browser profiles stay on the Node. The Hub only stores references. |
@@ -134,8 +134,9 @@ flowchart LR
 
 ### 2.4 LLM access
 
-- **Unify Gateway** is the single door to cloud models (keys, model aliases, cost tracking).
-  Assumed OpenAI-compatible until confirmed (see [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md)).
+- **Model providers** are configured in the `llm` module: local models (Ollama) and/or cloud APIs,
+  OpenAI- or Anthropic-compatible. Agents use *aliases* (`fast-local`, `smart`, `best`, `embed`)
+  from `policies/models.md`, so swapping models is a config change. See [MODELS.md](MODELS.md).
 - **Local models** (Ollama / llama.cpp, OpenAI-compatible endpoint) on any Node for routing,
   classification, tagging, summaries and extraction.
 - **Claude Code** and **Codex** are *runtimes*, not model endpoints — they run as processes on Nodes
@@ -364,7 +365,7 @@ A new integration (Home Assistant, Gmail, a new agent runtime, Anthrex) is one p
 
 | Topology | When |
 |---|---|
-| **Fortress:** Hub on a home machine, reachable only over Tailscale/WireGuard | Recommended. Nothing public. |
+| **Fortress:** Hub on a home machine behind the **UniFi Gateway**; the phone uses the UniFi WireGuard VPN / Teleport ([NETWORK.md](NETWORK.md)) | Recommended. Nothing public. |
 | **Blind relay:** Hub at home, a VPS only relays sealed traffic and sends APNs | When Tailscale on the phone is not wanted. |
 | **Cloud Hub:** Hub on a VPS behind strict mTLS | Simplest to reach; Nodes still verify everything (edge verification). |
 | **Hub + Node in one process** (`nexusd --with-node`) | Development and single-machine setups. |
@@ -378,7 +379,8 @@ A new integration (Home Assistant, Gmail, a new agent runtime, Anthrex) is one p
 - [IOS_LIVE.md](IOS_LIVE.md) — Live Activities, Dynamic Island, notifications, widgets
 - [AGENTS.md](AGENTS.md) — agent definitions, runtimes, router, escalation
 - [VAULT.md](VAULT.md) — knowledge vault format, graph, memory pipeline
-- [WORKFLOWS.md](WORKFLOWS.md) — workflow format and catalogue of workflows
+- [WORKFLOWS.md](WORKFLOWS.md) — workflow format and catalogue
+- [NETWORK.md](NETWORK.md) — reaching the Hub through the UniFi Gateway (VPN, DNS, firewall) of workflows
 - [SECURITY.md](SECURITY.md) — pairing, keys, trust levels, threat model
 - [ROADMAP.md](ROADMAP.md) — phased delivery plan
 - [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) — decisions still needed

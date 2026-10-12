@@ -23,7 +23,7 @@
 
 | Feature | Priority |
 |---|---|
-| Native agent loop over OpenAI-compatible API (Unify Gateway) | P0 |
+| Native agent loop over OpenAI/Anthropic-compatible APIs (Ollama, cloud) | P0 |
 | Local models via Ollama / llama.cpp | P0 |
 | Claude Code runtime (headless, streaming, approvals bridged) | P0 |
 | Shell runtime with templated commands | P0 |
@@ -115,7 +115,7 @@
 
 | Integration | Priority |
 |---|---|
-| Unify Gateway | P0 |
+| UniFi Gateway access (WireGuard / Teleport VPN) | P0 |
 | GitHub | P1 |
 | Email (IMAP / Gmail) | P1 |
 | Calendar (via iOS EventKit and/or CalDAV/Google) | P1 |

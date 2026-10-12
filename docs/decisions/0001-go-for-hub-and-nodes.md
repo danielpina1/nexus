@@ -15,4 +15,4 @@ Write `nexusd`, `nexus-node` and the `nexus` CLI in Go, in one module.
 - Goroutines/channels fit streaming and fan-out naturally.
 - Strong ecosystem for gRPC/Connect, SQLite, git, fsnotify, Playwright (`playwright-go`), MCP.
 - ML-heavy work (embeddings, fine-tuning) is delegated to model servers (Ollama, llama.cpp,
-  Unify Gateway), not done in Go.
+  cloud APIs), not done in Go.

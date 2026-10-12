@@ -159,7 +159,7 @@ type ChatResponse struct {
 	Cost    *nexusv1.Cost
 }
 
-// LLM talks to models (Unify Gateway, Ollama, any OpenAI-compatible endpoint).
+// LLM talks to models (Ollama, cloud APIs, any OpenAI/Anthropic-compatible endpoint).
 type LLM interface {
 	Chat(ctx context.Context, req ChatRequest) (*ChatResponse, error)
 	// ChatStream calls onDelta with incremental text; returns the final message.

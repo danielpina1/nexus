@@ -5,10 +5,10 @@ until answered.
 
 | # | Question | Default assumption |
 |---|---|---|
-| 1 | **Unify Gateway** — own service or unify.ai? API shape (OpenAI-compatible? Anthropic-compatible?), auth, base URL, model alias names, cost reporting? | **OpenAI-compatible `/v1/chat/completions` with bearer token; model names are gateway aliases.** |
+| 1 | **Which models?** Local Ollama (which machine/GPU?), cloud API keys (which providers?), or both? | **Ollama on the strongest home machine for `fast-local`/`embed`; cloud optional for `smart`/`best`. Verify with `nexusd llm check`.** |
 | 2 | **Anthrex** — what does it do and how is it invoked (HTTP API, CLI, MCP, queue)? Does it stream? | **Treated as an external runtime behind an adapter; no changes to the Anthrex repo.** |
 | 3 | **Existing "Nexus agents"** — do any already exist as code/prompts to import? | **Start fresh; import later as agent notes.** |
-| 4 | **Where does the Hub run?** Fortress (home + Tailscale), blind relay, or cloud Hub (see SECURITY.md §7). | **Fortress: Hub on an always-on home machine, Tailscale on phone and nodes.** |
+| 4 | ~~Where does the Hub run?~~ **Answered:** at home behind the UniFi Gateway; the app reaches it over the UniFi VPN (NETWORK.md). Open: which UniFi model, and WireGuard VPN server or Teleport? | **WireGuard VPN server with iOS On-Demand.** |
 | 5 | **Which machines become Nodes first?** (Mac? Linux server? GPU box for local models?) | **One Mac (Claude Code, Codex, browser) + one Linux box/VPS.** |
 | 6 | **Local models** — which machine runs Ollama, what hardware? | **Ollama on the strongest local machine; small model for routing/tagging, an embedding model.** |
 | 7 | **Single user or multi-user?** | **Single user, multiple devices; data model keeps an `owner` field for later.** |

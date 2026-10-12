@@ -36,8 +36,9 @@ Each layer assumes the previous one may fail.
 
 ### Layer 1 — Private network
 
-- **Recommended:** Hub and Nodes join a private WireGuard network (Tailscale, or self-hosted
-  Headscale). The iPhone uses the Tailscale app. The Hub has **no public listening port**.
+- **Recommended:** the Hub sits on the home network behind the **UniFi Gateway**; the iPhone
+  reaches it through the gateway's WireGuard VPN server (on-demand) or Teleport — see
+  [NETWORK.md](NETWORK.md). Tailscale/Headscale are alternatives. The Hub has **no public listening port**.
 - Nodes still dial out to the Hub (ADR-0004); nothing listens on home machines.
 - APNs works without exposure: the Hub only makes *outbound* connections to Apple.
 - Alternative "public Hub" mode (if Tailscale is not wanted): only port 443, behind strict mTLS
@@ -206,7 +207,7 @@ alert on all existing devices.
 
 | Mode | Hub location | What a Hub compromise exposes |
 |---|---|---|
-| **Fortress (recommended)** | Hub on a home machine; reachable only via Tailscale/WireGuard | Requires breaking into your private network first. |
+| **Fortress (recommended)** | Hub on a home machine behind the UniFi Gateway; phone over the UniFi WireGuard VPN / Teleport (or Tailscale) — see NETWORK.md | Requires breaking into your private network first. |
 | **Blind relay** | Brain (Hub) at home; a VPS only relays encrypted traffic and sends APNs | VPS sees only encrypted envelopes and metadata. |
 | **Cloud Hub** | Hub on a VPS | Metadata + vault content on that VPS (encrypt disk); still **cannot** command Nodes dangerously (Layer 5). |
 

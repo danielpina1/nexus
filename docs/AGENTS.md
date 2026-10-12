@@ -17,7 +17,7 @@ description: Buys groceries on continente.pt from a list and guidelines. Use for
   supermarket orders, "buy the usual".
 icon: cart
 runtime: openai              # claude-code | codex | openai | ollama | anthrex | shell | browser | workflow
-model: smart                 # model alias resolved by Unify Gateway / local registry
+model: smart                 # model alias resolved by policies/models.md
 tier: medium                 # simple | medium | heavy  (used for routing + escalation)
 node:
   tags: [browser, always-on] # node selector
@@ -60,7 +60,7 @@ Fill a Continente cart that matches the list and the guidelines, then ask for ap
 | Field | Meaning |
 |---|---|
 | `runtime` | Which adapter executes it (see §2). |
-| `model` | Alias, not a provider model id. Aliases live in `policies/models.md` and map to Unify Gateway or local models. |
+| `model` | Alias, not a provider model id. Aliases live in `policies/models.md` and map to local (Ollama) or cloud models. |
 | `tier` | Cost/difficulty class. Drives routing and escalation. |
 | `node` | Selector: tags, explicit node id, or `any`. |
 | `tools` | Allow-list. Runtimes that bring their own tools (Claude Code, Codex) also get these via MCP. |
@@ -98,7 +98,7 @@ type Run interface {
 |---|---|---|
 | `claude-code` | Coding, repo work, long multi-step tasks on a machine | Headless `claude -p` with streaming JSON in/out; Nexus MCP server attached; permission prompts routed to Nexus approvals via a permission-prompt tool. |
 | `codex` | Coding, second opinions, parallel attempts | `codex exec` non-interactive with JSON events; sandbox/approval mode set from agent policy; Nexus MCP attached. |
-| `openai` | General agents on any model through **Unify Gateway** | Native Go agent loop (tool calling) over OpenAI-compatible API. |
+| `openai` | General agents on any OpenAI/Anthropic-compatible model (local Ollama or cloud) | Native Go agent loop (tool calling) over OpenAI-compatible API. |
 | `ollama` | Cheap/private simple work: routing, tagging, summarizing, extraction | Same native loop, local endpoint. |
 | `anthrex` | Whatever Anthrex specializes in | Adapter over Anthrex's interface (TBD — see OPEN_QUESTIONS). Anthrex repo is not modified. |
 | `shell` | Scripts, ops, deterministic jobs | Command templates with typed params; stdout/stderr streamed. |
@@ -134,8 +134,8 @@ Every step emits events, so the phone sees exactly what is happening.
 ```yaml
 aliases:
   fast-local:  { provider: ollama,  model: "<small local model>", node: gpu-box }
-  smart:       { provider: unify,   model: "<gateway model alias>" }
-  best:        { provider: unify,   model: "<gateway model alias>" }
+  smart:       { provider: ollama,  model: "<model name>" }
+  best:        { provider: ollama,  model: "<model name>" }
   embed:       { provider: ollama,  model: "<embedding model>" }
 tiers:
   simple: [fast-local, smart]

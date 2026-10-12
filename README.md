@@ -3,7 +3,7 @@
 **A personal agent operating system.** One hub that knows your machines, your agents and your
 knowledge — driven from an iPhone app and a web dashboard.
 
-- 🤖 **Agents for everything** — Claude Code, Codex, local models, any model through Unify Gateway,
+- 🤖 **Agents for everything** — Claude Code, Codex, local models, any OpenAI- or Anthropic-compatible model (local Ollama or cloud),
   Anthrex, shell and browser agents. An agent is just a Markdown note.
 - 🖥️ **Your machines as Nodes** — a small Go daemon on each machine runs agents and tools; nodes
   dial out, so nothing at home is exposed.
@@ -11,6 +11,8 @@ knowledge — driven from an iPhone app and a web dashboard.
   search. Every task leaves a note; agents learn from them.
 - 📱 **iPhone first** — chat with agents, watch runs live, approve with Face ID from the lock screen,
   share anything to Nexus, Siri and Shortcuts, widgets and Live Activities.
+- 🏠 **Home-first** — the Hub runs at home behind your UniFi Gateway; the iPhone reaches it over the
+  UniFi VPN (WireGuard / Teleport), nothing is exposed to the internet.
 - 🛡️ **Zero-trust security** — private network, mTLS, end-to-end encrypted phone ↔ machine
   envelopes; machines only obey Face ID-signed approvals from your iPhone, even if the Hub is
   compromised. Trust levels, budgets, audit log, kill switch.
@@ -68,6 +70,7 @@ Try the dashboard without a hub: `cd web && npm run dev:mock`.
 | [Vault](docs/VAULT.md) | Knowledge vault, graph, memory pipeline |
 | [Workflows](docs/WORKFLOWS.md) | Workflow format and catalogue |
 | [Security](docs/SECURITY.md) | Pairing, keys, approvals, threat model |
+| [Network](docs/NETWORK.md) | Reaching the Hub through the UniFi Gateway (VPN, DNS, firewall) |
 | [Roadmap](docs/ROADMAP.md) | Phased plan |
 | [Open questions](docs/OPEN_QUESTIONS.md) | Decisions still needed |
 | [Decisions](docs/decisions/) | Architecture decision records |
