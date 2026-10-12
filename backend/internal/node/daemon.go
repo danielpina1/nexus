@@ -91,6 +91,7 @@ func New(h kernel.Host, cfg Config, o Options) (*Daemon, error) {
 		NodeID: cfg.NodeID, WorkspacesDir: cfg.WorkspacesDir,
 		Runtimes: h.Runtimes(), Tools: h.Tools(), Hub: d,
 		Verifier: d.verifier, Emit: d.emit, Log: d.log,
+		Providers: d.runToolProviders, MaxConcurrent: cfg.MaxConcurrent,
 	})
 	return d, nil
 }
@@ -116,6 +117,18 @@ func (d *Daemon) rootFor(c kernel.ToolCall) (string, error) {
 		return w, nil
 	}
 	return "", fmt.Errorf("unknown run %q", c.RunID)
+}
+
+// runToolProviders returns the providers registered on the host (browser…).
+func (d *Daemon) runToolProviders() []kernel.RunToolProvider {
+	v, ok := d.h.Lookup(kernel.SvcRunToolProviders)
+	if !ok {
+		return nil
+	}
+	if r, ok := v.(*kernel.RunToolProviderRegistry); ok {
+		return r.Providers()
+	}
+	return nil
 }
 
 func (d *Daemon) verifier() ApprovalVerifier {

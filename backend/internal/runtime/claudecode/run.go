@@ -28,6 +28,7 @@ var ErrRunFinished = errors.New("claude-code: run finished")
 
 type run struct {
 	taskID, runID string
+	nodeID        string // for user-facing messages
 	proc          *cliproc.Process
 	log           *slog.Logger
 	events        chan *nexusv1.Event
@@ -211,7 +212,33 @@ func (r *run) read(stdout io.Reader) {
 	if tail := r.stderr.String(); tail != "" {
 		msg += "\n" + tail
 	}
-	r.emit(agentloop.TerminalEvent(r.taskID, r.runID, nexusv1.TaskState_TASK_STATE_FAILED, "", msg, nil))
+	r.emit(r.failure(msg, nil))
+}
+
+// failure builds the FAILED terminal event for msg. Usage/rate limits and
+// missing logins get a clear summary and result.error_kind (rate_limited /
+// auth) so the hub can retry on the agent's next runtime.
+func (r *run) failure(msg string, cost *nexusv1.Cost) *nexusv1.Event {
+	kind, resets := cliproc.ClassifyFailure(msg)
+	summary := ""
+	extra := map[string]any{"runtime": "claude-code"}
+	switch kind {
+	case cliproc.KindRateLimited:
+		summary = "Claude usage limit reached"
+		if resets != "" {
+			summary += "; resets " + resets
+			extra["resets_at"] = resets
+		}
+		summary += "."
+	case cliproc.KindAuth:
+		where := "on this machine"
+		if r.nodeID != "" {
+			where = "on node " + r.nodeID
+		}
+		summary = "Claude Code is not logged in " + where + ". Run `claude` once there and log in with your Claude subscription " +
+			"(for a headless/always-on node: `claude setup-token` and set CLAUDE_CODE_OAUTH_TOKEN for nexus-node)."
+	}
+	return agentloop.FailedEvent(r.taskID, r.runID, summary, msg, kind, extra, cost)
 }
 
 // ---- stream-json parsing ----
@@ -364,7 +391,7 @@ func (r *run) handleResult(l ccLine) {
 	} else {
 		cost = nil
 	}
-	if l.Subtype == "success" && !l.IsError {
+	if l.Subtype == "success" && !l.IsError && !cliproc.LimitMessage(l.Result) {
 		r.emit(agentloop.OutputEvent(r.taskID, r.runID, "", true))
 		r.emit(agentloop.TerminalEvent(r.taskID, r.runID, nexusv1.TaskState_TASK_STATE_SUCCEEDED, strings.TrimSpace(l.Result), "", cost))
 	} else {
@@ -377,7 +404,7 @@ func (r *run) handleResult(l ccLine) {
 		} else if l.Subtype != "" && l.Subtype != "success" {
 			msg = l.Subtype + ": " + msg
 		}
-		r.emit(agentloop.TerminalEvent(r.taskID, r.runID, nexusv1.TaskState_TASK_STATE_FAILED, "", msg, cost))
+		r.emit(r.failure(msg, cost))
 	}
 	// The run is over: let the CLI exit, and make sure it does.
 	r.closeStdin()

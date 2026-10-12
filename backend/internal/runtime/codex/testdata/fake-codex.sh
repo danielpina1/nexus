@@ -1,10 +1,15 @@
 #!/bin/sh
 # Fake Codex CLI emitting `codex exec --json` JSONL for tests.
-# Modes (FAKE_CODEX_MODE): success (default), legacy, fail, crash, hang,
+# Modes (FAKE_CODEX_MODE): success (default), legacy, fail, crash, ratelimit, hang,
 # mcp (calls a gated Nexus tool on the endpoint from -c mcp_servers.nexus.url=… with curl).
 say() { printf "%s\n" "$1"; }
 if [ "$1" = "--version" ]; then
   say "codex-cli 0.99.0"
+  exit 0
+fi
+if [ "$1" = "login" ] && [ "$2" = "status" ]; then
+  say "${FAKE_CODEX_LOGIN:-Logged in using ChatGPT}"
+  case "${FAKE_CODEX_LOGIN:-}" in *"Not logged in"*) exit 1 ;; esac
   exit 0
 fi
 [ -n "$FAKE_ARGS_FILE" ] && printf '%s\n' "$@" > "$FAKE_ARGS_FILE" && pwd >> "$FAKE_ARGS_FILE"
@@ -43,6 +48,13 @@ fail)
 crash)
   say 'fatal: not logged in' >&2
   exit 2
+  ;;
+ratelimit)
+  say '{"type":"thread.started","thread_id":"t"}'
+  say '{"type":"turn.started"}'
+  say '{"type":"error","message":"You'"'"'ve hit your usage limit. Upgrade to Pro (https://openai.com/chatgpt/pricing) or try again in 2 hours 5 minutes."}'
+  say '{"type":"turn.failed","error":{"message":"You'"'"'ve hit your usage limit. Upgrade to Pro (https://openai.com/chatgpt/pricing) or try again in 2 hours 5 minutes."}}'
+  exit 1
   ;;
 hang)
   say '{"type":"thread.started","thread_id":"t"}'

@@ -21,20 +21,24 @@ import (
 //	  key_file: ""             # node identity key (PKCS#8 PEM, 0600)
 //	  status_interval: 15s
 //	  strict_approvals: false  # true: reject approvals when no verifier is installed
+//	  max_concurrent:          # per-runtime parallel runs (overrides the runtime's own
+//	    claude-code: 2         # default, e.g. runtime.claudecode.max_concurrent); 0 = unlimited.
+//	    codex: 2               # Runs beyond the limit wait in a FIFO queue.
 type Config struct {
-	HubURL          string        `yaml:"hub_url"`
-	NodeID          string        `yaml:"node_id"`
-	Token           string        `yaml:"token"`
-	Tags            []string      `yaml:"tags"`
-	WorkspacesDir   string        `yaml:"workspaces_dir"`
-	TokenFile       string        `yaml:"token_file"`
-	CAFile          string        `yaml:"ca_file"`
-	CertFile        string        `yaml:"cert_file"`
-	KeyFile         string        `yaml:"key_file"`
-	StatusInterval  time.Duration `yaml:"status_interval"`
-	BackoffMin      time.Duration `yaml:"backoff_min"`
-	BackoffMax      time.Duration `yaml:"backoff_max"`
-	StrictApprovals bool          `yaml:"strict_approvals"`
+	HubURL          string         `yaml:"hub_url"`
+	NodeID          string         `yaml:"node_id"`
+	Token           string         `yaml:"token"`
+	Tags            []string       `yaml:"tags"`
+	WorkspacesDir   string         `yaml:"workspaces_dir"`
+	TokenFile       string         `yaml:"token_file"`
+	CAFile          string         `yaml:"ca_file"`
+	CertFile        string         `yaml:"cert_file"`
+	KeyFile         string         `yaml:"key_file"`
+	StatusInterval  time.Duration  `yaml:"status_interval"`
+	BackoffMin      time.Duration  `yaml:"backoff_min"`
+	BackoffMax      time.Duration  `yaml:"backoff_max"`
+	StrictApprovals bool           `yaml:"strict_approvals"`
+	MaxConcurrent   map[string]int `yaml:"max_concurrent"`
 	// Version is reported in NodeHello (set by the binary).
 	Version string `yaml:"-"`
 }

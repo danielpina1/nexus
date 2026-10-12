@@ -46,7 +46,8 @@ type Engine struct {
 	cfg Config
 	now func() time.Time
 
-	mu sync.Mutex
+	mu       sync.Mutex
+	rtPolicy runtimePolicy
 }
 
 var _ kernel.TaskEngine = (*Engine)(nil)
@@ -352,6 +353,12 @@ type assignOpts struct {
 	tier        nexusv1.Tier
 	hint        string
 	previousRun *runRec
+	// runtimes, when non-nil, replaces the agent's runtime candidates (the
+	// remaining runtimes after a rate-limited run).
+	runtimes []string
+	// fallbackOf is the summary of the run this assignment replaces after
+	// a usage limit; it prefixes the failure when no runtime is left.
+	fallbackOf string
 }
 
 // assign creates a run for agentID and dispatches it to a node.
@@ -421,10 +428,37 @@ func (e *Engine) assign(ctx context.Context, id, agentID string, o assignOpts) (
 	if !ok {
 		return e.fail(ctx, id, "no dispatcher available (is the nodelink module enabled?)")
 	}
-	sel := kernel.NodeSelector{Tags: agent.NodeTags, Runtime: agent.Runtime}
-	nodeID, err := disp.Assign(ctx, sel, a)
-	if err != nil {
-		return e.fail(ctx, id, fmt.Sprintf("no node available for agent %q (runtime %q, tags %v): %v", agentID, agent.Runtime, agent.NodeTags, err))
+	cands := o.runtimes
+	if cands == nil {
+		cands = RuntimeCandidates(agent, markdown, tier, e.runtimePrefs())
+	}
+	// First runtime of the list that a connected node (matching the agent's
+	// node tags) has available; the assignment carries it in its agent copy.
+	var nodeID, runtime string
+	var errs []string
+	for _, rt := range cands {
+		ag := proto.Clone(agent).(*nexusv1.Agent)
+		ag.Runtime = rt
+		a.Agent = ag
+		n, err := disp.Assign(ctx, kernel.NodeSelector{Tags: agent.NodeTags, Runtime: rt}, a)
+		if err == nil {
+			nodeID, runtime = n, rt
+			break
+		}
+		errs = append(errs, err.Error())
+	}
+	if nodeID == "" {
+		msg := fmt.Sprintf("no node available for agent %q (runtime %s, tags %v): %s", agentID, strings.Join(cands, " → "), agent.NodeTags, strings.Join(errs, "; "))
+		if len(cands) == 0 {
+			msg = fmt.Sprintf("no runtime left to try for agent %q", agentID)
+		}
+		if o.fallbackOf != "" {
+			msg = o.fallbackOf + " No other runtime could take over (" + msg + ")."
+		}
+		return e.fail(ctx, id, msg)
+	}
+	if len(cands) > 1 {
+		e.log.Info("runtime selected", "task", id, "agent", agentID, "runtime", runtime, "candidates", cands)
 	}
 
 	stale := false
@@ -435,6 +469,9 @@ func (e *Engine) assign(ctx context.Context, id, agentID string, o assignOpts) (
 		}
 		r.task.NodeId = nodeID
 		r.notify = true
+		if err := e.setRunRuntime(ctx, runID, runtime); err != nil {
+			return err
+		}
 		return e.setRunNode(ctx, runID, nodeID)
 	})
 	if err != nil {

@@ -19,6 +19,7 @@ import (
 
 type run struct {
 	taskID, runID, model string
+	nodeID               string // for user-facing messages
 	proc                 *cliproc.Process
 	log                  *slog.Logger
 	events               chan *nexusv1.Event
@@ -152,7 +153,11 @@ func (r *run) read(stdout io.Reader) {
 	case cancelled:
 		r.emit(agentloop.TerminalEvent(r.taskID, r.runID, nexusv1.TaskState_TASK_STATE_CANCELLED, "cancelled", "", cost))
 	case r.failure != "":
-		r.emit(agentloop.TerminalEvent(r.taskID, r.runID, nexusv1.TaskState_TASK_STATE_FAILED, "", r.failure, cost))
+		msg := r.failure
+		if tail := r.stderr.String(); tail != "" && waitErr != nil {
+			msg += "\n" + tail
+		}
+		r.emit(r.failedEvent(msg, cost))
 	case r.completed || waitErr == nil:
 		r.emit(agentloop.OutputEvent(r.taskID, r.runID, "", true))
 		r.emit(agentloop.TerminalEvent(r.taskID, r.runID, nexusv1.TaskState_TASK_STATE_SUCCEEDED, strings.TrimSpace(r.lastMessage), "", cost))
@@ -161,8 +166,33 @@ func (r *run) read(stdout io.Reader) {
 		if tail := r.stderr.String(); tail != "" {
 			msg += "\n" + tail
 		}
-		r.emit(agentloop.TerminalEvent(r.taskID, r.runID, nexusv1.TaskState_TASK_STATE_FAILED, "", msg, cost))
+		r.emit(r.failedEvent(msg, cost))
 	}
+}
+
+// failedEvent builds the FAILED terminal event; usage/rate limits and missing
+// logins get a clear summary and result.error_kind (see claudecode).
+func (r *run) failedEvent(msg string, cost *nexusv1.Cost) *nexusv1.Event {
+	kind, resets := cliproc.ClassifyFailure(msg)
+	summary := ""
+	extra := map[string]any{"runtime": "codex"}
+	switch kind {
+	case cliproc.KindRateLimited:
+		summary = "Codex (ChatGPT) usage limit reached"
+		if resets != "" {
+			summary += "; resets " + resets
+			extra["resets_at"] = resets
+		}
+		summary += "."
+	case cliproc.KindAuth:
+		where := "on this machine"
+		if r.nodeID != "" {
+			where = "on node " + r.nodeID
+		}
+		summary = "Codex is not logged in " + where + ". Run `codex login` there and choose \"Sign in with ChatGPT\" " +
+			"(headless machine: log in on a computer with a browser and copy ~/.codex/auth.json, or forward localhost:1455 over SSH during `codex login`)."
+	}
+	return agentloop.FailedEvent(r.taskID, r.runID, summary, msg, kind, extra, cost)
 }
 
 func (r *run) recordCost(c *nexusv1.Cost) {

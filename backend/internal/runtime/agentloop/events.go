@@ -127,3 +127,28 @@ func AddCost(total, c *nexusv1.Cost) {
 		}
 	}
 }
+
+// FailedEvent is a FAILED terminal TaskUpdated with a human summary and a
+// machine-readable result: {"error": errMsg, "error_kind": kind} plus extra
+// fields (e.g. "resets_at", "runtime"). The hub's task engine escalates
+// runs that fail with kind rate_limited (or auth) to the next runtime of the
+// agent's list.
+func FailedEvent(taskID, runID, summary, errMsg, kind string, extra map[string]any, cost *nexusv1.Cost) *nexusv1.Event {
+	if summary == "" {
+		summary = errMsg
+	}
+	m := map[string]any{"error": errMsg}
+	if kind != "" {
+		m["error_kind"] = kind
+	}
+	for k, v := range extra {
+		if v != nil && v != "" {
+			m[k] = v
+		}
+	}
+	t := &nexusv1.Task{Id: taskID, CurrentRunId: runID, State: nexusv1.TaskState_TASK_STATE_FAILED, Summary: summary, Cost: cost}
+	t.Result, _ = structpb.NewStruct(m)
+	return &nexusv1.Event{TaskId: taskID, RunId: runID, Body: &nexusv1.Event_TaskUpdated{
+		TaskUpdated: &nexusv1.TaskUpdated{Task: t},
+	}}
+}

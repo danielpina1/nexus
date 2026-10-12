@@ -102,7 +102,19 @@ type Config struct {
 	Env                map[string]string `yaml:"env"`
 	Workdirs           map[string]string `yaml:"workdirs"`
 	AllowedRepoRoots   []string          `yaml:"allowed_repo_roots"`
+	// MaxConcurrent caps parallel claude runs on this node (default 2;
+	// 0 = unlimited) so a subscription's rate limits are not hammered.
+	MaxConcurrent *int `yaml:"max_concurrent"`
+	// NonCodingDisallowed replaces DefaultNonCodingDisallowed ([] = none).
+	NonCodingDisallowed []string `yaml:"non_coding_disallowed_tools"`
 }
+
+// DefaultMaxConcurrent is the default per-node limit of claude runs.
+const DefaultMaxConcurrent = 2
+
+// DefaultModels maps Nexus model aliases to Claude Code --model values
+// (subscription model names); runtime.claudecode.models overrides them.
+var DefaultModels = map[string]string{"smart": "sonnet", "best": "opus", "fast-local": "haiku"}
 
 // Module registers the runtime.
 type Module struct {
@@ -148,6 +160,14 @@ func (r *Runtime) Capabilities() kernel.RuntimeCapabilities {
 
 func (r *Runtime) nexusMCP() bool { return r.cfg.NexusMCP == nil || *r.cfg.NexusMCP }
 
+// MaxConcurrent implements kernel.ConcurrencyLimited.
+func (r *Runtime) MaxConcurrent() int {
+	if r.cfg.MaxConcurrent == nil {
+		return DefaultMaxConcurrent
+	}
+	return *r.cfg.MaxConcurrent
+}
+
 // PermissionTool is the --permission-prompt-tool value.
 var PermissionTool = mcp.ClaudeToolName(mcp.ServerName, mcp.PermissionToolName)
 
@@ -164,10 +184,13 @@ func (r *Runtime) claudeModel(alias string) string {
 		return m
 	}
 	switch a := strings.ToLower(alias); {
-	case a == "opus", a == "sonnet", a == "haiku", strings.HasPrefix(a, "claude-"):
+	case a == "opus", a == "sonnet", a == "haiku", a == "opusplan", strings.HasPrefix(a, "claude-"):
 		return alias
 	}
-	return r.cfg.Model
+	if r.cfg.Model != "" {
+		return r.cfg.Model
+	}
+	return DefaultModels[alias]
 }
 
 // Args builds the CLI arguments for an assignment (without the Nexus MCP
@@ -179,19 +202,23 @@ func (r *Runtime) Args(model, instructions string) []string {
 // ArgsWithNexus builds the CLI arguments; nexusConfig is the per-run MCP
 // config file ("" = no bridge).
 func (r *Runtime) ArgsWithNexus(model, instructions, nexusConfig string) []string {
+	return r.args(model, instructions, nexusConfig, r.cfg.PermissionMode)
+}
+
+func (r *Runtime) args(model, instructions, nexusConfig, mode string) []string {
 	args := []string{"-p", "--output-format", "stream-json", "--input-format", "stream-json", "--verbose"}
 	if m := r.claudeModel(model); m != "" {
 		args = append(args, "--model", m)
 	}
-	if r.cfg.PermissionMode != "" {
-		args = append(args, "--permission-mode", r.cfg.PermissionMode)
+	if mode != "" {
+		args = append(args, "--permission-mode", mode)
 	}
 	for _, f := range r.cfg.MCPConfig {
 		args = append(args, "--mcp-config", f)
 	}
 	if nexusConfig != "" {
 		args = append(args, "--mcp-config", nexusConfig)
-		if r.cfg.PermissionMode != "bypassPermissions" {
+		if mode != "bypassPermissions" {
 			args = append(args, "--permission-prompt-tool", PermissionTool)
 		}
 	}
@@ -212,6 +239,7 @@ func (r *Runtime) Start(ctx context.Context, spec kernel.RunSpec) (kernel.Run, e
 	}
 	log := r.host.Logger().With("runtime", "claude-code", "run_id", a.GetRunId())
 	run := newRun(a.GetTaskId(), a.GetRunId(), log)
+	run.nodeID = spec.Env["NEXUS_NODE_ID"]
 	env := map[string]string{
 		"NEXUS_RUN_ID":  a.GetRunId(),
 		"NEXUS_TASK_ID": a.GetTaskId(),
@@ -227,7 +255,7 @@ func (r *Runtime) Start(ctx context.Context, spec kernel.RunSpec) (kernel.Run, e
 			env["MCP_TOOL_TIMEOUT"] = strconv.FormatInt((approvalgate.DefaultTTL + 2*time.Minute).Milliseconds(), 10)
 		}
 	}
-	cmd := exec.Command(r.cfg.Binary, r.ArgsWithNexus(a.GetAgent().GetModel(), a.GetInstructions(), nexusConfig)...)
+	cmd := exec.Command(r.cfg.Binary, r.ArgsFor(a, nexusConfig)...)
 	cmd.Dir = dir
 	cmd.Env = cliproc.Env(spec.Env, r.cfg.Env, env)
 	if err := run.start(cmd, agentloop.BuildPrompt(a)); err != nil {
@@ -255,6 +283,8 @@ func (r *Runtime) startBridge(run *run, spec kernel.RunSpec) (string, error) {
 		TaskID: a.GetTaskId(), RunID: a.GetRunId(), Agent: a.GetAgent(), NodeID: spec.Env["NEXUS_NODE_ID"],
 		Emit: run.emit, Log: run.log,
 	})
+	// Run tools (browser checkout…) ask for approvals through this gate.
+	agentloop.BindGate(spec.Gate, run.gate)
 	who := "Claude Code"
 	if n := a.GetAgent().GetName(); n != "" {
 		who = n + " (Claude Code)"

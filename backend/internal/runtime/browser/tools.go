@@ -18,7 +18,6 @@ import (
 	"github.com/oklog/ulid/v2"
 
 	nexusv1 "github.com/danielpina1/nexus/backend/gen/nexus/v1"
-	"github.com/danielpina1/nexus/backend/internal/runtime/approvalgate"
 	"github.com/danielpina1/nexus/backend/kernel"
 )
 
@@ -52,7 +51,7 @@ type toolkit struct {
 	shops     *shopRegistry
 	domains   DomainPolicy // the run's allow-list (browser.allow_domain extends it)
 	cls       *Classifier
-	gate      *approvalgate.Gate   // checkout/payment clicks; nil = always refuse
+	gate      kernel.Approver      // checkout/payment clicks; nil = always refuse
 	emit      func(*nexusv1.Event) // run event stream (artifacts taken by the gate)
 	agentName string
 	taskID    string
@@ -237,7 +236,7 @@ func (e *SpendError) Error() string {
 // page, the button, a fresh screenshot and the page text (the cart). The
 // screenshot is emitted as an artifact first. Caller holds s.mu.
 func (k *toolkit) approveSpendLocked(ctx context.Context, s *session, ref int, label, pattern, how string) error {
-	if k.gate == nil {
+	if rg, isRunGate := k.gate.(*kernel.RunGate); k.gate == nil || isRunGate && !rg.Bound() {
 		return &SpendError{Label: label, Reason: "no approval channel in this run"}
 	}
 	u, title := s.locationLocked(ctx)
@@ -287,17 +286,19 @@ func (k *toolkit) approveSpendLocked(ctx context.Context, s *session, ref int, l
 	if who == "" {
 		who = "Browser agent"
 	}
-	out, err := k.gate.Check(ctx, approvalgate.Request{
+	out, err := k.gate.Approve(ctx, kernel.ApprovalRequest{
 		Class:   nexusv1.ActionClass_ACTION_CLASS_SPEND,
 		Title:   fmt.Sprintf("%s wants to %s on %s", who, strings.ToLower(oneLine(label, 60)), host),
 		Summary: spendSummary(label, title, u, payload),
 		Payload: payload,
 	})
+	if errors.Is(err, kernel.ErrNoApprover) {
+		return &SpendError{Label: label, Reason: "no approval channel in this run"}
+	}
 	if err != nil {
 		return fmt.Errorf("approval failed: %w", err)
 	}
-	if !out.Approved {
-		k.gate.Resume()
+	if !out.Approved { // the approver already resumed the run
 		reason := out.Reason
 		if reason == "" {
 			reason = "denied"

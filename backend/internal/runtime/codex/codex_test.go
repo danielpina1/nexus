@@ -235,7 +235,7 @@ func TestNexusMCP(t *testing.T) {
 		t.Run(map[bool]string{true: "approve", false: "deny"}[approve], func(t *testing.T) {
 			dir := t.TempDir()
 			argsFile := filepath.Join(dir, "args")
-			rt := newRuntime(t, Config{NexusMCP: true})
+			rt := newRuntime(t, Config{})
 			if !rt.Capabilities().ApprovalHooks {
 				t.Error("ApprovalHooks off with nexus_mcp")
 			}
@@ -292,8 +292,9 @@ func TestNexusMCPArgsTemplate(t *testing.T) {
 	if strings.Contains(strings.Join(rt.Args(""), " "), "mcp_servers") {
 		t.Fatal("Args without url attached nexus")
 	}
-	// Disabled by default: no endpoint, Resolve unsupported.
-	rt2 := newRuntime(t, Config{})
+	// Disabled explicitly: no endpoint, Resolve unsupported.
+	off := false
+	rt2 := newRuntime(t, Config{NexusMCP: &off})
 	run := start(t, rt2, map[string]string{"FAKE_CODEX_MODE": "fail"})
 	if err := run.Resolve(context.Background(), &nexusv1.ApprovalResolution{}); !errors.Is(err, ErrApprovalsUnsupported) {
 		t.Fatalf("resolve: %v", err)

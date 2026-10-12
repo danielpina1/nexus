@@ -12,8 +12,11 @@ import (
 // RunAssignment.context (under the same names) for runtimes on the node:
 // the Agent proto has no field for them. `browser` carries allowed_domains,
 // profile and restrict_domains (internal/runtime/browser); `shops` and
-// `shopping` carry the stores and shopping defaults (docs/SHOPPING.md).
-var ForwardedAgentKeys = []string{"browser", "shops", "shopping"}
+// `shopping` carry the stores and shopping defaults (docs/SHOPPING.md);
+// `claude` and `codex` carry per-agent CLI settings (model, allowed /
+// disallowed tools, permission mode, max turns, sandbox — see
+// internal/runtime/claudecode and internal/runtime/codex).
+var ForwardedAgentKeys = []string{"browser", "shops", "shopping", "claude", "codex"}
 
 // mergeAgentConfig copies ForwardedAgentKeys from the agent note's
 // frontmatter into ctx. Values from the agent note replace task params of

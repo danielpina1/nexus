@@ -2,7 +2,8 @@
 # Fake Claude Code CLI emitting realistic stream-json for tests.
 # Modes (FAKE_CLAUDE_MODE): success (default), send, error, crash, hang,
 # permission (calls the Nexus MCP permission tool + a Nexus tool with curl),
-# idle (waits for one more stdin line, then succeeds).
+# idle (waits for one more stdin line, then succeeds), ratelimit / limitok
+# (usage limit as error / as a "successful" result), nologin.
 if [ "$1" = "--version" ]; then
   printf "%s\n" "9.9.9 (Claude Code)"
   exit 0
@@ -40,6 +41,16 @@ error)
 crash)
   say 'boom: something broke' >&2
   exit 3
+  ;;
+ratelimit)
+  say '{"type":"result","subtype":"success","is_error":true,"result":"Claude AI usage limit reached|1767225600","session_id":"sess-1"}'
+  ;;
+limitok)
+  say '{"type":"result","subtype":"success","is_error":false,"result":"5-hour limit reached ∙ resets 3pm","session_id":"sess-1"}'
+  ;;
+nologin)
+  say 'Invalid API key · Please run /login' >&2
+  exit 1
   ;;
 hang)
   sleep 30

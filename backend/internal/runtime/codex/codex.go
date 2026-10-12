@@ -93,11 +93,54 @@ type Config struct {
 	Sandbox          string            `yaml:"sandbox"`
 	FullAuto         bool              `yaml:"full_auto"`
 	SkipGitRepoCheck *bool             `yaml:"skip_git_repo_check"`
-	NexusMCP         bool              `yaml:"nexus_mcp"`
+	NexusMCP         *bool             `yaml:"nexus_mcp"`
 	NexusMCPArgs     []string          `yaml:"nexus_mcp_args"`
 	Env              map[string]string `yaml:"env"`
 	Workdirs         map[string]string `yaml:"workdirs"`
 	AllowedRepoRoots []string          `yaml:"allowed_repo_roots"`
+	// MaxConcurrent caps parallel codex runs on this node (default 2;
+	// 0 = unlimited).
+	MaxConcurrent *int `yaml:"max_concurrent"`
+	// NonCodingSandbox is the sandbox of non-coding agents when neither the
+	// agent nor `sandbox` sets one (default read-only).
+	NonCodingSandbox string `yaml:"non_coding_sandbox"`
+	// CheckLogin (default true) runs `codex login status` in Available and
+	// reports the runtime unavailable when it says "not logged in".
+	CheckLogin *bool `yaml:"check_login"`
+}
+
+// DefaultMaxConcurrent is the default per-node limit of codex runs.
+const DefaultMaxConcurrent = 2
+
+// AgentSettings are the per-agent Codex settings from the agent note's
+// `codex:` block (forwarded in RunAssignment.context under "codex"):
+//
+//	codex:
+//	  model: gpt-5-codex            # or a Nexus alias mapped by runtime.codex.models
+//	  sandbox: read-only            # read-only | workspace-write (danger-full-access is refused)
+//	  coding: false                 # true: coding agent (module sandbox default applies)
+type AgentSettings struct {
+	Model   string `json:"model"`
+	Sandbox string `json:"sandbox"`
+	Coding  *bool  `json:"coding"`
+}
+
+var agentSandboxes = map[string]bool{"read-only": true, "workspace-write": true}
+
+// SettingsFrom decodes the "codex" block of the run context.
+func SettingsFrom(a *nexusv1.RunAssignment) AgentSettings {
+	var s AgentSettings
+	v := a.GetContext().GetFields()["codex"].GetStructValue()
+	if v == nil {
+		return s
+	}
+	m := v.AsMap()
+	s.Model, _ = m["model"].(string)
+	s.Sandbox, _ = m["sandbox"].(string)
+	if b, ok := m["coding"].(bool); ok {
+		s.Coding = &b
+	}
+	return s
 }
 
 // Module registers the runtime.
@@ -139,7 +182,17 @@ func New(cfg Config, h kernel.Host) *Runtime {
 func (r *Runtime) Name() string { return "codex" }
 
 func (r *Runtime) Capabilities() kernel.RuntimeCapabilities {
-	return kernel.RuntimeCapabilities{Streaming: true, NativeTools: true, ApprovalHooks: r.cfg.NexusMCP}
+	return kernel.RuntimeCapabilities{Streaming: true, NativeTools: true, ApprovalHooks: r.nexusMCP()}
+}
+
+func (r *Runtime) nexusMCP() bool { return r.cfg.NexusMCP == nil || *r.cfg.NexusMCP }
+
+// MaxConcurrent implements kernel.ConcurrencyLimited.
+func (r *Runtime) MaxConcurrent() int {
+	if r.cfg.MaxConcurrent == nil {
+		return DefaultMaxConcurrent
+	}
+	return *r.cfg.MaxConcurrent
 }
 
 // DefaultNexusMCPArgs attaches the Nexus endpoint through codex config
@@ -162,8 +215,28 @@ func (r *Runtime) NexusArgs(url string) []string {
 	return out
 }
 
+// Available reports the CLI version. Unless check_login is false it also
+// runs `codex login status`: output saying "not logged in" makes the runtime
+// unavailable (the hub then picks another runtime for `runtime: auto`
+// agents); a CLI without that command is assumed logged in.
 func (r *Runtime) Available(ctx context.Context) (string, bool) {
-	return cliproc.Version(ctx, r.cfg.Binary)
+	v, ok := cliproc.Version(ctx, r.cfg.Binary)
+	if !ok || (r.cfg.CheckLogin != nil && !*r.cfg.CheckLogin) {
+		return v, ok
+	}
+	cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	out, _ := exec.CommandContext(cctx, r.cfg.Binary, "login", "status").CombinedOutput()
+	if NotLoggedIn(string(out)) {
+		return v + " (not logged in: run `codex login`)", false
+	}
+	return v, true
+}
+
+// NotLoggedIn reports whether `codex login status` output says so.
+func NotLoggedIn(out string) bool {
+	l := strings.ToLower(out)
+	return strings.Contains(l, "not logged in") || strings.Contains(l, "not authenticated")
 }
 
 func (r *Runtime) model(alias string) string {
@@ -179,12 +252,52 @@ func (r *Runtime) Args(modelAlias string) []string { return r.ArgsWithNexus(mode
 // ArgsWithNexus builds the CLI arguments, attaching the Nexus MCP endpoint
 // at nexusURL ("" = none).
 func (r *Runtime) ArgsWithNexus(modelAlias, nexusURL string) []string {
-	args := []string{"exec", "--json"}
-	if m := r.model(modelAlias); m != "" {
-		args = append(args, "--model", m)
+	return r.args(r.model(modelAlias), r.cfg.Sandbox, nexusURL)
+}
+
+// ArgsFor builds the CLI arguments for an assignment: codex.model and
+// codex.sandbox from the agent note win; non-coding agents (no codex.coding,
+// no configured workdir or repo_dir) default to the non_coding_sandbox
+// (read-only) when no sandbox is configured.
+func (r *Runtime) ArgsFor(a *nexusv1.RunAssignment, nexusURL string) []string {
+	s := SettingsFrom(a)
+	model := r.model(a.GetAgent().GetModel())
+	if s.Model != "" {
+		model = r.model(s.Model)
+		if model == r.cfg.Model && r.cfg.Models[s.Model] == "" {
+			model = s.Model // a concrete codex model name
+		}
 	}
-	if r.cfg.Sandbox != "" {
-		args = append(args, "--sandbox", r.cfg.Sandbox)
+	sandbox := r.cfg.Sandbox
+	switch {
+	case agentSandboxes[s.Sandbox]:
+		sandbox = s.Sandbox
+	case sandbox == "" && !r.coding(a, s):
+		sandbox = r.cfg.NonCodingSandbox
+		if sandbox == "" {
+			sandbox = "read-only"
+		}
+	}
+	return r.args(model, sandbox, nexusURL)
+}
+
+func (r *Runtime) coding(a *nexusv1.RunAssignment, s AgentSettings) bool {
+	if s.Coding != nil {
+		return *s.Coding
+	}
+	if _, ok := r.cfg.Workdirs[a.GetAgent().GetId()]; ok {
+		return true
+	}
+	return a.GetContext().GetFields()["repo_dir"].GetStringValue() != ""
+}
+
+func (r *Runtime) args(model, sandbox, nexusURL string) []string {
+	args := []string{"exec", "--json"}
+	if model != "" {
+		args = append(args, "--model", model)
+	}
+	if sandbox != "" {
+		args = append(args, "--sandbox", sandbox)
 	}
 	if r.cfg.FullAuto {
 		args = append(args, "--full-auto")
@@ -219,15 +332,22 @@ func (r *Runtime) Start(_ context.Context, spec kernel.RunSpec) (kernel.Run, err
 	if err != nil {
 		return nil, fmt.Errorf("codex: %w", err)
 	}
-	model := r.model(a.GetAgent().GetModel())
+	args0 := r.ArgsFor(a, "")
+	model := ""
+	for i := 0; i+1 < len(args0); i++ {
+		if args0[i] == "--model" {
+			model = args0[i+1]
+		}
+	}
 	run := newRun(a.GetTaskId(), a.GetRunId(), model, r.host.Logger().With("runtime", "codex", "run_id", a.GetRunId()))
+	run.nodeID = spec.Env["NEXUS_NODE_ID"]
 	url := ""
-	if r.cfg.NexusMCP {
+	if r.nexusMCP() {
 		if url, err = r.startBridge(run, spec); err != nil {
 			return nil, fmt.Errorf("codex: nexus mcp: %w", err)
 		}
 	}
-	cmd := exec.Command(r.cfg.Binary, r.ArgsWithNexus(a.GetAgent().GetModel(), url)...)
+	cmd := exec.Command(r.cfg.Binary, r.ArgsFor(a, url)...)
 	cmd.Dir = dir
 	cmd.Env = cliproc.Env(spec.Env, r.cfg.Env, map[string]string{
 		"NEXUS_RUN_ID":  a.GetRunId(),
@@ -247,6 +367,8 @@ func (r *Runtime) startBridge(run *run, spec kernel.RunSpec) (string, error) {
 		TaskID: a.GetTaskId(), RunID: a.GetRunId(), Agent: a.GetAgent(), NodeID: spec.Env["NEXUS_NODE_ID"],
 		Emit: run.emit, Log: run.log,
 	})
+	// Run tools (browser checkout…) ask for approvals through this gate.
+	agentloop.BindGate(spec.Gate, run.gate)
 	who := "Codex"
 	if n := a.GetAgent().GetName(); n != "" {
 		who = n + " (Codex)"

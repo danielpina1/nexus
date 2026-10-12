@@ -77,6 +77,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -213,7 +214,12 @@ func (m *Module) Init(_ context.Context, h kernel.Host) error {
 	if err != nil {
 		return err
 	}
-	return h.Runtimes().Register(&Runtime{host: h, cfg: cfg, cls: cls, locks: map[string]chan struct{}{}})
+	rt := &Runtime{host: h, cfg: cfg, cls: cls, locks: map[string]chan struct{}{}}
+	if err := h.Runtimes().Register(rt); err != nil {
+		return err
+	}
+	// Browser tools for agents of other runtimes (Claude Code, Codex, native).
+	return kernel.RunToolProvidersOf(h).Register(NewProvider(rt))
 }
 
 // Runtime is the browser runtime.
@@ -292,16 +298,34 @@ func ProfileDir(profilesDir, name string) string {
 	return filepath.Join(profilesDir, name)
 }
 
-// Start launches the agent loop. Chrome starts on the first browser tool call.
-func (r *Runtime) Start(ctx context.Context, spec kernel.RunSpec) (kernel.Run, error) {
-	a := spec.Assignment
-	if a == nil {
-		return nil, errors.New("browser runtime: no assignment")
+// runKit is the per-run browser state: domain policy, shop registry,
+// session pool and the toolkit. The browser runtime and the run tool
+// provider (provider.go) build it the same way.
+type runKit struct {
+	kit         *toolkit
+	pool        *sessionPool
+	policy      DomainPolicy
+	shopIDs     []string
+	hasShopsGet bool
+	// runTools are the run's other tools without browser names, with
+	// shops.get wrapped so stores it returns are registered with the run.
+	runTools []kernel.Tool
+}
+
+// instructions composes agent instructions (may be empty) with the browser
+// guidance, the domain allow-list and the shopping guidance.
+func (k *runKit) instructions(agentInstructions string) string {
+	out := Instructions(agentInstructions, k.policy)
+	if k.hasShopsGet || len(k.shopIDs) > 0 {
+		out += ShopGuidance(k.shopIDs, k.hasShopsGet, k.policy)
 	}
-	l, err := r.llm()
-	if err != nil {
-		return nil, err
-	}
+	return out
+}
+
+// newKit builds the browser state of a run. gate asks for checkout/payment
+// approvals (nil = such clicks are refused); emit sends artifacts taken for
+// approvals.
+func (r *Runtime) newKit(a *nexusv1.RunAssignment, runTools []kernel.Tool, workdir string, gate kernel.Approver, emit func(*nexusv1.Event), log *slog.Logger) *runKit {
 	agent := a.GetAgent()
 	ac := r.cfg.Agents[agent.GetId()]
 	domains, ok := domainsFromContext(a.GetContext())
@@ -311,9 +335,9 @@ func (r *Runtime) Start(ctx context.Context, spec kernel.RunSpec) (kernel.Run, e
 	if len(domains) == 0 {
 		domains = r.cfg.AllowedDomains
 	}
-	hubTools := dropBrowserNames(spec.Tools)
+	others := dropBrowserNames(runTools)
 	hasShopsGet := false
-	for _, t := range hubTools {
+	for _, t := range others {
 		if t.Spec().Name == HubToolShopsGet {
 			hasShopsGet = true
 		}
@@ -339,7 +363,6 @@ func (r *Runtime) Start(ctx context.Context, spec kernel.RunSpec) (kernel.Run, e
 	if ac.Headless != nil {
 		headless = *ac.Headless
 	}
-	log := r.host.Logger().With("runtime", "browser", "run_id", a.GetRunId(), "agent", agent.GetId())
 	shops := newShopRegistry(policy, *r.cfg.TrustShopNotes, log)
 	shopIDs, shopInfos := shopsFromContext(a.GetContext())
 	for _, si := range shopInfos {
@@ -381,28 +404,42 @@ func (r *Runtime) Start(ctx context.Context, spec kernel.RunSpec) (kernel.Run, e
 		return s.ID
 	}
 	pool := newSessionPool(profile, mkSession, profileFor)
-	run := &Run{pool: pool, events: make(chan *nexusv1.Event, 64), gateEv: make(chan *nexusv1.Event), fwdDone: make(chan struct{})}
+	kit := &toolkit{
+		pool: pool, shops: shops, domains: policy, cls: r.cls, gate: gate, emit: emit,
+		agentName: agent.GetName(), taskID: a.GetTaskId(), runID: a.GetRunId(),
+		workdir: workdir, maxChars: r.cfg.SnapshotMaxChars, inlineMax: r.cfg.InlineScreenshotMaxBytes, log: log,
+	}
+	for i, t := range others {
+		if t.Spec().Name == HubToolShopsGet {
+			others[i] = wrapShopsGet(t, shops)
+		}
+	}
+	return &runKit{kit: kit, pool: pool, policy: policy, shopIDs: shopIDs, hasShopsGet: hasShopsGet, runTools: others}
+}
+
+// Start launches the agent loop. Chrome starts on the first browser tool call.
+func (r *Runtime) Start(ctx context.Context, spec kernel.RunSpec) (kernel.Run, error) {
+	a := spec.Assignment
+	if a == nil {
+		return nil, errors.New("browser runtime: no assignment")
+	}
+	l, err := r.llm()
+	if err != nil {
+		return nil, err
+	}
+	agent := a.GetAgent()
+	log := r.host.Logger().With("runtime", "browser", "run_id", a.GetRunId(), "agent", agent.GetId())
+	run := &Run{events: make(chan *nexusv1.Event, 64), gateEv: make(chan *nexusv1.Event), fwdDone: make(chan struct{})}
 	// One approval gate for the run, shared with the agent loop (which gates
 	// tools by their static class) and used by browser.click for checkout.
 	run.gate = approvalgate.New(approvalgate.Config{
 		TaskID: a.GetTaskId(), RunID: a.GetRunId(), Agent: agent,
 		Emit: run.emitGate, Log: log,
 	})
-	kit := &toolkit{
-		pool: pool, shops: shops, domains: policy, cls: r.cls, gate: run.gate, emit: run.emitGate,
-		agentName: agent.GetName(), taskID: a.GetTaskId(), runID: a.GetRunId(),
-		workdir: spec.Workdir, maxChars: r.cfg.SnapshotMaxChars, inlineMax: r.cfg.InlineScreenshotMaxBytes, log: log,
-	}
-	for i, t := range hubTools {
-		if t.Spec().Name == HubToolShopsGet {
-			hubTools[i] = wrapShopsGet(t, shops)
-		}
-	}
-	instructions := Instructions(a.GetInstructions(), policy)
-	if hasShopsGet || len(shopIDs) > 0 {
-		instructions += ShopGuidance(shopIDs, hasShopsGet, policy)
-	}
-	tools := append(selectBrowserTools(kit.tools(), agent.GetTools()), hubTools...)
+	agentloop.BindGate(spec.Gate, run.gate)
+	k := r.newKit(a, spec.Tools, spec.Workdir, agentloop.Approver(run.gate), run.emitGate, log)
+	run.pool = k.pool
+	tools := append(selectBrowserTools(k.kit.tools(), agent.GetTools()), k.runTools...)
 
 	model := agent.GetModel()
 	if model == "" {
@@ -415,7 +452,7 @@ func (r *Runtime) Start(ctx context.Context, spec kernel.RunSpec) (kernel.Run, e
 	loop, err := agentloop.Start(ctx, agentloop.Config{
 		LLM:          l,
 		Model:        model,
-		Instructions: instructions,
+		Instructions: k.instructions(a.GetInstructions()),
 		Prompt:       agentloop.BuildPrompt(a),
 		Tools:        tools,
 		Limits:       limits,
@@ -431,7 +468,7 @@ func (r *Runtime) Start(ctx context.Context, spec kernel.RunSpec) (kernel.Run, e
 	})
 	if err != nil {
 		run.gate.Close()
-		pool.Close()
+		k.pool.Close()
 		return nil, err
 	}
 	run.loop = loop
@@ -439,7 +476,7 @@ func (r *Runtime) Start(ctx context.Context, spec kernel.RunSpec) (kernel.Run, e
 	go func() {
 		<-loop.Done()
 		run.gate.Close()
-		pool.Close()
+		k.pool.Close()
 	}()
 	return run, nil
 }

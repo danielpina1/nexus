@@ -59,6 +59,8 @@ var migrations = []string{
 		task_id         TEXT NOT NULL,
 		created_at      INTEGER NOT NULL
 	)`,
+	// The runtime the run was dispatched to (runtime selection / fallback).
+	`ALTER TABLE runs ADD COLUMN runtime TEXT NOT NULL DEFAULT ''`,
 }
 
 // Run states stored in runs.state.
@@ -104,6 +106,7 @@ func (r *taskRec) to(s nexusv1.TaskState) error {
 // runRec is a run row.
 type runRec struct {
 	id, taskID, agentID, nodeID, state, hint, output, summary string
+	runtime                                                   string
 	attempt                                                   int
 	tier                                                      nexusv1.Tier
 }
@@ -209,8 +212,8 @@ func (e *Engine) insertRun(ctx context.Context, r *runRec, tokenHash []byte) err
 func (e *Engine) loadRun(ctx context.Context, id string) (*runRec, error) {
 	r := &runRec{}
 	var tier int32
-	err := e.db.QueryRowContext(ctx, `SELECT id, task_id, attempt, agent_id, node_id, tier, state, hint, output, summary
-		FROM runs WHERE id = ?`, id).Scan(&r.id, &r.taskID, &r.attempt, &r.agentID, &r.nodeID, &tier, &r.state, &r.hint, &r.output, &r.summary)
+	err := e.db.QueryRowContext(ctx, `SELECT id, task_id, attempt, agent_id, node_id, tier, state, hint, output, summary, runtime
+		FROM runs WHERE id = ?`, id).Scan(&r.id, &r.taskID, &r.attempt, &r.agentID, &r.nodeID, &tier, &r.state, &r.hint, &r.output, &r.summary, &r.runtime)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, errNotFound("run", id)
 	}
@@ -222,6 +225,11 @@ func (e *Engine) countRuns(ctx context.Context, taskID string) (int, error) {
 	var n int
 	err := e.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM runs WHERE task_id = ?`, taskID).Scan(&n)
 	return n, err
+}
+
+func (e *Engine) setRunRuntime(ctx context.Context, runID, runtime string) error {
+	_, err := e.db.ExecContext(ctx, `UPDATE runs SET runtime = ? WHERE id = ?`, runtime, runID)
+	return err
 }
 
 func (e *Engine) setRunNode(ctx context.Context, runID, nodeID string) error {

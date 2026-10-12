@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
@@ -56,6 +57,13 @@ func (e *Engine) HandleRunEvent(ctx context.Context, nodeID string, re *nexusv1.
 	if a := ev.GetApproval(); a != nil {
 		return e.handleApproval(ctx, nodeID, run, a)
 	}
+	// A run that hit a usage limit (or found its CLI logged out) moves on to
+	// the next runtime of the agent's list.
+	if nt := ev.GetTaskUpdated().GetTask(); nt.GetState() == stFailed {
+		if rest := e.runtimeFallback(ctx, run, nt); len(rest) > 0 {
+			return e.fallbackRuntime(ctx, nodeID, run, ev, nt, rest)
+		}
+	}
 
 	_, err = e.mutate(ctx, run.taskID, actor, func(r *taskRec) error {
 		if run.nodeID == "" {
@@ -94,6 +102,62 @@ func (e *Engine) HandleRunEvent(ctx context.Context, nodeID string, re *nexusv1.
 		return nil
 	})
 	return err
+}
+
+// fallbackRuntime ends a run that failed with a fallback kind
+// (rate_limited / auth) and assigns the task again, restricted to the
+// remaining runtimes of the agent's list. The task goes running → escalating
+// → assigned; the failed run's summary is kept in the new run's context
+// (previous_attempt) and a RunOutput tells the user what happened.
+func (e *Engine) fallbackRuntime(ctx context.Context, nodeID string, run *runRec, ev *nexusv1.Event, nt *nexusv1.Task, rest []string) error {
+	actor := "node:" + nodeID
+	retry := false
+	var prev *runRec
+	_, err := e.mutate(ctx, run.taskID, actor, func(r *taskRec) error {
+		if run.nodeID == "" {
+			if err := e.setRunNode(ctx, run.id, nodeID); err != nil {
+				return err
+			}
+		}
+		if r.task.CurrentRunId != run.id || IsTerminal(r.task.State) {
+			return e.endRun(ctx, run.id, nt)
+		}
+		if err := e.accept(ctx, r, run.id); err != nil {
+			return err
+		}
+		if err := e.endRun(ctx, run.id, nt); err != nil {
+			return err
+		}
+		p, err := e.loadRun(ctx, run.id)
+		if err != nil {
+			return err
+		}
+		prev = p
+		names := make([]string, len(rest))
+		for i, rt := range rest {
+			names[i] = runtimeLabel(rt)
+		}
+		text := fmt.Sprintf("%s Trying %s instead.\n", nonEmpty(nt.GetSummary(), runtimeLabel(run.runtime)+" is not available."), strings.Join(names, ", then "))
+		r.extra = append(r.extra, &nexusv1.Event{RunId: run.id, Actor: actorHub, Body: &nexusv1.Event_RunOutput{RunOutput: &nexusv1.RunOutput{Text: text}}})
+		r.questionID, r.approvalID = "", ""
+		retry = true
+		return r.to(stEscalating)
+	})
+	if err != nil || !retry {
+		return err
+	}
+	e.log.Info("runtime fallback", "task", run.taskID, "from", run.runtime, "to", rest,
+		"kind", nt.GetResult().GetFields()["error_kind"].GetStringValue())
+	hint := fmt.Sprintf("The previous attempt on %s stopped: %s", runtimeLabel(run.runtime), nt.GetSummary())
+	_, err = e.assign(ctx, run.taskID, run.agentID, assignOpts{tier: run.tier, hint: hint, previousRun: prev, runtimes: rest, fallbackOf: nt.GetSummary()})
+	return err
+}
+
+func nonEmpty(s, def string) string {
+	if strings.TrimSpace(s) == "" {
+		return def
+	}
+	return s
 }
 
 // accept moves an assigned task to running on the first event from its node.

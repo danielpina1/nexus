@@ -30,6 +30,10 @@ const (
 // ClaudeToolName is the name Claude Code gives an MCP tool of a server.
 func ClaudeToolName(server, tool string) string { return "mcp__" + server + "__" + tool }
 
+// ClaudeServerRule is the Claude Code permission rule ("mcp__<server>")
+// matching every tool of an MCP server (for --allowedTools).
+func ClaudeServerRule(server string) string { return "mcp__" + server }
+
 // Classifier maps a client-native tool (e.g. Claude Code's "Bash") and its
 // input to an action class and a one-line human summary.
 type Classifier func(tool string, input json.RawMessage) (nexusv1.ActionClass, string)

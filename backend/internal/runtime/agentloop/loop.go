@@ -87,6 +87,9 @@ type Config struct {
 	// Gate overrides the approval gate (nil: one is created for the run and
 	// closed when it ends).
 	Gate *approvalgate.Gate
+	// RunGate (RunSpec.Gate), when set, is bound to the run's gate so run
+	// tools (browser checkout…) ask for approvals through it.
+	RunGate *kernel.RunGate
 
 	TaskID, RunID, AgentID, NodeID string
 	Runtime                        string // reported in Cost.runtime
@@ -158,6 +161,7 @@ func Start(ctx context.Context, cfg Config) (*Run, error) {
 		})
 		r.ownGate = true
 	}
+	BindGate(cfg.RunGate, r.gate)
 	// The run outlives the Start ctx only through its own context.
 	runCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	if !cfg.Limits.Deadline.IsZero() {
