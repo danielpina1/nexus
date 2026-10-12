@@ -9,6 +9,7 @@ import (
 	_ "github.com/danielpina1/nexus/backend/internal/events"
 	_ "github.com/danielpina1/nexus/backend/internal/llm"
 	_ "github.com/danielpina1/nexus/backend/internal/nodelink"
+	_ "github.com/danielpina1/nexus/backend/internal/notify"
 	_ "github.com/danielpina1/nexus/backend/internal/policy"
 	_ "github.com/danielpina1/nexus/backend/internal/router"
 	_ "github.com/danielpina1/nexus/backend/internal/security"
