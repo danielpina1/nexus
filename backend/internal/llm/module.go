@@ -25,7 +25,7 @@ type Module struct {
 func (m *Module) Info() kernel.ModuleInfo {
 	return kernel.ModuleInfo{
 		Name:           m.name,
-		Description:    "OpenAI-compatible model access (Unify Gateway, Ollama) with model aliases",
+		Description:    "Model access (OpenAI- or Anthropic-compatible APIs, Ollama) with aliases, fallbacks and health",
 		Side:           m.side,
 		DefaultEnabled: true,
 	}
@@ -46,12 +46,34 @@ func (m *Module) Init(_ context.Context, h kernel.Host) error {
 		return err
 	}
 	for name, p := range cfg.Providers {
-		if p.APIKeyEnv != "" && c.getenv(p.APIKeyEnv) == "" {
+		if mode, _ := p.authMode(); mode != AuthNone && p.APIKeyEnv != "" && c.getenv(p.APIKeyEnv) == "" {
 			log.Warn("llm: api key env var is empty", "provider", name, "env", p.APIKeyEnv)
 		}
 	}
 	m.Client = c
 	h.Provide(kernel.SvcLLM, c)
-	log.Info("llm: ready", "providers", len(cfg.Providers), "aliases", len(cfg.Aliases), "default_provider", c.defaultProvider)
+	log.Info("llm: ready", "providers", len(cfg.Providers), "aliases", len(cfg.Aliases),
+		"default_provider", c.defaultProvider, "aliases_auto", cfg.AliasesAuto)
+	return nil
+}
+
+// Start warms up aliases_auto discovery in the background so the first
+// request does not pay for it. Failures are retried lazily on use.
+func (m *Module) Start(context.Context) error {
+	c := m.Client
+	if c == nil || !c.cfg.AliasesAuto {
+		return nil
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), discoveryTimeout)
+		defer cancel()
+		auto, err := c.Discover(ctx)
+		if err != nil {
+			c.log.Warn("llm: model discovery failed (run `llm check` for details)", "err", err)
+		}
+		for alias, t := range auto {
+			c.log.Info("llm: auto alias", "alias", alias, "target", t.String())
+		}
+	}()
 	return nil
 }

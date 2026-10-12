@@ -21,13 +21,14 @@ func testClient(t *testing.T, url string, mut func(*Config)) *Client {
 	t.Helper()
 	zero := 2
 	cfg := Config{
-		MaxRetries: &zero,
+		DefaultProvider: "cloud",
+		MaxRetries:      &zero,
 		Providers: map[string]ProviderConfig{
-			"unify":  {BaseURL: url + "/v1", APIKeyEnv: "TEST_KEY", Headers: map[string]string{"X-Client": "nexus"}},
+			"cloud":  {BaseURL: url + "/v1", APIKeyEnv: "TEST_KEY", Headers: map[string]string{"X-Client": "nexus"}},
 			"ollama": {BaseURL: url + "/ollama/v1"},
 		},
 		Aliases: map[string]Alias{
-			"smart":      {Provider: "unify", Model: "gpt-x"},
+			"smart":      {Provider: "cloud", Model: "gpt-x"},
 			"fast-local": {Provider: "ollama", Model: "qwen:7b"},
 		},
 		Prices: map[string]Price{"gpt-x": {Input: 2, Output: 8}},
@@ -56,12 +57,12 @@ func TestResolve(t *testing.T) {
 		name, model, wantProv, wantModel string
 		scoped                           string
 	}{
-		{"alias", "smart", "unify", "gpt-x", ""},
+		{"alias", "smart", "cloud", "gpt-x", ""},
 		{"local alias", "fast-local", "ollama", "qwen:7b", ""},
-		{"raw model default provider", "llama3", "unify", "llama3", ""},
+		{"raw model default provider", "llama3", "cloud", "llama3", ""},
 		{"raw model scoped", "llama3", "ollama", "llama3", "ollama"},
-		{"alias wins over scope", "smart", "unify", "gpt-x", "ollama"},
-		{"unknown scope ignored", "llama3", "unify", "llama3", "nope"},
+		{"alias wins over scope", "smart", "cloud", "gpt-x", "ollama"},
+		{"unknown scope ignored", "llama3", "cloud", "llama3", "nope"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

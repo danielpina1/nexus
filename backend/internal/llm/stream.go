@@ -108,6 +108,7 @@ type streamAccumulator struct {
 	lastIdx  int
 	nextAuto int
 	usage    *wireUsage
+	finish   string
 }
 
 func newStreamAccumulator(onDelta func(string)) *streamAccumulator {
@@ -120,7 +121,7 @@ func (a *streamAccumulator) handle(data []byte) error {
 		return fmt.Errorf("bad chunk %q: %w", truncate(string(data), 200), err)
 	}
 	if len(ch.Error) > 0 && string(ch.Error) != "null" {
-		return fmt.Errorf("provider error: %s", errorMessage([]byte(`{"error":`+string(ch.Error)+`}`)))
+		return &APIError{Message: "stream error: " + errorMessage([]byte(`{"error":`+string(ch.Error)+`}`))}
 	}
 	if ch.Usage != nil {
 		a.usage = ch.Usage
@@ -128,6 +129,9 @@ func (a *streamAccumulator) handle(data []byte) error {
 	for _, c := range ch.Choices {
 		if c.Index != 0 {
 			continue // only the first choice is used
+		}
+		if c.FinishReason != nil && *c.FinishReason != "" {
+			a.finish = *c.FinishReason
 		}
 		if txt := contentText(c.Delta.Content); txt != "" {
 			a.content.WriteString(txt)
@@ -188,6 +192,8 @@ func (a *streamAccumulator) toolCalls() []*toolBuilder {
 	sort.Slice(out, func(i, j int) bool { return out[i].index < out[j].index })
 	return out
 }
+
+func asAPI(err error, target **APIError) bool { return errors.As(err, target) }
 
 func truncate(s string, n int) string {
 	if len(s) <= n {
