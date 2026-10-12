@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  proto:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bufbuild/buf-action@v1
+        with:
+          setup_only: true
+      - run: buf lint
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: gofmt
+        run: test -z "$(gofmt -l $(find . -name '*.go' -not -path './gen/*'))"
+      - run: go vet ./...
+      - run: go test -race ./...
+      - run: go build -o bin/ ./cmd/...
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  ios-kit:
+    # Compiles and tests the shared Swift package (wire formats, crypto) on macOS.
+    # Non-blocking until the first compile pass on Xcode is done.
+    runs-on: macos-15
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: ios/NexusKit
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift test

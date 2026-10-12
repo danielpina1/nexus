@@ -1,35 +1,36 @@
 # Roadmap
 
-> Status: draft v0.1. Each phase ends with something usable from the iPhone.
+> Status: v0.2 (2026-10-12). Each phase ends with something usable from the iPhone.
+> `[x]` = implemented and tested in this repo; `[~]` = partially done (see notes).
 
 ## Phase 0 — Foundations
-- [ ] Protobuf API v1 (`proto/nexus/v1`) + `buf` codegen for Go, TS, Swift
-- [ ] Go module layout, CI (lint, test, build), release binaries
-- [ ] `nexusd`: SQLite store + migrations, event log, Connect handlers skeleton
-- [ ] `nexus-node`: NodeLink stream, heartbeat, telemetry
-- [ ] Security core: private CA + mTLS 1.3, owner root key, device/node enrolment with safety
+- [x] Protobuf API v1 (`proto/nexus/v1`) + `buf` codegen for Go, TS, Swift
+- [~] Go module layout, CI (lint, test, build) — release binaries pending
+- [x] `nexusd`: SQLite store + migrations, event log, Connect handlers skeleton
+- [x] `nexus-node`: NodeLink stream, heartbeat, telemetry
+- [~] Security core: private CA + mTLS 1.3, owner root key, device/node enrolment with safety
       codes, signed requests, sealed envelopes, edge-verified approvals, hash-chained audit log
-- [ ] Pairing (devices + nodes) with App Attest
+- [~] Pairing (devices + nodes) — App Attest verifier pending
 - [ ] Tailscale-based "Fortress" deployment guide
 
 **Demo:** pair a node and see it online from `nexus` CLI.
 
 ## Phase 1 — Talk to agents from the phone (MVP)
-- [ ] Task engine + state machine
-- [ ] Runtimes: `openai` (Unify Gateway), `ollama`, `shell`, `claude-code`
-- [ ] Agents loaded from vault `agents/*.md`
-- [ ] Router v1: rules + local LLM classifier
-- [ ] Approvals (approve + biometric) and APNs
-- [ ] Web: Overview, Inbox, Chat with live run view, Tasks, Machines
-- [ ] iOS: pairing, Home, Chat, Tasks, Machines, Face ID approvals, Share extension
+- [x] Task engine + state machine
+- [x] Runtimes: `openai` (Unify Gateway), `ollama`, `shell`, `claude-code`
+- [x] Agents loaded from vault `agents/*.md`
+- [x] Router v1: rules + local LLM classifier
+- [~] Approvals (approve + biometric) — APNs in progress
+- [x] Web: Overview, Inbox, Chat with live run view, Tasks, Machines
+- [~] iOS: pairing, Home, Chat, Tasks, Machines, Face ID approvals (written, not yet compiled) — Share extension pending
 - [ ] iOS live: notifications (approve/deny/reply, thread per task, collapse), Run Live Activity
       with Hub updates, encrypted notification payloads
-- [ ] Episode note per task
+- [x] Episode note per task
 
 **Demo:** from the iPhone, ask Claude Code on the Mac to fix a bug, watch it live, approve the push.
 
 ## Phase 2 — Memory
-- [ ] Vault service (git), indexer (graph + FTS5), embeddings (sqlite-vec)
+- [x] Vault service (git), indexer (graph + FTS5), embeddings (sqlite-vec)
 - [ ] `memory.search` hybrid retrieval, MCP server
 - [ ] Capture pipeline + Facts inbox
 - [ ] Web vault editor + graph view; iOS Vault tab
@@ -39,9 +40,9 @@
 
 ## Phase 3 — More runtimes and smarter routing
 - [ ] Codex, browser (Playwright), Anthrex adapter
-- [ ] Escalation tiers, decision log, corrections
+- [x] Escalation tiers, decision log, corrections
 - [ ] Planner agents, task trees, bundled approvals
-- [ ] Budgets and Costs page
+- [x] Budgets and Costs page
 
 **Demo:** Groceries on Continente end to end with biometric checkout.
 
