@@ -1,0 +1,130 @@
+# nexus.yaml — Nexus Hub (nexusd) profile for "everything on one MacBook".
+#
+# Used by scripts/mac/setup.sh (docs/SETUP_MAC.md), which copies this file to
+# ~/Nexus/nexus.yaml and fills in:
+#   - security.dev_token        (random, never committed)
+#   - my-macbook.local          (→ `scutil --get LocalHostName`.local)
+#   - server.web_dir            (→ <repo>/web/dist)
+# The generic, fully commented reference is ../nexus.example.yaml.
+#
+# Relative paths are resolved against nexusd's working directory (~/Nexus;
+# the launchd agent deploy/macos/com.nexus.hub.plist sets it).
+
+data_dir: ./data
+
+modules:
+  enable: []
+  disable: []
+
+# --- HTTP API + dashboard ----------------------------------------------------
+server:
+  # All interfaces, so the iPhone reaches the Hub on Wi-Fi and through the
+  # UniFi VPN. Every call still needs TLS + a paired device / token. When the
+  # Hub moves to an always-on machine with a fixed IP, bind to that IP instead
+  # (docs/NETWORK.md). macOS asks once whether nexusd may accept incoming
+  # connections: allow it.
+  listen: "0.0.0.0:7700"
+  # Built dashboard (`make web` → web/dist). setup.sh writes the absolute path.
+  web_dir: ""
+  cors:
+    # Only the Vite dev server; the dashboard served by the Hub is same-origin.
+    allowed_origins:
+      - http://localhost:5173
+      - http://127.0.0.1:5173
+  tls:
+    # TLS 1.3 with a certificate from the Hub's private CA
+    # (data/security/pki/ca.crt). The iPhone and the node pin this CA when
+    # they pair.
+    auto: true
+
+# --- Security ----------------------------------------------------------------
+security:
+  # Dashboard / CLI bearer token for the first steps. setup.sh generates it;
+  # remove it once the iPhone and browser are paired.
+  dev_token: CHANGE_ME
+  # Put into pairing QR codes, tried in order by the iPhone app:
+  #   nexus.home.arpa  — the UniFi local DNS name (docs/NETWORK.md); keep it
+  #                      even before the DNS record exists, so moving the Hub
+  #                      later does not require re-pairing.
+  #   <host>.local     — Bonjour name of this Mac, works on the home Wi-Fi
+  #                      without any DNS setup.
+  hub_urls: ["https://nexus.home.arpa:7700", "https://my-macbook.local:7700"]
+  # Certificate names (SANs). localhost is what the local node uses.
+  server_names: ["nexus.home.arpa", "my-macbook.local", "localhost", "127.0.0.1"]
+  # No static node tokens: the MacBook node is paired (mTLS) by setup.sh.
+  node_tokens: []
+
+# --- Vault -------------------------------------------------------------------
+vault:
+  # Copied from vault-template/ by `nexusd init` (setup.sh runs it).
+  # Open this folder in Obsidian if you like.
+  path: ./vault
+  git: true             # auto-commit changes made through Nexus
+  commit_delay: 5s
+  watch: true           # re-index edits made in Obsidian
+  # Semantic search with the `embed` alias (nomic-embed-text in Ollama).
+  embeddings: true
+  embed_model: embed
+
+# --- Models (hub side: router, vault Ask, memory) ----------------------------
+# Claude / ChatGPT subscriptions are used through the Claude Code and Codex
+# CLIs on the node (runtimes claude-code / codex), not here: the Hub only
+# needs local models. Check with `nexusd llm check` (docs/MODELS.md).
+llm:
+  default_provider: ollama
+  aliases_auto: true
+  providers:
+    ollama:
+      base_url: http://localhost:11434/v1
+      api: openai
+      auth: none
+      timeout: 300s            # first call loads the model into memory
+  aliases:
+    # Pulled by setup.sh (asks first). Pinned so they never change silently.
+    fast-local: { provider: ollama, model: "qwen2.5:7b" }
+    embed:      { provider: ollama, model: "nomic-embed-text" }
+    # Picked automatically from what Ollama has (e.g. qwen2.5:14b if pulled).
+    smart:      { provider: ollama, model: CHANGE_ME }
+    best:       { provider: ollama, model: CHANGE_ME }
+  health:
+    failure_threshold: 3
+    cooldown: 15s
+    max_cooldown: 5m
+  max_retries: 3
+
+# --- Command router ----------------------------------------------------------
+router:
+  model: fast-local          # classifies free-form input (needs JSON mode)
+  fallback_model: smart      # used when the classifier is unsure/unavailable
+  threshold: 0.6
+
+# --- Push notifications ------------------------------------------------------
+# Without apns credentials the module runs in dry-run mode (pushes are only
+# logged). Add them once you have a paid Apple Developer account and an APNs
+# key (.p8); keep the key outside the repo, e.g. ~/Nexus/secrets/.
+notify:
+  hub_name: "Nexus"
+  # apns:
+  #   team_id: "ABCDE12345"
+  #   key_id: "XYZ9876543"
+  #   key_file: "/Users/you/Nexus/secrets/AuthKey_XYZ9876543.p8"
+  #   bundle_id: "com.yourname.nexus"     # NEXUS_BUNDLE_ID in ios/Config/Local.xcconfig
+  #   environment: sandbox                # Xcode debug builds; production for TestFlight
+  # quiet_hours: {start: "23:00", end: "07:30", timezone: "Europe/Lisbon"}
+
+# --- Web research tools on the Hub (workflow `tool:` steps) ------------------
+# Without a provider list every configured provider is used: SearXNG (when
+# base_url is set), Brave/Tavily (when their key is in the environment), then
+# the DuckDuckGo HTML fallback (rate-limited; fine to start). docs/RESEARCH.md
+tools.web.hub:
+  search:
+    duckduckgo: { min_interval: 2s }
+    # searxng:
+    #   base_url: http://searxng.home.arpa:8888
+    # brave:  { api_key_env: BRAVE_API_KEY }
+
+# --- Node link -----------------------------------------------------------------
+nodelink:
+  # Mark a node offline after this long without a heartbeat (a sleeping
+  # MacBook goes offline; it reconnects on wake).
+  heartbeat_timeout: 30s

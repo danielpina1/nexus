@@ -1,0 +1,111 @@
+# node.yaml — Nexus node (nexus-node) profile for the MacBook.
+#
+# Used by scripts/mac/setup.sh, which copies it to ~/Nexus/node/node.yaml and
+# then pairs the node with the local Hub (`nexusd pair -kind node` +
+# `nexus-node pair`). Pairing writes hub_url, node_id, token_file, ca_file,
+# cert_file and key_file into the `node` section below (mTLS, pinned Hub CA).
+# The generic reference is backend/cmd/nexus-node/node.example.yaml.
+#
+# Relative paths are resolved against nexus-node's working directory
+# (~/Nexus/node; deploy/macos/com.nexus.node.plist sets it).
+
+data_dir: ./data
+
+modules:
+  enable: []
+  disable: []
+
+node:
+  # The Hub runs on this Mac. Pairing confirms/overwrites this value.
+  hub_url: https://localhost:7700
+  node_id: macbook
+  # Agents pick machines by tags (agent note `node: { tags: [...] }`, all must
+  # match; os:darwin and arch:arm64 are added automatically).
+  #   mac, dev  — coding agents (code-fixer: [dev])
+  #   browser   — browser / shopping agents (Chrome on this Mac)
+  # Not set on purpose: always-on (a laptop sleeps) and gpu. The starter
+  # vault's shop / grocery agents ask for [browser, always-on] and librarian
+  # for [gpu]. While this MacBook is your only machine, add them here (or
+  # edit those agent notes) so those agents have somewhere to run:
+  #   tags: [mac, dev, browser, always-on, gpu]
+  tags: [mac, dev, browser]
+  workspaces_dir: ./data/workspaces
+  status_interval: 15s
+  # Reject approvals unless the edge verifier (node.trust) has an owner
+  # trust store. Turn on once the iPhone is paired.
+  strict_approvals: false
+
+# --- Subscriptions: Claude Code and Codex CLIs ---------------------------------
+# These runtimes drive the official CLIs, so they use whatever account the CLI
+# is logged in with — your Claude / ChatGPT subscription. Log in once in a
+# terminal: `claude` (then /login) and `codex login` (Sign in with ChatGPT).
+# Make sure ANTHROPIC_API_KEY / OPENAI_API_KEY are NOT set for the node, or the
+# CLIs bill the API instead of the subscription.
+runtime.claudecode:
+  # Found on PATH (the launchd agent's PATH includes Homebrew and
+  # ~/.local/bin, where the native installer puts `claude`). Use an absolute
+  # path if `nexus-node runtimes` shows it as unavailable.
+  binary: claude
+  model: ""                  # "" = the CLI's default for your plan
+  # models: { best: opus, smart: sonnet }
+  permission_mode: ""        # Nexus approvals gate tool use via its MCP bridge
+  # Agent id → working directory, and roots under which a task may pick a repo.
+  # workdirs: { code-fixer: ~/src/nexus }
+  # allowed_repo_roots: [~/src]
+
+runtime.codex:
+  binary: codex
+  model: ""                  # "" = the CLI's default for your plan
+  sandbox: workspace-write   # read-only | workspace-write | danger-full-access
+  full_auto: false
+  skip_git_repo_check: true
+  # workdirs: { code-fixer: ~/src/nexus }
+  # allowed_repo_roots: [~/src]
+
+# --- Shell runtime -------------------------------------------------------------
+runtime.shell:
+  timeout: 10m
+
+# --- Browser runtime (shopping, browser agents) ---------------------------------
+# Chrome is found automatically (/Applications/Google Chrome.app). Each store
+# gets its own persistent profile in data/runtime.browser/profiles/<store>.
+# Log in to a store once with the login helper (docs/SETUP_MAC.md §7):
+#   nexus-browser-login -data-dir ~/Nexus/node/data -profile worten -url https://www.worten.pt/
+runtime.browser:
+  # chrome_path: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+  # true: Chrome runs invisibly. Set false while you are getting started to
+  # watch what the agent does (windows pop up on this Mac).
+  headless: true
+  profile_per_shop: true
+  trust_shop_notes: true
+  default_model: smart
+  max_steps: 80
+
+# --- Native agents (assistant, researcher, …) through local models ------------
+# Same schema as the Hub's llm section. Check with `nexus-node llm check`.
+node.llm:
+  default_provider: ollama
+  aliases_auto: true
+  providers:
+    ollama:
+      base_url: http://localhost:11434/v1
+      api: openai
+      auth: none
+      timeout: 300s
+  aliases:
+    fast-local: { provider: ollama, model: "qwen2.5:7b" }
+    embed:      { provider: ollama, model: "nomic-embed-text" }
+    smart:      { provider: ollama, model: CHANGE_ME }   # auto: best pulled model
+    best:       { provider: ollama, model: CHANGE_ME }
+
+# --- Web research tools (web.search / web.fetch / web.extract) -----------------
+# docs/RESEARCH.md. DuckDuckGo works with no setup but is rate-limited; a
+# SearXNG instance at home is better.
+tools.web:
+  search:
+    duckduckgo: { min_interval: 2s }
+    # searxng:
+    #   base_url: http://searxng.home.arpa:8888
+  fetch:
+    # LAN hosts agents may read (everything private is refused by default).
+    allow_hosts: []

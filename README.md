@@ -23,6 +23,19 @@ knowledge — driven from an iPhone app and a web dashboard.
 
 ## Quickstart
 
+**On a Mac (everything on one MacBook):** follow **[Day 1 on your MacBook](docs/SETUP_MAC.md)** —
+one script sets up the Hub, a node, Ollama, Chrome, the Claude Code / Codex CLIs (your
+subscriptions), launchd services and pairing:
+
+```bash
+scripts/mac/setup.sh --dry-run   # show the plan
+scripts/mac/setup.sh             # or: make mac-setup   (asks before installing anything)
+scripts/mac/ios-build.sh         # or: make ios         (iPhone app)
+make run-local                   # throw-away Hub + node in the foreground for development
+```
+
+**By hand (any OS):**
+
 ```bash
 # 1. Build
 cd backend && go build -o bin/ ./cmd/... && cd ..
@@ -31,16 +44,17 @@ cd web && npm ci && npm run build && cd ..
 # 2. Create a hub (writes nexus.yaml with a dev token + a vault from vault-template)
 mkdir -p ~/nexus-hub && cd ~/nexus-hub
 ~/path/to/nexus/backend/bin/nexusd init -template ~/path/to/nexus/vault-template
-#   set server.web_dir to <repo>/web/dist and add a node token under security.node_tokens:
-#     node_tokens: ["my-laptop:<random secret>"]
+#   set server.web_dir to <repo>/web/dist (ready-made profile: backend/configs/macbook/)
 ~/path/to/nexus/backend/bin/nexusd serve
 
-# 3. Connect a machine (copy backend/cmd/nexus-node/node.example.yaml → node.yaml, set id/token)
+# 3. Connect a machine: issue a pairing on the hub, redeem it on the machine (mTLS)
+nexusd pair -kind node                           # prints a nexus://pair URL (-hub-url https://localhost:7700 for this machine)
+nexus-node pair -config node.yaml '<nexus://pair URL>'
 nexus-node run -config node.yaml
 
 # 4. Use it
-open http://localhost:7700                       # web dashboard (paste the dev token in Settings)
-export NEXUS_TOKEN=<dev token>
+open https://localhost:7700                      # dashboard (hub's private CA: accept the warning; dev token in Settings)
+export NEXUS_URL=https://localhost:7700 NEXUS_CA_FILE=data/security/pki/ca.crt NEXUS_TOKEN=<dev token>
 nexus run "hello ?approve" -agent echo -follow   # streams, then waits for approval
 nexus approve <approval-id>                      # or approve from the dashboard / iPhone
 ```

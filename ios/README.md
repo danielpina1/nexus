@@ -12,6 +12,21 @@ that originate from the Hub — never directly to nodes, LLMs or other services.
 - An **Apple Developer account** for anything beyond the Simulator: push notifications,
   App Groups, Keychain sharing, time-sensitive & communication notifications, Live Activity push.
 
+## First build on your Mac
+
+```sh
+scripts/mac/ios-build.sh        # from the repo root, or: make ios
+```
+
+The script checks Xcode 16.3+ and XcodeGen, asks for your Team ID and a bundle id prefix and
+writes `Config/Local.xcconfig`, runs the Go ↔ Swift wire-format vectors (backend test + the
+`NexusKit-Package` tests on an iOS Simulator), then runs `xcodegen generate` and opens the
+project. In Xcode pick the **Nexus** scheme and your iPhone (turn on Developer Mode on the phone
+the first time) or a Simulator, and Run. A free Apple ID (Personal Team) can't sign the
+Push Notifications capability this project declares and its profiles expire after 7 days; see
+[docs/SETUP_MAC.md §6](../docs/SETUP_MAC.md#6-build-the-iphone-app-and-pair-it). The manual
+steps are below.
+
 ## Generate and open the project
 
 ```sh
@@ -58,11 +73,11 @@ scheme `NexusKit-Package`, iOS Simulator destination).
 
 ## Running against a local Hub
 
-1. Start the Hub: `nexusd serve` (listens on `:7700`, HTTP/1.1 + h2c).
+1. Start the Hub: `nexusd serve` (listens on `:7700`, HTTPS (TLS from the Hub's private CA, on by default)).
 2. Make the phone reach it: same Wi-Fi (use the Mac's LAN IP), or away from home through the UniFi VPN (docs/NETWORK.md).
    ATS allows plain HTTP only for local networking (`NSAllowsLocalNetworking`).
 3. Either
-   - **Pair (recommended):** `nexusd pair --device` (or web → Security → Pair device) shows a
+   - **Pair (recommended):** `nexusd pair -kind device` (or web → Security → Pair device) shows a
      `nexus://pair?...` QR. Scan it in the app, compare the 6-emoji safety code with the Hub,
      confirm. The app creates Secure Enclave keys and authenticates with a signed challenge.
    - **Dev token:** onboarding → "Connect with a dev token" → Hub URL + `security.dev_token`

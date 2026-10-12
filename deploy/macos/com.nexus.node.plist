@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Nexus node (nexus-node: runtimes Claude Code, Codex, browser, shell) as a per-user launchd agent.
+
+  Template: scripts/mac/service.sh install fills in the placeholders and
+  writes ~/Library/LaunchAgents/com.nexus.node.plist. Don't load this file as is.
+
+  A LaunchAgent runs while you are logged in (gui/<uid> domain), so it can use
+  your login Keychain. It does not run while the Mac sleeps (lid closed).
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.nexus.node</string>
+
+	<key>ProgramArguments</key>
+	<array>
+		<string>__BIN_DIR__/nexus-node</string>
+		<string>run</string>
+		<string>-config</string>
+		<string>__NODE_DIR__/node.yaml</string>
+	</array>
+
+	<key>WorkingDirectory</key>
+	<string>__NODE_DIR__</string>
+
+	<key>EnvironmentVariables</key>
+	<dict>
+		<!-- launchd starts with a minimal PATH; Homebrew, ~/.local/bin and the
+		     Nexus binaries are added so `claude`, `codex`, git and Chrome helpers are found. -->
+		<key>PATH</key>
+		<string>__PATH__</string>
+		<key>HOME</key>
+		<string>__HOME__</string>
+	</dict>
+
+	<key>RunAtLoad</key>
+	<true/>
+	<!-- Restart after a crash or a non-zero exit; not after a clean stop. -->
+	<key>KeepAlive</key>
+	<dict>
+		<key>SuccessfulExit</key>
+		<false/>
+	</dict>
+	<key>ThrottleInterval</key>
+	<integer>10</integer>
+	<key>ProcessType</key>
+	<string>Interactive</string>
+
+	<key>StandardOutPath</key>
+	<string>__LOG_DIR__/node.log</string>
+	<key>StandardErrorPath</key>
+	<string>__LOG_DIR__/node.log</string>
+</dict>
+</plist>

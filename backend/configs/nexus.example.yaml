@@ -4,6 +4,10 @@
 # module (or subsystem) with that name. Missing sections use defaults.
 # Values like ${VAR} are NOT expanded by nexusd; secrets are read from the
 # environment variables named by the *_env keys instead.
+#
+# Profiles: configs/macbook/ is a ready-made setup for running everything on
+# one Mac (docs/SETUP_MAC.md). `go test ./configs/` checks every key below
+# against the modules' config types.
 
 # Where modules keep their state (each module gets <data_dir>/<module>/).
 data_dir: ./data
@@ -69,10 +73,15 @@ vault:
   # Obsidian-compatible Markdown vault (git repository). `nexusd init` copies
   # vault-template/ here.
   path: ./vault
-  # Commit changes made through Nexus automatically.
-  auto_commit: true
-  # Optional git remote to push/pull (e.g. for Obsidian on other machines).
-  remote: ""
+  # Commit changes made through Nexus automatically (when the vault is a git
+  # repository), batching writes made within commit_delay.
+  git: true
+  commit_delay: 5s
+  # Re-index notes edited outside Nexus (e.g. in Obsidian).
+  watch: true
+  # Embed notes with the `embed` model alias for semantic search.
+  embeddings: false
+  embed_model: embed
 
 # --- LLM access (module: llm) ------------------------------------------------
 # Every model call from the hub (router, memory/vault Ask) goes through here.
@@ -135,12 +144,33 @@ llm:
 
 # --- Command router (module: router) -----------------------------------------
 router:
-  # Model alias used to classify free-form input.
-  classifier: fast-local
-  # Alias used when the classifier is unavailable or unsure.
-  fallback: smart
+  # Model alias used to classify free-form input (needs JSON mode).
+  model: fast-local
+  # Alias used when the classifier is unavailable.
+  fallback_model: smart
   # Below this confidence the router asks the user to choose.
-  min_confidence: 0.75
+  threshold: 0.6
+
+# --- Push notifications (module: notify) -------------------------------------
+# Without apns credentials pushes are only logged (dry-run mode).
+notify:
+  hub_name: "Nexus"
+  # apns:
+  #   team_id: "ABCDE12345"
+  #   key_id: "XYZ9876543"
+  #   key_file: "/etc/nexus/AuthKey_XYZ9876543.p8"   # or key_env: NEXUS_APNS_KEY
+  #   bundle_id: "com.example.nexus"
+  #   environment: sandbox                           # sandbox | production
+
+# --- Web research tools on the hub (module: tools.web.hub) -------------------
+# Same keys as the node's tools.web section (docs/RESEARCH.md). Without a
+# provider list: SearXNG (if base_url), Brave/Tavily (if their key env is
+# set), then the rate-limited DuckDuckGo fallback.
+tools.web.hub:
+  search:
+    # searxng:
+    #   base_url: http://searxng.home.arpa:8888
+    duckduckgo: { min_interval: 2s }
 
 # --- Node link (module: nodelink) --------------------------------------------
 nodelink:

@@ -1,6 +1,6 @@
 BUF ?= buf
 
-.PHONY: gen lint backend backend-test web web-dev ios-project all
+.PHONY: gen lint backend backend-test web web-dev ios-project all mac-setup mac-services ios run-local
 
 all: gen backend web
 
@@ -31,3 +31,20 @@ web-dev:
 ## iOS (requires macOS + Xcode + XcodeGen)
 ios-project:
 	cd ios && xcodegen generate
+
+## macOS: "everything on one MacBook" (docs/SETUP_MAC.md)
+## Pass flags with ARGS, e.g. make mac-setup ARGS=--dry-run
+mac-setup:
+	scripts/mac/setup.sh $(ARGS)
+
+## Install/refresh the launchd agents (com.nexus.hub, com.nexus.node)
+mac-services:
+	scripts/mac/service.sh install all $(ARGS)
+
+## Configure signing, check wire formats, generate and open the iOS project
+ios:
+	scripts/mac/ios-build.sh $(ARGS)
+
+## Throw-away Hub + node in the foreground (macbook profile, temp dir, port 7701)
+run-local:
+	scripts/mac/run-local.sh $(ARGS)
