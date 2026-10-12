@@ -74,7 +74,7 @@ func (r *heldRun) finish(st nexusv1.TaskState) {
 		close(r.ch)
 	})
 }
-func (r *heldRun) Events() <-chan *nexusv1.Event                            { return r.ch }
+func (r *heldRun) Events() <-chan *nexusv1.Event                              { return r.ch }
 func (r *heldRun) Send(context.Context, *nexusv1.RunInput) error              { return nil }
 func (r *heldRun) Resolve(context.Context, *nexusv1.ApprovalResolution) error { return nil }
 func (r *heldRun) Cancel(context.Context) error {

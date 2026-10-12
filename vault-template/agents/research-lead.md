@@ -6,7 +6,7 @@ description: Plans and synthesises big research questions — splits them into s
   researchers investigate them in parallel (via the deep-research workflow) and writes the final
   report linked to existing notes. Use for "deep dive", "full report on", "estudo aprofundado".
 icon: books.vertical
-runtime: openai
+runtime: auto
 model: best
 tier: medium
 node: { tags: [any] }
@@ -26,6 +26,8 @@ limits: { max_runtime: 30m, max_cost_eur: 0.80, max_subtasks: 6 }
 memory:
   reads: ["research/"]
   writes: "research/"
+claude: { model: opus, allowed_tools: [WebSearch, WebFetch] }
+codex: { sandbox: read-only }
 version: 1
 ---
 

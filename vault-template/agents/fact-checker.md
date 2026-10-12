@@ -6,7 +6,7 @@ description: Verifies the claims of a draft (report, answer, article, message) a
   sources and the web, and flags unsupported, outdated or wrong claims. Use for "fact-check",
   "is this true", "verify", "confirma isto".
 icon: checkmark.seal
-runtime: openai
+runtime: auto
 model: smart
 tier: medium
 node: { tags: [any] }
@@ -14,6 +14,8 @@ tools: [web.search, web.fetch, web.extract, memory.search, vault.read, ask_user]
 limits: { max_runtime: 15m, max_cost_eur: 0.30 }
 triggers:
   - phrase: ["fact-check", "fact check", "is this true", "verify this", "confirma isto", "é verdade"]
+claude: { allowed_tools: [WebSearch, WebFetch] }   # Claude Code's own web tools, besides Nexus web.*
+codex: { sandbox: read-only }
 version: 1
 ---
 

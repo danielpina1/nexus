@@ -59,6 +59,12 @@
 // or browser.restrict_domains: true), which is restricted even with an empty
 // list.
 //
+// Browser tools for other runtimes (provider.go): the module also registers
+// a kernel.RunToolProvider, so agents of claude-code, codex, openai and
+// ollama whose tools list names `browser` get the same browser.* tools (same
+// domain policy, profiles, shops.get wrapping and SPEND-gated checkout via
+// RunSpec.Gate) — over the Nexus MCP endpoint for the CLIs.
+//
 // Shopping (shop.go, docs/SHOPPING.md): the run's shops.get tool is wrapped
 // so every store it returns is registered with the run — its domains join
 // the allow-list (trust_shop_notes), its checkout_labels join the SPEND

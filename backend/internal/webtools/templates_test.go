@@ -47,7 +47,7 @@ func TestResearchAgents(t *testing.T) {
 			t.Fatal(err)
 		}
 		a, body := agentdef.Parse(p, b)
-		if len(a.Errors) > 0 || a.Id != id || a.Runtime != "openai" || body == "" {
+		if len(a.Errors) > 0 || a.Id != id || a.Runtime != "auto" || body == "" {
 			t.Errorf("%s: id=%s runtime=%s errors=%v", id, a.Id, a.Runtime, a.Errors)
 		}
 		tools := strings.Join(a.Tools, ",")

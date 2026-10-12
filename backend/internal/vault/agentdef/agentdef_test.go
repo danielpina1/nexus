@@ -46,10 +46,10 @@ func TestGrocery(t *testing.T) {
 		Name:        "Grocery (Continente)",
 		Description: `Buys groceries on continente.pt from a list and guidelines. Use for shopping lists, supermarket orders, "buy the usual".`,
 		Icon:        "cart",
-		Runtime:     "browser",
+		Runtime:     "auto",
 		Model:       "smart",
 		Tier:        nexusv1.Tier_TIER_MEDIUM,
-		NodeTags:    []string{"browser", "always-on"},
+		NodeTags:    []string{"browser"},
 		Tools:       []string{"browser", "memory.search", "vault.read", "vault.write", "ask_user", "request_approval", "notify"},
 		Limits: &nexusv1.AgentLimits{
 			MaxRuntimeSeconds: 1800,
@@ -171,5 +171,27 @@ func TestNodeForms(t *testing.T) {
 		if !reflect.DeepEqual(a.NodeTags, want) || len(a.Errors) > 0 {
 			t.Errorf("%s → %v %v", src, a.NodeTags, a.Errors)
 		}
+	}
+}
+
+func TestRuntimeAutoAndList(t *testing.T) {
+	for _, tc := range []struct {
+		name, fm, runtime string
+		ok                bool
+	}{
+		{"auto", "runtime: auto\n", "auto", true},
+		{"list implies auto", "runtimes: [claude-code, codex]\n", "auto", true},
+		{"list with runtime", "runtime: claude-code\nruntimes: [claude-code, codex]\n", "claude-code", true},
+		{"bad list entry", "runtimes: [claude-code, \"Bad Name\"]\n", "auto", false},
+		{"bad list type", "runtime: auto\nruntimes: {a: b}\n", "auto", false},
+		{"missing", "", "", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := "---\ntype: agent\nid: x\ndescription: d\n" + tc.fm + "---\n# X\n"
+			a, _ := Parse("agents/x.md", []byte(src))
+			if a.Runtime != tc.runtime || (len(a.Errors) == 0) != tc.ok || a.Enabled != tc.ok {
+				t.Fatalf("runtime %q errors %v enabled %v", a.Runtime, a.Errors, a.Enabled)
+			}
+		})
 	}
 }

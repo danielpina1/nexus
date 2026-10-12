@@ -184,11 +184,10 @@ nexus-browser-login -data-dir ~/Nexus/node/data -profile worten     -url https:/
 
 Log in, tick "remember me", close the window. Agents never type passwords or card numbers.
 
-The starter `shop` and `grocery-continente` agents ask for a node tagged `browser` **and**
-`always-on`. While the MacBook is your only machine, add `always-on` to `node.tags` in
-`~/Nexus/node/node.yaml` (and `gpu` for the `librarian` agent), then
-`scripts/mac/service.sh restart node`. To watch the browser while you get started, set
-`runtime.browser.headless: false` in the same file.
+The MacBook node is tagged `[mac, dev, browser]`, which is enough for every starter agent
+(the shop agents need `browser`, code-fixer needs `dev`). To watch the browser while you get
+started, set `runtime.browser.headless: false` in `~/Nexus/node/node.yaml`, then
+`scripts/mac/service.sh restart node`.
 
 ## 8. Reach Nexus from anywhere (UniFi VPN)
 
@@ -271,6 +270,9 @@ On macOS 15+, a node started by launchd that connects to a Hub on the LAN may ne
 | `claude-code` / `codex` unavailable | `nexus-node runtimes -config ~/Nexus/node/node.yaml`. The launchd PATH is fixed at install: after installing a CLI elsewhere run `make mac-services`, or set `runtime.claudecode.binary` / `runtime.codex.binary` to the absolute path (`which claude`). |
 | Claude Code asks to log in / 401 inside runs | Run `claude` once in Terminal and `/login`; make sure no `ANTHROPIC_API_KEY` is set in `node.yaml` (`runtime.claudecode.env`). The login lives in your Keychain, which launchd agents can use while you are logged in. |
 | Codex not logged in | `codex login` (Sign in with ChatGPT); `codex login status`. |
+| Claude Code works in Terminal but not from the Nexus service | The background service may not see your login. Run `claude setup-token`, then add `CLAUDE_CODE_OAUTH_TOKEN` to the `EnvironmentVariables` of `~/Library/LaunchAgents/com.nexus.node.plist` (that file is only readable by you), and `scripts/mac/service.sh restart node`. |
+| A runtime still shows unavailable after logging in | Nexus checks runtimes when the node connects: `scripts/mac/service.sh restart node`. |
+| "Claude usage limit reached" | Nexus automatically moves the task to Codex (then Ollama). It resumes using Claude after the limit resets. |
 | `llm check` fails, `connection refused` | Ollama isn't running: `brew services list`, `brew services restart ollama`. |
 | alias `model … is not served` | `ollama pull qwen2.5:7b` / `nomic-embed-text`, or change the pinned models in both YAML files. |
 | Browser runs fail: no Chrome | Install Chrome (`brew install --cask google-chrome`) or set `runtime.browser.chrome_path`. |

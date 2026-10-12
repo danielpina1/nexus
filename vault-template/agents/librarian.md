@@ -8,7 +8,7 @@ icon: books
 runtime: ollama
 model: fast-local
 tier: simple
-node: { tags: [gpu] }
+node: { tags: [any] }
 tools: [memory.search, vault.read, vault.write, vault.link, facts.propose]
 limits: { max_runtime: 5m }
 version: 1

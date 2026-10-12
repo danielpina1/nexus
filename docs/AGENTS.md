@@ -16,11 +16,12 @@ name: Grocery (Continente)
 description: Buys groceries on continente.pt from a list and guidelines. Use for shopping lists,
   supermarket orders, "buy the usual".
 icon: cart
-runtime: openai              # claude-code | codex | openai | ollama | anthrex | shell | browser | workflow
+runtime: auto                # auto | claude-code | codex | openai | ollama | anthrex | shell | browser | workflow
+runtimes: [claude-code, codex, browser]   # optional ordered list (implies auto)
 model: smart                 # model alias resolved by policies/models.md
-tier: medium                 # simple | medium | heavy  (used for routing + escalation)
+tier: medium                 # simple | medium | heavy  (used for routing, runtime choice + escalation)
 node:
-  tags: [browser, always-on] # node selector
+  tags: [browser]            # node selector
 tools:
   - browser
   - memory.search
@@ -59,11 +60,13 @@ Fill a Continente cart that matches the list and the guidelines, then ask for ap
 
 | Field | Meaning |
 |---|---|
-| `runtime` | Which adapter executes it (see §2). |
+| `runtime` | Which adapter executes it (see §2), or `auto`: the hub picks one (§2.1). |
+| `runtimes` | Optional ordered runtime list (e.g. `[claude-code, codex]`); implies `auto`. |
+| `claude` / `codex` | Per-agent CLI settings for the Claude Code / Codex runtimes (§2.2). |
 | `model` | Alias, not a provider model id. Aliases live in `policies/models.md` and map to local (Ollama) or cloud models. |
 | `tier` | Cost/difficulty class. Drives routing and escalation. |
 | `node` | Selector: tags, explicit node id, or `any`. |
-| `tools` | Allow-list. Runtimes that bring their own tools (Claude Code, Codex) also get these via MCP. |
+| `tools` | Allow-list. Runtimes that bring their own tools (Claude Code, Codex) also get these via MCP (§2.3). `browser` (or `browser.*`, `browser.<tool>`) adds the browser tools to any runtime. |
 | `limits` | Time, LLM cost, real spend, max sub-tasks, max tokens. |
 | `policy` | Per-agent overrides of trust levels (cannot be looser than global policy unless global allows). |
 | `memory` | What the agent is given as context by default, and where it writes episodes. |
@@ -96,14 +99,87 @@ type Run interface {
 
 | Runtime | Best for | How Nexus drives it |
 |---|---|---|
-| `claude-code` | Coding, repo work, long multi-step tasks on a machine | Headless `claude -p` with streaming JSON in/out; Nexus MCP server attached; permission prompts routed to Nexus approvals via a permission-prompt tool. |
-| `codex` | Coding, second opinions, parallel attempts | `codex exec` non-interactive with JSON events; sandbox/approval mode set from agent policy; Nexus MCP attached. |
+| `claude-code` | Medium/heavy work on the Claude subscription: coding, research, shopping (with browser tools), assistants | Headless `claude -p` with streaming JSON in/out; Nexus MCP server attached; permission prompts routed to Nexus approvals via a permission-prompt tool. |
+| `codex` | Second runtime on the ChatGPT subscription; coding, parallel attempts | `codex exec` non-interactive with JSON events; sandbox from agent settings; Nexus MCP attached. |
 | `openai` | General agents on any OpenAI/Anthropic-compatible model (local Ollama or cloud) | Native Go agent loop (tool calling) over OpenAI-compatible API. |
 | `ollama` | Cheap/private simple work: routing, tagging, summarizing, extraction | Same native loop, local endpoint. |
 | `anthrex` | Whatever Anthrex specializes in | Adapter over Anthrex's interface (TBD — see OPEN_QUESTIONS). Anthrex repo is not modified. |
 | `shell` | Scripts, ops, deterministic jobs | Command templates with typed params; stdout/stderr streamed. |
 | `browser` | Sites without APIs (Continente, portals) | Playwright with persistent profiles per site on the Node; driven by an LLM loop with a page-snapshot tool; screenshots as artifacts. |
 | `workflow` | Composite agents | The agent is a workflow (see WORKFLOWS.md). |
+
+### 2.1 `runtime: auto`, subscriptions and usage limits
+
+The owner's main "smart" capacity is usually **subscriptions** (Claude Pro/Max, ChatGPT
+Plus/Pro), which can only be used through the official CLIs: Claude Code (`claude`) and the
+OpenAI Codex CLI (`codex`). Nexus drives those CLIs on a node exactly as they are logged in; it
+never extracts their tokens. Local Ollama (native loop, runtime `ollama`) does the cheap work.
+API-key providers stay supported (runtime `openai`) but are optional.
+
+- `runtime: auto` uses the tier's list from `policies/models.md`:
+  ```yaml
+  runtimes:
+    simple: [ollama, codex, claude-code]
+    medium: [claude-code, codex, ollama]
+    heavy:  [claude-code, codex]
+  ```
+  (built-in defaults when the note is missing or unreadable). `runtimes: [codex, claude-code]` in
+  an agent note sets the agent's own order (with or without `runtime:`).
+- **Selection.** For each run the hub tries the list in order and dispatches to the first runtime
+  that a connected node matching the agent's node tags reports as available (`NodeHello`
+  runtimes). The chosen runtime goes into the assignment's agent copy and is stored on the run.
+  An unspecified tier counts as `medium`.
+- **Availability.** `claude-code`: the `claude` binary answers `--version` (there is no reliable
+  non-interactive login check; a missing login shows up on the first run). `codex`: the binary
+  answers and `codex login status` does not say "not logged in". Availability is probed when the
+  node connects: restart `nexus-node` after logging in.
+- **Usage limits → next runtime.** When Claude Code or Codex stops on a usage/rate limit, the run
+  fails with a clear summary ("Claude usage limit reached; resets 3pm.") and
+  `result.error_kind = "rate_limited"`; a CLI that is not logged in fails with a how-to-log-in
+  summary and `error_kind = "auth"`. For both kinds the task engine moves the task to the **next
+  runtime of the agent's list** (a new run on the same task, `previous_attempt` and an
+  `escalation_hint` in its context, a RunOutput line telling the user). When nothing is left the
+  task fails with the original summary.
+- **Concurrency.** Each node caps parallel runs per runtime (`runtime.claudecode.max_concurrent`,
+  `runtime.codex.max_concurrent`, default 2; `node.max_concurrent: {runtime: n}` overrides). Runs
+  beyond the cap wait in a FIFO queue and show "Waiting for a free Claude Code slot…".
+
+### 2.2 Claude Code and Codex for non-coding agents
+
+Agent notes may carry CLI settings (forwarded to the node in the run context):
+
+```yaml
+claude:
+  model: sonnet                # sonnet | opus | haiku | full model id (default: smart→sonnet, best→opus)
+  allowed_tools: [WebSearch, WebFetch]   # Claude Code built-ins to allow (pre-approved)
+  disallowed_tools: [Task]
+  permission_mode: default     # default | acceptEdits | plan (bypassPermissions is ignored here)
+  max_turns: 30
+  coding: false                # true keeps Claude Code's Bash/Edit/Write
+codex:
+  model: gpt-5-codex           # or an alias mapped by runtime.codex.models ("" = CLI default)
+  sandbox: read-only           # read-only | workspace-write
+  coding: false
+```
+
+A **non-coding** agent (no `coding: true`, no configured workdir / `repo_dir`) runs Claude Code
+with `--disallowedTools Bash,Edit,MultiEdit,Write,NotebookEdit,WebSearch,WebFetch` (minus
+`claude.allowed_tools`) and `--allowedTools mcp__nexus[,…]`, so it acts through Nexus tools, and
+Codex with `--sandbox read-only`. Instructions go in via `--append-system-prompt` (Codex: prepended
+to the prompt); the run's final answer becomes the task summary (and a workflow step's result).
+
+### 2.3 Nexus tools over MCP (Claude Code, Codex)
+
+Each CLI run gets a loopback Nexus MCP endpoint serving the run's allow-listed tools
+(`memory.search` → `mcp__nexus__memory_search`, `web.search`, `vault.*`, `ask_user`,
+`request_approval`, `spawn_agent`, node tools…) plus **run tools from providers**: node modules
+register a `kernel.RunToolProvider`; the node's run manager asks every provider for each run and
+adds the tools the agent's allow-list permits. The browser module provides `browser.*` with the
+same domain allow-list, per-store profiles and shops.get handling as the browser runtime. Every
+Nexus tool call is gated by the run's approval gate (agent policy); the browser's checkout /
+payment click additionally asks for a **SPEND** approval (biometric by default) through
+`RunSpec.Gate`, which the runtime binds to that same gate — so a Claude Code shopping agent still
+needs Face ID to pay. Without the MCP bridge (disabled) such clicks are refused.
 
 ### The native agent loop (`openai` / `ollama`)
 
@@ -140,6 +216,10 @@ aliases:
 tiers:
   simple: [fast-local, smart]
   medium: [smart, best]
+  heavy:  [best]
+runtimes:                       # runtime: auto (§2.1)
+  simple: [ollama, codex, claude-code]
+  medium: [claude-code, codex, ollama]
   heavy:  [claude-code, codex]
 ```
 

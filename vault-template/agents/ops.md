@@ -5,7 +5,7 @@ name: Ops
 description: Checks and operates machines and servers — status, logs, restarts, disk cleanup,
   backups. Use for "is the server ok", "restart X", "why is Y slow".
 icon: server
-runtime: openai
+runtime: auto
 model: smart
 tier: medium
 node: { tags: [any] }
@@ -15,6 +15,7 @@ policy:
   compute: auto
   destructive: biometric
   device_control: approve
+codex: { sandbox: read-only }          # changes go through node.exec (policy-gated)
 version: 1
 ---
 

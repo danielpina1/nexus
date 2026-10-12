@@ -20,7 +20,11 @@ import (
 
 // KnownRuntimes are the runtimes documented in docs/AGENTS.md. Other names
 // are accepted (runtimes are plug-ins) as long as they are well-formed.
-var KnownRuntimes = []string{"claude-code", "codex", "openai", "ollama", "anthrex", "shell", "browser", "workflow"}
+// "auto" lets the hub choose from policies/models.md `runtimes:` per tier.
+var KnownRuntimes = []string{"claude-code", "codex", "openai", "ollama", "anthrex", "shell", "browser", "workflow", RuntimeAuto}
+
+// RuntimeAuto is the `runtime:` value that lets the hub pick the runtime.
+const RuntimeAuto = "auto"
 
 var reID = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,63}$`)
 
@@ -68,6 +72,23 @@ func Parse(p string, src []byte) (*nexusv1.Agent, string) {
 	a.Model = str(fm["model"])
 
 	a.Runtime = str(fm["runtime"])
+	// `runtimes: [claude-code, codex, …]` is an ordered preference list (the
+	// hub picks the first available and falls back on usage limits); with
+	// no `runtime:` it implies `runtime: auto`.
+	if v, ok := fm["runtimes"]; ok && v != nil {
+		list, err := stringSlice(v, "runtimes")
+		if err != nil {
+			addErr("%v", err)
+		}
+		for _, r := range list {
+			if !reID.MatchString(r) {
+				addErr("invalid runtime %q in runtimes", r)
+			}
+		}
+		if a.Runtime == "" && len(list) > 0 {
+			a.Runtime = RuntimeAuto
+		}
+	}
 	switch {
 	case a.Runtime == "":
 		addErr("missing runtime")

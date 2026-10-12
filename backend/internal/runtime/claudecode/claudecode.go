@@ -47,13 +47,36 @@
 // denies pending prompts. MCP_TOOL_TIMEOUT is set (unless already set) so the
 // CLI waits for human approvals.
 //
+// Subscriptions: the CLI is used as logged in on the node (Claude Pro/Max via
+// `claude` → /login, or `claude setup-token` + CLAUDE_CODE_OAUTH_TOKEN for
+// headless nodes). Nexus never reads its credentials. Failures are
+// classified (cliproc.ClassifyFailure): usage/rate limits end the run FAILED
+// with "Claude usage limit reached; resets …" and result.error_kind
+// "rate_limited"; a missing login with a how-to-log-in summary and
+// error_kind "auth". The hub retries such tasks on the agent's next runtime.
+// Runs per node are capped by max_concurrent (default 2; the node queues the
+// rest).
+//
+// Per-agent settings (agent note `claude:` block, forwarded in the run
+// context; see AgentSettings and ArgsFor): model, allowed_tools,
+// disallowed_tools, permission_mode (default|acceptEdits|plan), max_turns,
+// coding. Non-coding agents (no claude.coding, no workdir/repo_dir) run with
+// --disallowedTools Bash,Edit,MultiEdit,Write,NotebookEdit,WebSearch,WebFetch
+// (minus claude.allowed_tools) so they act through Nexus MCP tools, and
+// --allowedTools mcp__nexus (Nexus tools are gated by the bridge itself).
+// Run tools contributed by providers (browser.*) are served over the same
+// endpoint; the run's gate is bound to RunSpec.Gate, so a browser checkout
+// click still asks for a SPEND approval.
+//
 // Configuration (module section "runtime.claudecode"):
 //
 //	runtime.claudecode:
 //	  binary: claude
+//	  max_concurrent: 2           # parallel runs on this node (0 = unlimited)
+//	  non_coding_disallowed_tools: [Bash, Edit, MultiEdit, Write, NotebookEdit, WebSearch, WebFetch]
 //	  args: []                    # extra CLI args, appended last
 //	  model: ""                   # default --model ("" = CLI default)
-//	  models: { best: opus }      # agent model alias → Claude model
+//	  models: { best: opus }      # agent model alias → Claude model (built-in: smart→sonnet, best→opus, fast-local→haiku)
 //	  permission_mode: ""         # e.g. acceptEdits, plan, bypassPermissions
 //	  mcp_config: []              # files passed to --mcp-config
 //	  append_instructions: true   # pass agent instructions via --append-system-prompt

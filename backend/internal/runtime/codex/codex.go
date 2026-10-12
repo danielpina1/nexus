@@ -22,7 +22,18 @@
 //
 // Unknown events are ignored; malformed lines are logged.
 //
-// Nexus MCP (nexus_mcp, default false): when enabled, each run gets a
+// Subscriptions: codex is used as logged in on the node (`codex login`, Sign
+// in with ChatGPT). Available() also runs `codex login status` (check_login,
+// default true) and reports the runtime unavailable when it says "not logged
+// in" (re-probed when the node reconnects). Usage limits / missing logins
+// end runs FAILED with result.error_kind rate_limited / auth (see claudecode)
+// so the hub falls back to the agent's next runtime. max_concurrent (default
+// 2) caps parallel runs per node. Per-agent settings (agent note `codex:`
+// block): model, sandbox (read-only | workspace-write), coding; non-coding
+// agents default to --sandbox read-only (non_coding_sandbox) and act through
+// Nexus MCP tools.
+//
+// Nexus MCP (nexus_mcp, default true): each run gets a
 // loopback Streamable-HTTP MCP endpoint (internal/mcp) exposing the run's
 // Nexus tools (memory.search → memory_search, vault.write, ask_user…),
 // attached with codex config overrides rendered from nexus_mcp_args
@@ -48,6 +59,10 @@
 //	  model: ""                    # default --model ("" = CLI default)
 //	  models: { best: gpt-5-codex }  # agent model alias → codex model
 //	  sandbox: ""                  # read-only | workspace-write | danger-full-access
+//	  non_coding_sandbox: read-only
+//	  nexus_mcp: true
+//	  check_login: true
+//	  max_concurrent: 2
 //	  full_auto: false
 //	  skip_git_repo_check: true    # run workdirs are usually not git repos
 //	  env: {}

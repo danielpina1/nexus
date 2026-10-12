@@ -5,12 +5,13 @@ name: Assistant
 description: General-purpose assistant. Default for questions, writing, planning and anything no
   specialist agent covers.
 icon: sparkles
-runtime: openai
+runtime: auto
 model: smart
 tier: medium
 node: { tags: [any] }
 tools: [memory.search, vault.read, vault.write, ask_user, notify, spawn_agent, schedule]
 limits: { max_runtime: 10m, max_cost_eur: 0.20 }
+codex: { sandbox: read-only }
 version: 1
 ---
 

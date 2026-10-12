@@ -10,6 +10,41 @@ Agents and the router never name a provider model. They use **aliases** (`fast-l
 `best`, `embed`, see `vault/policies/models.md`), and the config maps each alias to a provider and
 a model, with optional fallbacks.
 
+## 0. Subscriptions: Claude Code and Codex (official CLIs) + Ollama
+
+With Claude Pro/Max and ChatGPT Plus/Pro **subscriptions** (no API keys), the heavy and medium
+work runs on the official CLIs on a node, not through `internal/llm`:
+
+| Runtime | CLI | Log in (once per machine, as the user that runs `nexus-node`) |
+|---|---|---|
+| `claude-code` | Claude Code (`claude`) | Run `claude` and log in with the Claude subscription. Headless / always-on node: `claude setup-token`, then set `CLAUDE_CODE_OAUTH_TOKEN` in nexus-node's environment. |
+| `codex` | OpenAI Codex CLI (`codex`) | `codex login` → "Sign in with ChatGPT". Check with `codex login status`. Headless: log in on a machine with a browser and copy `~/.codex/auth.json`. |
+| `ollama` | — (native Nexus loop) | Ollama on any machine reachable from the node (`node.llm.providers`). |
+
+Nexus never reads or extracts the CLIs' tokens; it starts the CLIs and reads their output. Agents
+with `runtime: auto` pick the first available runtime of their tier from `policies/models.md`
+`runtimes:` (medium: Claude Code → Codex → Ollama) and fall back to the next one when a run hits
+a usage limit (`result.error_kind: rate_limited`) or the CLI is logged out (`auth`). See
+docs/AGENTS.md §2.1–2.3.
+
+Model names on the CLIs: Claude Code maps the aliases `smart`→`sonnet`, `best`→`opus`,
+`fast-local`→`haiku` (override with `runtime.claudecode.models`, or per agent with
+`claude: {model: …}`); Codex uses its own default model unless `runtime.codex.models` or
+`codex: {model: …}` names one. Node settings:
+
+```yaml
+runtime.claudecode:
+  max_concurrent: 2          # parallel Claude Code runs on this node; more wait in a queue
+runtime.codex:
+  max_concurrent: 2
+  check_login: true          # `codex login status` decides availability
+```
+
+Ollama keeps the cheap and private work: `fast-local` (router, tagging, librarian) and `embed`
+(memory). Suggested models on an Apple Silicon Mac: `qwen3:8b` (16 GB+) or `llama3.2:3b` (8 GB) for
+`fast-local`, `nomic-embed-text` for `embed`; a larger tool-capable model (e.g. `qwen3:14b`) for
+`smart` if you want a fully local fallback. The API-key providers below remain optional.
+
 ## 1. Providers
 
 A provider is one HTTP endpoint. Two API flavours are supported:
@@ -201,3 +236,7 @@ that point at it, or that fall back to it. Keep `fast-local` and `embed` local s
 classification and indexing of your vault stay at home even when `smart`/`best` use the cloud. If
 a gateway routes to cloud models itself, Nexus cannot see that. Check the gateway's routing
 config.
+
+The subscription runtimes (`claude-code`, `codex`) send the run's prompt, instructions, context
+and tool results to Anthropic / OpenAI under your subscription's terms. Agents that must stay
+local use `runtime: ollama` (or a `runtimes:` list without the CLIs).

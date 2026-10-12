@@ -6,7 +6,7 @@ description: Compares products in a category — specs, independent reviews, kno
   current prices in Portugal/EU — and recommends 1–3 options that fit the user's needs. Use for
   "which X should I buy", "best X under €Y", "compare A vs B", "que X devo comprar".
 icon: cart.badge.questionmark
-runtime: openai
+runtime: auto
 model: smart
 tier: medium
 node: { tags: [any] }
@@ -17,6 +17,8 @@ memory:
   writes: "research/"
 triggers:
   - phrase: ["which should I buy", "best value", "compare products", "que devo comprar", "qual comprar"]
+claude: { allowed_tools: [WebSearch, WebFetch] }   # Claude Code's own web tools, besides Nexus web.*
+codex: { sandbox: read-only }
 version: 1
 ---
 

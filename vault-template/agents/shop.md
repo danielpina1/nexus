@@ -6,10 +6,11 @@ description: Buys things online at Portuguese and European stores (electronics, 
   home, sports, groceries) — finds the product, compares price, delivery and stock across stores,
   then buys after approval. Use for "buy X", "comprar", "order", "find the best price for".
 icon: bag
-runtime: browser
+runtime: auto
+runtimes: [claude-code, codex, browser]
 model: smart
 tier: medium
-node: { tags: [browser, always-on] }
+node: { tags: [browser] }
 tools: [browser, shops.list, shops.get, memory.search, vault.read, vault.write, ask_user, request_approval, notify]
 limits: { max_runtime: 45m, max_cost_eur: 1.00, max_spend_eur: 300 }
 policy:
@@ -26,6 +27,7 @@ memory:
   writes: "episodes/shopping/"
 triggers:
   - phrase: ["buy", "comprar", "order", "encomendar", "shop for", "quero comprar"]
+claude: { model: sonnet }
 version: 1
 ---
 

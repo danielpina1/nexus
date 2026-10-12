@@ -6,14 +6,16 @@ description: Short news digests on topics the user follows — what is new since
   with sources, and whether anything is notable. Used by the watch-topic workflow; also for
   "what's new about X", "news on", "novidades sobre".
 icon: newspaper
-runtime: openai
+runtime: auto
 model: smart
-tier: simple
+tier: medium
 node: { tags: [any] }
 tools: [web.search, web.extract, web.fetch, memory.search, vault.read]
 limits: { max_runtime: 15m, max_cost_eur: 0.20 }
 triggers:
   - phrase: ["what's new about", "news on", "novidades sobre", "notícias sobre"]
+claude: { allowed_tools: [WebSearch, WebFetch] }   # Claude Code's own web tools, besides Nexus web.*
+codex: { sandbox: read-only }
 version: 1
 ---
 

@@ -6,7 +6,7 @@ description: Researches one question on the web — searches, reads 5–15 sourc
   and writes findings with inline citations [n] and a sources list. Use for "research X", "find
   out", "what's the current state of", "compare", "pesquisa", "investiga".
 icon: magnifyingglass
-runtime: openai
+runtime: auto
 model: smart
 tier: medium
 node: { tags: [any] }
@@ -24,6 +24,8 @@ memory:
   writes: "research/"
 triggers:
   - phrase: ["find out", "look into", "investiga", "descobre"]
+claude: { allowed_tools: [WebSearch, WebFetch] }   # Claude Code's own web tools, besides Nexus web.*
+codex: { sandbox: read-only }
 version: 1
 ---
 

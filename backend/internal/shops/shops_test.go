@@ -200,7 +200,7 @@ func TestTemplateAgents(t *testing.T) {
 			t.Fatal(err)
 		}
 		a, instr := agentdef.Parse("agents/"+name, b)
-		if len(a.Errors) > 0 || !a.Enabled || a.Runtime != "browser" || instr == "" {
+		if len(a.Errors) > 0 || !a.Enabled || a.Runtime != "auto" || instr == "" {
 			t.Fatalf("%s: %v %+v", name, a.Errors, a)
 		}
 		if a.Policy["spend"] != nexusv1.TrustLevel_TRUST_LEVEL_BIOMETRIC {

@@ -5,7 +5,8 @@ name: Web agent
 description: Does things on websites that have no API — look something up on a page, fill a form,
   check an account, compare offers. Use when a task needs a real browser.
 icon: globe
-runtime: browser
+runtime: auto
+runtimes: [claude-code, codex, browser]
 model: smart
 tier: medium
 node: { tags: [browser] }
@@ -18,6 +19,7 @@ browser:
   allowed_domains: []
 memory:
   writes: "episodes/web/"
+claude: { model: sonnet }
 version: 1
 ---
 

@@ -5,10 +5,11 @@ name: Grocery (Continente)
 description: Buys groceries on continente.pt from a list and guidelines. Use for shopping lists,
   supermarket orders, "buy the usual".
 icon: cart
-runtime: browser
+runtime: auto
+runtimes: [claude-code, codex, browser]
 model: smart
 tier: medium
-node: { tags: [browser, always-on] }
+node: { tags: [browser] }
 tools: [browser, memory.search, vault.read, vault.write, ask_user, request_approval, notify]
 limits: { max_runtime: 30m, max_cost_eur: 0.50, max_spend_eur: 150 }
 policy:
@@ -22,6 +23,7 @@ memory:
   writes: "episodes/shopping/"
 triggers:
   - phrase: ["groceries", "compras", "lista de compras", "buy the usual", "supermercado"]
+claude: { model: sonnet }
 version: 2
 ---
 
@@ -46,7 +48,7 @@ The browser keeps a persistent profile per store on the node, so you log in once
 - If a run finds you logged out, it stops and asks you (`ask_user`) to repeat this.
 
 ## Playbook
-1. Read [[Shopping preferences]] (`memory.search` / `vault.read`), `shops/continente.md`
+1. Read the Shopping preferences note (`memory.search` / `vault.read`), `shops/continente.md`
    (store playbook and quirks) and the `products/` notes for every list item: brand, size,
    quantity, max price, substitution rules. "The usual" = the preferences' usual list.
 2. `browser.navigate` to https://www.continente.pt/ → `browser.snapshot`. Dismiss the cookie

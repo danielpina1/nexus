@@ -6,6 +6,7 @@ description: Changes code in a repository on a machine — fix bugs, failing tes
   refactors. Opens a branch and asks before pushing.
 icon: hammer
 runtime: claude-code
+runtimes: [claude-code, codex]
 tier: heavy
 node: { tags: [dev] }
 tools: [memory.search, vault.write, ask_user, request_approval, notify]
@@ -13,6 +14,8 @@ limits: { max_runtime: 60m, max_cost_eur: 5 }
 policy:
   code_push: approve
   destructive: biometric
+claude: { model: opus, coding: true }  # keeps Claude Code's Bash/Edit/Write
+codex: { coding: true, sandbox: workspace-write }
 version: 1
 ---
 

@@ -23,11 +23,8 @@ node:
   # match; os:darwin and arch:arm64 are added automatically).
   #   mac, dev  — coding agents (code-fixer: [dev])
   #   browser   — browser / shopping agents (Chrome on this Mac)
-  # Not set on purpose: always-on (a laptop sleeps) and gpu. The starter
-  # vault's shop / grocery agents ask for [browser, always-on] and librarian
-  # for [gpu]. While this MacBook is your only machine, add them here (or
-  # edit those agent notes) so those agents have somewhere to run:
-  #   tags: [mac, dev, browser, always-on, gpu]
+  # Every starter agent runs with these tags (shop/grocery need `browser`,
+  # code-fixer needs `dev`, the rest run anywhere).
   tags: [mac, dev, browser]
   workspaces_dir: ./data/workspaces
   status_interval: 15s
