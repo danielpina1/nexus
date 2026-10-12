@@ -18,5 +18,6 @@ import (
 	_ "github.com/danielpina1/nexus/backend/internal/tasks"
 	_ "github.com/danielpina1/nexus/backend/internal/triggers"
 	_ "github.com/danielpina1/nexus/backend/internal/vault"
+	_ "github.com/danielpina1/nexus/backend/internal/webtools"
 	_ "github.com/danielpina1/nexus/backend/internal/workflow"
 )

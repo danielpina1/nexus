@@ -12,4 +12,5 @@ import (
 	_ "github.com/danielpina1/nexus/backend/internal/runtime/openai"
 	_ "github.com/danielpina1/nexus/backend/internal/runtime/shell"
 	_ "github.com/danielpina1/nexus/backend/internal/security/nodetrust"
+	_ "github.com/danielpina1/nexus/backend/internal/webtools"
 )

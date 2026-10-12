@@ -142,7 +142,7 @@ func (e *Engine) applyNodeState(ctx context.Context, r *taskRec, runID string, n
 		if err := r.to(s); err != nil {
 			return err
 		}
-		if r.task.ParentId == "" && s != stCancelled {
+		if r.task.ParentId == "" && r.task.Source != "workflow" && s != stCancelled { // workflows report once, at the end
 			r.extra = append(r.extra, resultNotice(r.task))
 		}
 		return nil

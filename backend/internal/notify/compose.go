@@ -220,7 +220,7 @@ func (c *Composer) question(ctx context.Context, ev *nexusv1.Event, q *nexusv1.Q
 }
 
 func (c *Composer) task(ctx context.Context, t *nexusv1.Task) []Message {
-	if t == nil || !TaskTerminal(t.State) || t.ParentId != "" {
+	if t == nil || !TaskTerminal(t.State) || t.ParentId != "" || t.Source == "workflow" { // workflow steps: the run notifies once
 		return nil
 	}
 	if c.terminal[t.Id] {
