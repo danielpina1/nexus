@@ -3,7 +3,7 @@ type: workflow
 id: server-watchdog
 name: Server watchdog
 description: When a node goes offline (or its disk fills up), the ops agent investigates and reports.
-enabled: true
+enabled: false   # turn on once you have an always-on machine; on a laptop it fires on every wake-up
 triggers:
   - event: node.offline
     inputs: { node: "{{ event.node_status.node_id }}", alert: "node offline" }

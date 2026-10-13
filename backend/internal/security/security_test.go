@@ -561,7 +561,7 @@ func TestNodePairingAndTokens(t *testing.T) {
 	pub := keys.MarshalPublicKey(&nk.PublicKey)
 	secret, _ := pairing.DecodeToken(qr.Token)
 	proof, _ := pairing.Proof(secret, pub, nil, nil)
-	if _, err := hs.sec.RedeemNodePairing(ctx, qr.Token, "node_1", pub, append([]byte{0}, proof[1:]...)); err == nil {
+	if _, err := hs.sec.RedeemNodePairing(ctx, qr.Token, "node_1", pub, append([]byte{proof[0] ^ 0xff}, proof[1:]...)); err == nil {
 		t.Fatal("bad proof accepted")
 	}
 	qr, _ = hs.sec.NewPairing(ctx, PairingOptions{Kind: pairing.KindNode})

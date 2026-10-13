@@ -31,7 +31,14 @@ func main() {
 		os.Exit(2)
 	}
 	node.Version = version
-	var err error
+	// Relative paths in node.yaml are relative to the file, wherever the
+	// command is run from.
+	rest, err := host.EnterConfigDir(os.Args[2:])
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "nexus-node:", err)
+		os.Exit(1)
+	}
+	os.Args = append(os.Args[:2], rest...)
 	switch os.Args[1] {
 	case "run":
 		err = run(os.Args[2:])

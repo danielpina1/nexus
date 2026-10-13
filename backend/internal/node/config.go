@@ -57,6 +57,11 @@ func (c *Config) Defaults(dataDir string) {
 	if c.WorkspacesDir == "" {
 		c.WorkspacesDir = filepath.Join(dataDir, "workspaces")
 	}
+	// Runtimes start processes inside the workspace (cmd.Dir) and pass paths
+	// under it as arguments, so a relative path would be resolved twice.
+	if abs, err := filepath.Abs(c.WorkspacesDir); err == nil {
+		c.WorkspacesDir = abs
+	}
 	if c.StatusInterval <= 0 {
 		c.StatusInterval = 15 * time.Second
 	}

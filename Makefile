@@ -1,6 +1,6 @@
 BUF ?= buf
 
-.PHONY: gen lint backend backend-test web web-dev ios-project all mac-setup mac-services ios run-local
+.PHONY: mac-selftest gen lint backend backend-test web web-dev ios-project all mac-setup mac-services ios run-local
 
 all: gen backend web
 
@@ -48,3 +48,7 @@ ios:
 ## Throw-away Hub + node in the foreground (macbook profile, temp dir, port 7701)
 run-local:
 	scripts/mac/run-local.sh $(ARGS)
+
+## Test everything on this Mac (temporary Hub + node, subscriptions, iOS compile) and write a report
+mac-selftest:
+	scripts/mac/selftest.sh $(ARGS)

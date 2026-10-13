@@ -280,3 +280,20 @@ On macOS 15+, a node started by launchd that connects to a Hub on the LAN may ne
 | iPhone works at home, not away | The VPN: NETWORK.md §2.2 (On-Demand, DNS through the gateway, firewall rule for the VPN subnet). |
 | Everything stops at night | The MacBook slept (§9). |
 | Start over | `scripts/mac/service.sh uninstall`, move `~/Nexus` away, run `setup.sh` again (re-pair the iPhone). |
+
+## Test it (one command)
+
+```bash
+make mac-selftest          # or scripts/mac/selftest.sh [--skip-subscriptions] [--skip-ios]
+```
+
+Installs nothing and leaves `~/Nexus` alone: it runs a temporary Hub + node on port 7702 and
+checks backend tests, the dashboard build, TLS pairing, an echo task, a shell task that waits
+for approval, the runtimes, Ollama, one tiny prompt through **Claude Code** and one through
+**Codex** (your subscriptions), and that the **iPhone app compiles** for the Simulator plus the
+NexusKit wire-format tests. The report is saved as `~/Nexus-selftest-<time>.txt`
+(`pbcopy < ~/Nexus-selftest-*.txt` to paste it into a chat).
+
+The `server-watchdog` workflow ships **disabled**: on a laptop every wake-up looks like the
+machine went offline. Enable it (`enabled: true` in `vault/workflows/server-watchdog.md`) once
+an always-on machine joins.

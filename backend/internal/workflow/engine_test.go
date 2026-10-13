@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -255,6 +256,16 @@ func (e *env) copyTemplate(t *testing.T, name string) {
 		t.Fatal(err)
 	}
 	e.write(t, name, string(b))
+}
+
+func (e *env) enableWorkflow(t *testing.T, name string) {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join(templateDir, name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	re := regexp.MustCompile(`(?m)^enabled:.*$`)
+	e.write(t, name, re.ReplaceAllString(string(b), "enabled: true"))
 }
 
 func (e *env) service(t *testing.T) *Service {
@@ -773,6 +784,9 @@ func TestRetriesAndTimeout(t *testing.T) {
 func TestTriggersAndIntents(t *testing.T) {
 	e := newEnv(t)
 	e.copyTemplate(t, "server-watchdog.md")
+	// The template ships disabled (laptops fire node-offline on every wake);
+	// enable it here as a user with an always-on machine would.
+	e.enableWorkflow(t, "server-watchdog.md")
 	e.copyTemplate(t, "weekly-review.md")
 	e.copyTemplate(t, "groceries.md")
 	e.copyTemplate(t, "morning-brief.md")

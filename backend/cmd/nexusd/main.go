@@ -10,6 +10,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/danielpina1/nexus/backend/internal/host"
 	"os"
 )
 
@@ -36,6 +37,13 @@ func main() {
 		os.Exit(2)
 	}
 	cmd, args := os.Args[1], os.Args[2:]
+	if cmd != "init" { // init has its own -dir; others resolve paths from the config's folder
+		var err error
+		if args, err = host.EnterConfigDir(args); err != nil {
+			fmt.Fprintln(os.Stderr, "nexusd:", err)
+			os.Exit(1)
+		}
+	}
 	var err error
 	switch cmd {
 	case "serve":
