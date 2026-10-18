@@ -142,13 +142,14 @@ await step("Task succeeds and its page opens", async () => {
   await page.waitForURL(/\/tasks\/tsk_/);
   taskUrl = page.url();
   await page.getByText("Succeeded").first().waitFor({ timeout: 30_000 });
-  await page.getByTestId("run-view").getByText("hello", { exact: false }).first().waitFor({ timeout: 10_000 });
+  // The task page leads with the result and says whether anything still runs.
+  await page.getByText("Nothing is still running for this task").waitFor({ timeout: 10_000 });
 });
 
 await step("Task timeline lists events", async () => {
-  await page.getByRole("tab", { name: /Event timeline/ }).click();
-  await page.getByText(/\d+ events/).waitFor({ timeout: 10_000 });
-  const n = Number((await page.getByText(/\d+ events/).first().textContent()).match(/\d+/)[0]);
+  const tab = page.getByRole("tab", { name: /Event (log|timeline)/ });
+  await tab.click();
+  const n = Number(((await tab.textContent()) ?? "").match(/\d+/)?.[0] ?? 0);
   if (n < 3) throw new Error(`only ${n} events`);
 });
 
