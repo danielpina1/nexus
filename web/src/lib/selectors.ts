@@ -50,6 +50,8 @@ export function useInbox(): InboxItem[] {
     }
     for (const [id, n] of Object.entries(notices)) {
       if (dismissed[id]) continue;
+      // Chat replies are read in the chat; their result notices would only duplicate them.
+      if (n.notice.kind === NoticeKind.RESULT && n.taskId && tasks[n.taskId]?.source === "chat") continue;
       items.push({ kind: "notice", id, at: n.at, rank: noticeRank(n.notice.kind), item: n });
     }
     // Failed tasks surface as alerts too.

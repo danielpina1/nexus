@@ -137,8 +137,10 @@ func TestSuccess(t *testing.T) {
 	if r := s.results["item_4"]; r == nil || r.Output.Fields["hits"].GetNumberValue() != 1 {
 		t.Errorf("mcp result %v", r)
 	}
-	if len(s.costs) != 1 || s.costs[0].InputTokens != 2000 || s.costs[0].OutputTokens != 300 ||
-		s.costs[0].Model != "gpt-5-codex" || s.costs[0].Runtime != "codex" {
+	// costs[0] announces the serving model before any output.
+	if len(s.costs) != 2 || s.costs[0].Model != "gpt-5-codex" || s.costs[0].InputTokens != 0 || evs[0].GetCost() == nil ||
+		s.costs[1].InputTokens != 2000 || s.costs[1].OutputTokens != 300 ||
+		s.costs[1].Model != "gpt-5-codex" || s.costs[1].Runtime != "codex" {
 		t.Errorf("costs %v", s.costs)
 	}
 	if task.Cost == nil || task.Cost.InputTokens != 2000 {
@@ -172,7 +174,7 @@ func TestLegacy(t *testing.T) {
 	if r := s.results["call_1"]; r == nil || r.Output.Fields["output"].GetStringValue() != "a.txt\n" {
 		t.Errorf("result %v", r)
 	}
-	if len(s.costs) != 1 || s.costs[0].InputTokens != 10 {
+	if len(s.costs) != 2 || s.costs[0].Model != "" || s.costs[0].Runtime != "codex" || s.costs[1].InputTokens != 10 {
 		t.Errorf("costs %v", s.costs)
 	}
 }

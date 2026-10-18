@@ -184,6 +184,37 @@ payment click additionally asks for a **SPEND** approval (biometric by default) 
 `RunSpec.Gate`, which the runtime binds to that same gate — so a Claude Code shopping agent still
 needs Face ID to pay. Without the MCP bridge (disabled) such clicks are refused.
 
+### 2.4 Chat: conversations, streaming and questions
+
+The chat (web and app) sends `CommandContext{source: "chat", conversation_id}`. Chat messages
+**skip the router** (no routing model call): they go to the `assistant` agent (`command.chat_agent`),
+to `@agent` / `@team` when named, to search for `/search …` and to capture for `/remember …` or
+`remember …`. The command bar, Siri and the share sheet keep using the router (§4).
+
+Chat tasks carry `conversation_id`, `chat: true` and `nexus_status` (a compact live snapshot:
+agents and teams with one line each, running tasks, machines, pending approvals; under ~2k
+tokens) in their params, so the assistant answers "what can you do?" or "what are you doing right
+now?" from facts. The chat prompt is that status plus the message (not the generic JSON context).
+
+- **Multi-turn memory (claude-code):** the node keeps one Claude Code session per conversation and
+  agent (`<node data>/chat-sessions.json`, sessions run in `<data>/chat/claude-code/<agent>/`
+  because Claude Code stores sessions per directory). Follow-ups run `claude -p --resume <id>`;
+  if the session is gone the run restarts at once as a fresh session primed with the last 10 turns.
+  **Codex** chats put those turns in the prompt (no resume). "New chat" starts a new conversation.
+- **Streaming:** `--include-partial-messages`; text deltas become `RunOutput` events coalesced every
+  50 ms; the full message that follows is not repeated. The chat renders the reply inline, live.
+- **Which model answered:** runtimes announce the exact model id at start as a zero
+  `CostRecorded{model, runtime}` (repeated in the final cost, and again after a runtime fallback);
+  clients show "Assistant · Claude Code · claude-sonnet-4-5-20250929".
+- **Speed:** chat runs add `--strict-mcp-config` (only the Nexus bridge, not the user's own MCP
+  servers). The node logs `claude-code: session ready` and `claude-code: first token` (ms).
+- **AskUserQuestion** (Claude Code's question tool) becomes Nexus Questions (header, options with
+  descriptions, multi-select, free text); the answer goes back as the tool's `answers`.
+- **No untracked background work:** Claude Code's own subagents (`Task`/`Agent`) and background
+  shells (`BashOutput`, `KillShell`, `Bash run_in_background`) are disabled in Nexus runs; sub-work
+  goes through `spawn_agent` / team tools, which are tracked child tasks. Clients flag a final
+  answer that claims background work while no child task runs.
+
 ### The native agent loop (`openai` / `ollama`)
 
 Nexus ships its own small, fast agent loop in Go: messages + tool schema → model → tool calls →
@@ -230,7 +261,7 @@ runtimes:                       # runtime: auto (§2.1)
 
 ## 4. Router
 
-The router answers: *what is this input, and who should handle it?*
+The router answers: *what is this input, and who should handle it?* (Chat messages skip it, §2.4.)
 
 ```mermaid
 flowchart LR

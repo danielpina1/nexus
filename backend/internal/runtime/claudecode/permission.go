@@ -178,10 +178,10 @@ func DescribePermission(tool string, input json.RawMessage) string {
 			return "run: " + truncate(c, 100)
 		}
 	case "Edit", "MultiEdit":
-		add, del := lineCount(in.NewString), lineCount(in.OldString)
+		add, del := diffCount(in.OldString, in.NewString)
 		for _, e := range in.Edits {
-			add += lineCount(e.NewString)
-			del += lineCount(e.OldString)
+			a, d := diffCount(e.OldString, e.NewString)
+			add, del = add+a, del+d
 		}
 		return fmt.Sprintf("edit %s (+%d −%d)", in.FilePath, add, del)
 	case "Write":
@@ -214,3 +214,33 @@ func lineCount(s string) int {
 }
 
 func oneLine(s string) string { return strings.Join(strings.Fields(s), " ") }
+
+// diffCount counts added and removed lines between two texts (line LCS;
+// large inputs fall back to whole-text counts).
+func diffCount(oldS, newS string) (add, del int) {
+	split := func(s string) []string {
+		if s == "" {
+			return nil
+		}
+		return strings.Split(strings.TrimSuffix(s, "\n"), "\n")
+	}
+	a, b := split(oldS), split(newS)
+	if len(a)*len(b) > 250_000 {
+		return len(b), len(a)
+	}
+	dp := make([][]int, len(a)+1)
+	for i := range dp {
+		dp[i] = make([]int, len(b)+1)
+	}
+	for i := len(a) - 1; i >= 0; i-- {
+		for j := len(b) - 1; j >= 0; j-- {
+			if a[i] == b[j] {
+				dp[i][j] = dp[i+1][j+1] + 1
+			} else {
+				dp[i][j] = max(dp[i+1][j], dp[i][j+1])
+			}
+		}
+	}
+	common := dp[0][0]
+	return len(b) - common, len(a) - common
+}

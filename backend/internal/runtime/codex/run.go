@@ -15,6 +15,7 @@ import (
 	"github.com/danielpina1/nexus/backend/internal/runtime/agentloop"
 	"github.com/danielpina1/nexus/backend/internal/runtime/agentloop/cliproc"
 	"github.com/danielpina1/nexus/backend/internal/runtime/approvalgate"
+	"github.com/danielpina1/nexus/backend/internal/runtime/chatsession"
 )
 
 type run struct {
@@ -43,6 +44,13 @@ type run struct {
 	costEmitted bool
 	total       *nexusv1.Cost
 	started     map[string]time.Time
+
+	// chat run bookkeeping (nil for other runs): the reply is recorded as a
+	// turn so the next message of the conversation carries the history.
+	chat      *chatsession.Store
+	chatKey   string
+	chatUser  string
+	announced bool
 }
 
 func newRun(taskID, runID, model string, log *slog.Logger) *run {
@@ -132,8 +140,23 @@ func (r *run) stopBridge() {
 	}
 }
 
+// announceModel emits a zero cost naming the model that serves the run
+// (the --model we passed, or the one codex reports in session_configured;
+// "" = the CLI default, shown as "Codex default").
+func (r *run) announceModel(model string) {
+	if model != "" {
+		r.model = model
+	}
+	if r.announced && model == "" {
+		return
+	}
+	r.announced = true
+	r.emit(agentloop.CostEvent(r.taskID, r.runID, &nexusv1.Cost{Model: r.model, Runtime: "codex"}))
+}
+
 func (r *run) read(stdout io.Reader) {
 	defer r.closeEvents()
+	r.announceModel("")
 	if err := cliproc.ReadLines(stdout, r.handleLine); err != nil {
 		r.log.Warn("codex: reading stdout", "err", err)
 	}
@@ -159,6 +182,11 @@ func (r *run) read(stdout io.Reader) {
 		}
 		r.emit(r.failedEvent(msg, cost))
 	case r.completed || waitErr == nil:
+		if r.chat != nil {
+			if err := r.chat.Record(r.chatKey, "", "", r.model, chatsession.Turn{User: r.chatUser, Assistant: r.lastMessage}); err != nil {
+				r.log.Warn("codex: recording chat turn", "err", err)
+			}
+		}
 		r.emit(agentloop.OutputEvent(r.taskID, r.runID, "", true))
 		r.emit(agentloop.TerminalEvent(r.taskID, r.runID, nexusv1.TaskState_TASK_STATE_SUCCEEDED, strings.TrimSpace(r.lastMessage), "", cost))
 	default:
@@ -423,6 +451,7 @@ type legacyMsg struct {
 		Arguments json.RawMessage `json:"arguments"`
 	} `json:"invocation"`
 	Result       json.RawMessage `json:"result"`
+	Model        string          `json:"model"` // session_configured
 	InputTokens  int64           `json:"input_tokens"`
 	OutputTokens int64           `json:"output_tokens"`
 	Info         *struct {
@@ -437,6 +466,11 @@ func (r *run) handleLegacy(raw json.RawMessage) {
 		return
 	}
 	switch m.Type {
+	case "session_configured":
+		if m.Model != "" && m.Model != r.model {
+			r.announced = false
+			r.announceModel(m.Model)
+		}
 	case "agent_message":
 		if m.Message != "" {
 			r.lastMessage = m.Message

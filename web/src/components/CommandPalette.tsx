@@ -112,7 +112,7 @@ function PaletteBody({ close }: { close: () => void }) {
   const ask = (prompt: string, agentId?: string) => () => {
     close();
     navigate("/chat");
-    void send(prompt, agentId ? { agentId } : undefined);
+    void send(prompt, agentId ? { agentId, source: "command-bar" } : { source: "command-bar" });
   };
 
   const cmds = useMemo<Cmd[]>(() => {

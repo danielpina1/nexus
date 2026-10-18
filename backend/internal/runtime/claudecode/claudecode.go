@@ -3,8 +3,13 @@
 // JSON in and out,
 //
 //	claude -p --output-format stream-json --input-format stream-json --verbose \
-//	  [--model M] [--permission-mode P] [--mcp-config F…] \
-//	  [--append-system-prompt <agent instructions>] [extra args…]
+//	  --include-partial-messages [--model M] [--permission-mode P] [--mcp-config F…] \
+//	  [--append-system-prompt <agent instructions + RunNote>] \
+//	  [--allowedTools …] --disallowedTools <…,Task,Agent,BashOutput,KillShell,KillBash> \
+//	  [--strict-mcp-config --resume <session>  (chat runs)] [extra args…]
+//
+// Chat sessions, token streaming, model announcement, AskUserQuestion and
+// the no-background-work rules are described in chat.go.
 //
 // in the run's workdir (or a per-agent / allowed repo dir). The prompt is
 // written to stdin as a stream-json user message and stdin stays open so Send
@@ -13,8 +18,9 @@
 //
 // Event mapping (stdout JSON lines):
 //
-//	system/init                 → recorded (session id, model); no event
-//	assistant text blocks       → RunOutput
+//	system/init                 → CostRecorded{model, runtime} (zero; names the model)
+//	stream_event text deltas    → RunOutput (coalesced; see chat.go)
+//	assistant text blocks       → RunOutput (minus what was streamed)
 //	assistant tool_use blocks   → ToolCall (action class from the tool name)
 //	user tool_result blocks     → ToolResult (content as {"content": text})
 //	result                      → CostRecorded (total_cost_usd, usage),
@@ -139,6 +145,10 @@ type Config struct {
 	// ChatSessions (default true) resumes one Claude Code session per chat
 	// conversation (see chat.go).
 	ChatSessions *bool `yaml:"chat_sessions"`
+	// ChatStrictMCP (default true) adds --strict-mcp-config to chat runs:
+	// only the Nexus bridge (and mcp_config) is loaded, not the MCP servers
+	// of the user's own Claude Code config, for a faster start.
+	ChatStrictMCP *bool `yaml:"chat_strict_mcp"`
 }
 
 // DefaultMaxConcurrent is the default per-node limit of claude runs.
@@ -319,6 +329,13 @@ func (r *Runtime) Start(ctx context.Context, spec kernel.RunSpec) (kernel.Run, e
 // conversation's session, and the chat prompt (history only for a fresh
 // session). See chat.go.
 func (r *Runtime) chatSetup(run *run, a *nexusv1.RunAssignment, spec kernel.RunSpec, dir string, args []string) (string, []string, string) {
+	insert := func(extra ...string) { // before the operator's extra args
+		n := len(args) - len(r.cfg.Args)
+		args = append(append(append([]string(nil), args[:n]...), extra...), args[n:]...)
+	}
+	if (r.cfg.ChatStrictMCP == nil || *r.cfg.ChatStrictMCP) && contains(args, "--mcp-config") {
+		insert("--strict-mcp-config")
+	}
 	conv := chatsession.ConversationID(a)
 	if conv == "" || (r.cfg.ChatSessions != nil && !*r.cfg.ChatSessions) {
 		return dir, args, chatsession.Prompt(a, nil)
@@ -340,9 +357,7 @@ func (r *Runtime) chatSetup(run *run, a *nexusv1.RunAssignment, spec kernel.RunS
 	c.dir = dir
 	if e.SessionID != "" && (e.Dir == "" || e.Dir == dir) {
 		c.resumed = true
-		// Before the operator's extra args, like the agent settings.
-		n := len(args) - len(r.cfg.Args)
-		args = append(append(append([]string(nil), args[:n]...), "--resume", e.SessionID), args[n:]...)
+		insert("--resume", e.SessionID)
 		return dir, args, chatsession.Prompt(a, nil)
 	}
 	return dir, args, chatsession.Prompt(a, e.Turns)
@@ -376,7 +391,7 @@ func (r *Runtime) startBridge(run *run, spec kernel.RunSpec, extra map[string]an
 		Tools: spec.Tools, Gate: run.gate, Permission: true, Classify: PermissionClass, Who: who,
 		Intercept: run.interceptPermission, Describe: DescribePermission,
 		PayloadExtra: extra,
-		TaskID: a.GetTaskId(), RunID: a.GetRunId(), AgentID: a.GetAgent().GetId(), NodeID: spec.Env["NEXUS_NODE_ID"],
+		TaskID:       a.GetTaskId(), RunID: a.GetRunId(), AgentID: a.GetAgent().GetId(), NodeID: spec.Env["NEXUS_NODE_ID"],
 		Log: run.log,
 	})
 	if err != nil {

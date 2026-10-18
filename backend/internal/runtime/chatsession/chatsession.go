@@ -231,6 +231,9 @@ func Dir(dataDir, runtime, agentID string) (string, error) {
 	if safe == "" {
 		safe = "agent"
 	}
-	d := filepath.Join(dataDir, "chat", runtime, safe)
+	d, err := filepath.Abs(filepath.Join(dataDir, "chat", runtime, safe))
+	if err != nil {
+		return "", err
+	}
 	return d, os.MkdirAll(d, 0o700)
 }
