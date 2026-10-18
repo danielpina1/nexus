@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Code, ConnectError } from "@connectrpc/connect";
-import type { Event } from "../gen/nexus/v1/event_pb";
+import { TeamEventKind, type Event } from "../gen/nexus/v1/event_pb";
 import { TaskState } from "../gen/nexus/v1/task_pb";
 import { api, hubBaseUrl, isMock } from "./api";
 import { getSettings } from "./settings";
@@ -95,6 +95,17 @@ function invalidateFromEvents(batch: Event[]) {
       pendingKeys.set(`node:${b.value.nodeId}`, ["node", b.value.nodeId]);
     } else if (b.case === "notice") {
       pendingKeys.set("devices", ["devices"]);
+      // Architect progress: notices carry data.draft_id.
+      const draftId = b.value.data?.draft_id;
+      if (typeof draftId === "string" && draftId) {
+        pendingKeys.set(`draft:${draftId}`, ["draft", draftId]);
+        pendingKeys.set("drafts", ["drafts"]);
+      }
+    } else if (b.case === "team") {
+      // The run's blackboard / messages / totals live behind GetTeamRun; tasks come from the stream.
+      const root = b.value.rootTaskId || ev.taskId;
+      if (root) pendingKeys.set(`team-run:${root}`, ["team-run", root]);
+      if (b.value.kind === TeamEventKind.STARTED || b.value.kind === TeamEventKind.FINISHED) pendingKeys.set("team-runs", ["team-runs"]);
     }
   }
   if (pendingKeys.size && !invalidateTimer) {
@@ -329,8 +340,20 @@ if (typeof window !== "undefined") {
  * timelines dedupe by seq.
  */
 export function useTaskHistory(taskId: string | undefined) {
+  useHistory(taskId, (id) => ({ taskIds: [id] }));
+}
+
+/**
+ * Whole-tree history (team runs): subscribes with root_task_ids=[root] from seq 0 while mounted, so
+ * every member task, its timeline and the TeamEvents on the root land in the shared store.
+ */
+export function useTreeHistory(rootId: string | undefined) {
+  useHistory(rootId, (id) => ({ rootTaskIds: [id] }));
+}
+
+function useHistory(key: string | undefined, filter: (key: string) => { taskIds?: string[]; rootTaskIds?: string[] }) {
   useEffect(() => {
-    if (!taskId) return;
+    if (!key) return;
     const ac = new AbortController();
     let pending: Event[] = [];
     let scheduled = false;
@@ -339,7 +362,10 @@ export function useTaskHistory(taskId: string | undefined) {
       scheduled = false;
       const batch = pending;
       pending = [];
-      if (batch.length) useEvents.getState().ingest(batch, { global: false });
+      if (batch.length) {
+        useEvents.getState().ingest(batch, { global: false });
+        invalidateFromEvents(batch);
+      }
     };
     const schedule = () => {
       if (scheduled) return;
@@ -355,7 +381,7 @@ export function useTaskHistory(taskId: string | undefined) {
       let since = 0n;
       while (!ac.signal.aborted) {
         try {
-          const stream = api().events.subscribe({ sinceSeq: since, taskIds: [taskId] }, { signal: ac.signal });
+          const stream = api().events.subscribe({ sinceSeq: since, ...filter(key) }, { signal: ac.signal });
           for await (const res of stream) {
             failures = 0;
             if (res.event) {
@@ -376,7 +402,8 @@ export function useTaskHistory(taskId: string | undefined) {
       ac.abort();
       flushLocal();
     };
-  }, [taskId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the filter is derived from the key
+  }, [key]);
 }
 
 export function connectionLabel(): string {

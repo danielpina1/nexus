@@ -4,7 +4,8 @@
 //   node web/e2e/smoke.mjs https://127.0.0.1:7701 <token>     (or: cd web && npm run e2e -- <url> <token>)
 //
 // Flow: Connect screen → token → Home → Chat "@echo … ?approve" → approve from Inbox → run succeeds
-// → task page + event timeline → Vault search + note → Machines + file browser → ⌘K palette.
+// → task page + event timeline → Vault search + note → Machines + file browser → Teams (validate,
+// run, live tree, cancel) → Agent Architect → ⌘K palette.
 //
 // Needs Playwright once:  npm i --no-save playwright@1.56.1 && npx playwright install chromium
 // (or set E2E_CHANNEL=chrome to drive the installed Google Chrome instead of downloading Chromium).
@@ -172,6 +173,58 @@ await step("Machines: node online, files browsable", async () => {
   await page.getByTestId("file-row").first().waitFor({ timeout: 15_000 });
 });
 
+let teamRunUrl = "";
+await step("Teams: list, detail and live validation", async () => {
+  await go("/teams");
+  const card = page.getByTestId("team-card-link").first();
+  await card.waitFor({ timeout: 15_000 });
+  await card.click();
+  await page.waitForURL(/\/teams\/[^/]+$/);
+  await page.getByText("Run this team").waitFor({ timeout: 10_000 });
+  await page.getByRole("tab", { name: "Edit" }).click();
+  const md = page.getByTestId("team-markdown");
+  await md.waitFor();
+  await page.getByText(/^\s*Valid\b/).first().waitFor({ timeout: 10_000 });
+  // Break the strategy: UpsertTeam{validate_only} reports it and Save is disabled.
+  const text = await md.inputValue();
+  await md.fill(text.replace(/^strategy:.*$/m, "strategy: nonsense"));
+  await page.getByText(/problems? — fix before saving/).waitFor({ timeout: 10_000 });
+  if (!(await page.getByTestId("team-save").isDisabled())) throw new Error("Save should be disabled while invalid");
+});
+
+await step("Teams: start a run, see the live tree, cancel it", async () => {
+  await page.getByRole("tab", { name: "Overview" }).click();
+  await page.getByTestId("team-run-prompt").fill(`smoke team ${Date.now().toString(36)}: one short sentence about the sea`);
+  await page.getByTestId("team-run-submit").click();
+  await page.waitForURL(/\/teams\/runs\/tsk_/, { timeout: 15_000 });
+  teamRunUrl = page.url();
+  await page.getByTestId("team-tree-node").first().waitFor({ timeout: 15_000 });
+  await page.getByText("Totals against limits").count();
+  const cancel = page.getByTestId("team-run-cancel");
+  if (await cancel.count()) {
+    await cancel.click();
+    await page.getByRole("button", { name: "Confirm cancel" }).click();
+    await page.getByText(/Cancelled|Failed|Succeeded/).first().waitFor({ timeout: 20_000 });
+  }
+});
+
+await step("Architect: start screen and draft list", async () => {
+  await go("/architect");
+  await page.getByTestId("architect-request").waitFor({ timeout: 10_000 });
+  await page.getByText("Drafts", { exact: true }).waitFor();
+  // The list resolves to rows or the empty state (no endless skeleton).
+  await page.getByTestId("draft-row").or(page.getByText(/No open drafts|No drafts yet/)).first().waitFor({ timeout: 10_000 });
+});
+
+await step("⌘K offers “Create an agent…”", async () => {
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+k" : "Control+k");
+  const input = page.getByTestId("palette-input");
+  await input.waitFor({ timeout: 5_000 });
+  await input.fill("create an agent");
+  await page.getByRole("option", { name: /Create an agent/ }).first().waitFor({ timeout: 5_000 });
+  await page.keyboard.press("Escape");
+});
+
 await step("⌘K palette jumps to Inbox", async () => {
   await go("/");
   await page.getByRole("heading", { name: /^Good/ }).waitFor();
@@ -218,7 +271,7 @@ await step("Offline → online catches up on missed events", async () => {
 await browser.close();
 
 const failed = results.filter((r) => !r.ok);
-console.log(`\n${results.length - failed.length}/${results.length} steps passed${taskUrl ? ` · task: ${taskUrl}` : ""}`);
+console.log(`\n${results.length - failed.length}/${results.length} steps passed${taskUrl ? ` · task: ${taskUrl}` : ""}${teamRunUrl ? ` · team run: ${teamRunUrl}` : ""}`);
 if (consoleErrors.length) console.log(`console errors:\n  ${[...new Set(consoleErrors)].slice(0, 10).join("\n  ")}`);
 const unexpected = failedRequests.filter((r) => !/^401 /.test(r));
 if (unexpected.length) console.log(`failed requests:\n  ${[...new Set(unexpected)].slice(0, 10).join("\n  ")}`);

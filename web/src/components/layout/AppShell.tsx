@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from "react";
-import { Outlet, useLocation } from "react-router";
+import { Outlet, useLocation, useNavigate } from "react-router";
 import { Search } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { MobileTabBar } from "./MobileTabBar";
@@ -8,6 +8,7 @@ import { Logo } from "./Logo";
 import { Toaster } from "../Toaster";
 import { useGlobalShortcuts } from "../useGlobalShortcuts";
 import { useUI } from "../../lib/ui";
+import { useChat } from "../../lib/chat";
 import { useAgents, useNodes, usePendingApprovalsSeed, useTaskList } from "../../lib/queries";
 import { ConnectionIndicator } from "./ConnectionIndicator";
 import { OfflineBanner } from "./OfflineBanner";
@@ -47,6 +48,15 @@ export function AppShell() {
   const loc = useLocation();
   useEffect(() => set({ navOpen: false }), [loc.pathname, set]);
   const fullBleed = isFullBleed(loc.pathname);
+
+  // The command bar's "Create a new agent for this" answers with an architect draft: open it.
+  const navigate = useNavigate();
+  const pendingNav = useChat((s) => s.pendingNav);
+  useEffect(() => {
+    if (!pendingNav) return;
+    useChat.setState({ pendingNav: undefined });
+    navigate(pendingNav);
+  }, [pendingNav, navigate]);
 
   // Warm the primary sections' chunks once the app is idle.
   useEffect(() => {

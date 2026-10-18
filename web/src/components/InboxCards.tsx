@@ -26,6 +26,7 @@ import { useNow } from "../lib/useNow";
 import { useTask } from "../lib/selectors";
 import { Badge } from "./ui/Badge";
 import { Button } from "./ui/Button";
+import { buttonClass } from "./ui/buttonStyles";
 import { Input } from "./ui/Input";
 import { AgentIcon } from "./AgentIcon";
 import { ArtifactView } from "./Artifact";
@@ -353,10 +354,15 @@ export function NoticeCard({
               </Button>
             </>
           )}
-          {n.kind === NoticeKind.SUGGESTION && (
+          {n.kind === NoticeKind.SUGGESTION && !n.data?.draft_id && (
             <Button size="sm" variant="primary" onClick={() => dismiss([n.id])}>
               Apply
             </Button>
+          )}
+          {typeof n.data?.draft_id === "string" && n.data.draft_id && (
+            <Link to={`/architect/${n.data.draft_id}`} className={buttonClass("primary")}>
+              Open draft
+            </Link>
           )}
           {item.taskId && !compact && (
             <Link to={`/tasks/${item.taskId}`}>

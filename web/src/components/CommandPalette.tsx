@@ -16,6 +16,8 @@ import {
   Search,
   Sparkles,
   Sun,
+  Users,
+  Wand2,
   Wifi,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -23,6 +25,7 @@ import { useUI } from "../lib/ui";
 import { useChat } from "../lib/chat";
 import { useAllTasks, useInbox } from "../lib/selectors";
 import { useAgents } from "../lib/queries";
+import { useTeams } from "../lib/teams";
 import { api, isMock } from "../lib/api";
 import { useSettings } from "../lib/settings";
 import { forceReconnect, resetEventCache, stopEventStream } from "../lib/events";
@@ -83,6 +86,7 @@ function PaletteBody({ close }: { close: () => void }) {
   const tasks = useAllTasks();
   const inbox = useInbox();
   const { data: agents } = useAgents();
+  const { data: teams } = useTeams();
   const send = useChat((s) => s.send);
   const update = useSettings((s) => s.update);
   const dark = useIsDark();
@@ -153,6 +157,20 @@ function PaletteBody({ close }: { close: () => void }) {
     }
     if (text) {
       list.push({
+        id: "design",
+        group: "Actions",
+        text: `create agent design architect ${text}`,
+        label: (
+          <span>
+            Design an agent for: <span className="font-semibold">{text}</span>
+          </span>
+        ),
+        hint: "Agent Architect",
+        icon: <Wand2 className="size-4 text-accent" />,
+        run: go(`/architect?q=${encodeURIComponent(text)}`),
+        to: "/architect",
+      });
+      list.push({
         id: "ask",
         group: "Run",
         pinned: true,
@@ -209,6 +227,18 @@ function PaletteBody({ close }: { close: () => void }) {
         to: `/agents/${a.id}`,
       });
     }
+    for (const t of teams ?? []) {
+      list.push({
+        id: `team-${t.id}`,
+        group: "Teams",
+        text: `team ${t.name} ${t.id} ${t.description} ${t.triggers.join(" ")}`,
+        label: t.name || t.id,
+        hint: `${t.members.length} roles`,
+        icon: <Users className="size-4" />,
+        run: go(`/teams/${t.id}`),
+        to: `/teams/${t.id}`,
+      });
+    }
     for (const h of notes.data ?? []) {
       if (!h.note) continue;
       list.push({
@@ -225,6 +255,8 @@ function PaletteBody({ close }: { close: () => void }) {
     }
     const action = (id: string, label: string, keywords: string, icon: ReactNode, run: () => void, hint?: ReactNode): Cmd => ({ id, group: "Actions", text: `${label} ${keywords}`, label, icon, run, hint });
     list.push(
+      action("create-agent", "Create an agent…", "new agent architect design build make create team workflow", <Wand2 className="size-4 text-accent" />, go("/architect")),
+      action("create-team", "Create a team…", "new team swarm orchestrator members", <Users className="size-4" />, go("/teams/new")),
       action("theme", dark ? "Switch to light theme" : "Switch to dark theme", "theme dark light appearance", dark ? <Sun className="size-4" /> : <Moon className="size-4" />, () => {
         update({ theme: dark ? "light" : "dark" });
         close();
@@ -264,7 +296,7 @@ function PaletteBody({ close }: { close: () => void }) {
     }
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text, agents, tasks, inbox, notes.data, dark, mentionAgent?.id]);
+  }, [text, agents, teams, tasks, inbox, notes.data, dark, mentionAgent?.id]);
 
   const filtered = useMemo(() => {
     if (mention) return cmds.slice().sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
@@ -277,7 +309,7 @@ function PaletteBody({ close }: { close: () => void }) {
         ...cmds.filter((c) => c.group === "Actions").slice(0, 4),
       ];
     }
-    const order = ["Run", "Needs you", "Go to", "Tasks", "Agents", "Knowledge", "Actions"];
+    const order = ["Run", "Needs you", "Go to", "Tasks", "Agents", "Teams", "Knowledge", "Actions"];
     const scored = cmds
       .map((c) => ({ ...c, score: c.pinned ? 1 : fuzzyScore(c.text, text) }))
       .filter((c) => (c.score ?? 0) > 0);

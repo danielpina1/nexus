@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
-import { AlertCircle, ArrowRight, BookOpen, Compass, PanelRight, Sparkles, Trash2 } from "lucide-react";
+import { AlertCircle, ArrowRight, BookOpen, Compass, PanelRight, Sparkles, Trash2, Wand2 } from "lucide-react";
 import { useChat, type ChatMessage } from "../lib/chat";
 import { useTask, useTimeline } from "../lib/selectors";
 import { CommandKind } from "../gen/nexus/v1/command_pb";
@@ -114,6 +114,18 @@ function Message({ m, activeTaskId, retryInput }: { m: ChatMessage; activeTaskId
             )}
           </div>
         ) : null}
+        {m.draftId && (
+          <Link
+            to={`/architect/${m.draftId}`}
+            className="mt-1 flex w-full items-center gap-2.5 rounded-xl border border-border bg-surface px-3 py-2 text-left transition-colors hover:border-border-strong"
+          >
+            <span className="flex size-6 items-center justify-center rounded-md bg-accent-soft text-accent" aria-hidden>
+              <Wand2 className="size-3.5" />
+            </span>
+            <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-fg">Open the agent draft</span>
+            <ArrowRight className="size-3.5 text-muted" aria-hidden />
+          </Link>
+        )}
         {m.taskId && <TaskChip taskId={m.taskId} active={m.taskId === activeTaskId} onClick={() => setActive(m.taskId)} />}
       </div>
     </div>
