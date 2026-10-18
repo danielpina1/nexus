@@ -5,9 +5,7 @@ import { Sidebar } from "./Sidebar";
 import { MobileTabBar } from "./MobileTabBar";
 import { SectionTabs } from "./SectionTabs";
 import { Logo } from "./Logo";
-import { CommandPalette } from "../CommandPalette";
 import { Toaster } from "../Toaster";
-import { ShortcutsDialog } from "../Shortcuts";
 import { useGlobalShortcuts } from "../useGlobalShortcuts";
 import { useUI } from "../../lib/ui";
 import { useAgents, useNodes, usePendingApprovalsSeed, useTaskList } from "../../lib/queries";
@@ -18,6 +16,9 @@ import { Skeleton } from "../ui/Skeleton";
 import { isFullBleed, prefetchPath, SECTIONS } from "../../app/registry";
 
 const PerfHUD = lazy(() => import("../PerfHUD"));
+const loadPalette = () => import("../CommandPalette");
+const CommandPalette = lazy(() => loadPalette().then((m) => ({ default: m.CommandPalette })));
+const ShortcutsDialog = lazy(() => import("../Shortcuts").then((m) => ({ default: m.ShortcutsDialog })));
 
 function PageFallback() {
   return (
@@ -41,6 +42,8 @@ export function AppShell() {
   const set = useUI((s) => s.set);
   const openPalette = useUI((s) => s.openPalette);
   const perfOpen = useUI((s) => s.perfOpen);
+  const paletteOpen = useUI((s) => s.paletteOpen);
+  const shortcutsOpen = useUI((s) => s.shortcutsOpen);
   const loc = useLocation();
   useEffect(() => set({ navOpen: false }), [loc.pathname, set]);
   const fullBleed = isFullBleed(loc.pathname);
@@ -50,17 +53,21 @@ export function AppShell() {
     const idle = (window as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 1500));
     idle(() => {
       for (const s of SECTIONS) prefetchPath(s.to);
+      void loadPalette();
     });
   }, []);
 
   return (
     <div className="flex h-dvh overflow-hidden bg-bg">
-      <aside className="hidden w-[232px] shrink-0 border-r border-border bg-bg lg:block">
+      <a href="#main" className="sr-only z-[80] rounded-lg bg-primary px-3 py-2 text-primary-fg focus:not-sr-only focus:fixed focus:top-3 focus:left-3">
+        Skip to content
+      </a>
+      <aside className="glass hidden w-[232px] shrink-0 border-r lg:block">
         <Sidebar />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-12 shrink-0 items-center gap-1 border-b border-border bg-bg/90 px-3 pt-[env(safe-area-inset-top)] backdrop-blur lg:hidden">
+        <header className="glass sticky top-0 z-20 flex h-12 shrink-0 items-center gap-1 border-b px-3 pt-[env(safe-area-inset-top)] lg:hidden">
           <Logo />
           <div className="flex-1" />
           <ConnectionIndicator compact />
@@ -71,6 +78,7 @@ export function AppShell() {
         <OfflineBanner />
         <main
           id="main"
+          tabIndex={-1}
           className={cx(
             "min-h-0 flex-1",
             fullBleed ? "overflow-hidden pb-[calc(56px+env(safe-area-inset-bottom))] lg:pb-0" : "overflow-y-auto scrollbar-thin",
@@ -93,8 +101,16 @@ export function AppShell() {
       </div>
 
       <MobileTabBar />
-      <CommandPalette />
-      <ShortcutsDialog />
+      {paletteOpen && (
+        <Suspense fallback={null}>
+          <CommandPalette />
+        </Suspense>
+      )}
+      {shortcutsOpen && (
+        <Suspense fallback={null}>
+          <ShortcutsDialog />
+        </Suspense>
+      )}
       <Toaster />
       {perfOpen && (
         <Suspense fallback={null}>

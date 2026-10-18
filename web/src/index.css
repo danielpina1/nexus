@@ -30,6 +30,10 @@
   --color-info-soft: var(--info-soft);
   --color-ring: var(--ring);
   --color-overlay: var(--overlay);
+  --color-border-input: var(--border-input);
+  --color-glass: var(--glass);
+  --color-glass-border: var(--glass-border);
+  --font-heading: var(--font-heading-stack);
   --font-sans: var(--font-sans-stack);
   --font-mono: var(--font-mono-stack);
   --shadow-card: var(--shadow);
@@ -58,10 +62,17 @@
   ::after {
     border-color: var(--border);
   }
+  /* One visible focus ring for every interactive element: 2px primary, offset. */
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
-    border-radius: 4px;
+  }
+  h1,
+  h2,
+  h3,
+  .font-heading {
+    font-family: var(--font-heading);
+    letter-spacing: -0.01em;
   }
   ::selection {
     background: var(--accent-soft);
@@ -69,6 +80,20 @@
 }
 
 @layer utilities {
+  /* Subtle glass for chrome only (sidebar, bars, palette, dialogs). Solid when the user asks for less transparency. */
+  .glass {
+    background-color: var(--glass);
+    -webkit-backdrop-filter: saturate(160%) blur(16px);
+    backdrop-filter: saturate(160%) blur(16px);
+    border-color: var(--glass-border);
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .glass {
+      background-color: var(--surface);
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: var(--border-strong) transparent;
@@ -96,6 +121,13 @@
 }
 .animate-fade-up {
   animation: fade-up 220ms var(--ease-out) both;
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fade-in 160ms var(--ease-out) both;
 }
 @keyframes sheet-up {
   from { transform: translateY(100%); }

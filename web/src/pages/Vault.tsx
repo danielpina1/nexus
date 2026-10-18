@@ -76,7 +76,7 @@ function NoteList({ refs, selected, onSelect }: { refs: NoteRef[]; selected?: st
                 <button
                   key={r.id}
                   onClick={() => onSelect(r.id)}
-                  className={cx("flex w-full items-center gap-2 py-1.5 pr-3 pl-8 text-left text-[13px]", selected === r.id ? "bg-accent-soft text-fg" : "text-fg-2 hover:bg-surface-2")}
+                  className={cx("flex min-h-8 w-full items-center gap-2 py-1.5 pr-3 pl-8 text-left text-[13.5px] pointer-coarse:min-h-11", selected === r.id ? "bg-accent-soft text-fg" : "text-fg-2 hover:bg-surface-2")}
                 >
                   <span className="truncate">{r.title || r.path}</span>
                 </button>
@@ -191,10 +191,62 @@ function NoteView({ noteKey, known, onOpen }: { noteKey: string; known: Set<stri
   );
 }
 
+/** Landing view: the most connected notes, a calm way into the vault. */
+function Hubs({ refs, edges, loading, onOpen }: { refs: NoteRef[]; edges: Array<{ sourceId: string; targetId: string }>; loading: boolean; onOpen: (id: string) => void }) {
+  const top = useMemo(() => {
+    const deg = new Map<string, number>();
+    for (const e of edges) {
+      deg.set(e.sourceId, (deg.get(e.sourceId) ?? 0) + 1);
+      deg.set(e.targetId, (deg.get(e.targetId) ?? 0) + 1);
+    }
+    return refs
+      .filter((r) => !r.path.startsWith("templates/") && !r.path.startsWith("policies/"))
+      .map((r) => ({ r, d: deg.get(r.id) ?? 0 }))
+      .sort((a, b) => b.d - a.d || a.r.title.localeCompare(b.r.title))
+      .slice(0, 12);
+  }, [refs, edges]);
+  if (loading)
+    return (
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 6 }, (_, i) => (
+          <Skeleton key={i} className="h-[72px]" />
+        ))}
+      </div>
+    );
+  if (top.length === 0)
+    return (
+      <Card>
+        <EmptyState icon={<FileText />} title="Your vault is empty" body="Notes you and your agents write show up here." />
+      </Card>
+    );
+  return (
+    <div>
+      <div className="mb-3 text-[13px] font-medium text-muted">Most connected</div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {top.map(({ r, d }) => (
+          <button
+            key={r.id}
+            onClick={() => onOpen(r.id)}
+            className="flex min-h-[72px] flex-col items-start justify-center rounded-xl border border-border bg-surface px-4 py-3 text-left shadow-card transition-colors duration-150 hover:border-border-strong"
+          >
+            <span className="flex w-full items-center gap-2">
+              <span className="size-2 shrink-0 rounded-full" style={{ background: groupColor(noteGroup(r.path)) }} aria-hidden />
+              <span className="truncate text-[14px] font-medium text-fg">{r.title || r.path}</span>
+            </span>
+            <span className="mt-1 truncate pl-4 text-xs text-muted">
+              {noteGroup(r.path)} · {d} link{d === 1 ? "" : "s"}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Vault() {
   const [params, setParams] = useSearchParams();
   const noteKey = params.get("note") ?? "";
-  const view = (params.get("view") as "note" | "graph") || (noteKey ? "note" : "graph");
+  const view = (params.get("view") as "note" | "graph") || "note";
   const [query, setQuery] = useState("");
   const dq = useDebounced(query.trim(), 200);
   const [hidden, setHidden] = useState<Set<string>>(new Set(["template", "policy"]));
@@ -234,16 +286,15 @@ export default function Vault() {
   return (
     <div>
       <PageHeader
-        icon={<Network />}
-        title="Vault"
-        subtitle={`${refs.length} notes · ${graph.data?.edges.length ?? 0} links`}
+        title="Knowledge"
+        subtitle={graph.data ? `Your vault · ${refs.length} notes · ${graph.data.edges.length} links` : "Your vault"}
         actions={
           <Tabs<"note" | "graph">
             value={view}
             onChange={setView}
             items={[
+              { id: "note", label: "Notes" },
               { id: "graph", label: "Graph" },
-              { id: "note", label: "Note" },
             ]}
           />
         }
@@ -253,7 +304,7 @@ export default function Vault() {
           <div className="border-b border-border p-2.5">
             <div className="relative">
               <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted" />
-              <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search the vault…" className="pr-8 pl-8" />
+              <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search the vault…" aria-label="Search the vault" className="pr-8 pl-8 pointer-coarse:h-11" />
               {query && (
                 <button onClick={() => setQuery("")} className="absolute top-1/2 right-2 -translate-y-1/2 text-muted hover:text-fg" aria-label="Clear">
                   <X className="size-3.5" />
@@ -316,15 +367,13 @@ export default function Vault() {
           ) : noteKey ? (
             <NoteView key={noteKey} noteKey={noteKey} known={known} onOpen={open} />
           ) : (
-            <Card>
-              <EmptyState icon={<FileText />} title="Pick a note" body="Search or choose a note from the list, or explore the graph." />
-            </Card>
+            <Hubs refs={refs} edges={graph.data?.edges ?? []} loading={graph.isLoading} onOpen={open} />
           )}
         </div>
       </div>
-      <div className="mt-4 text-xs text-muted">
-        Notes are plain Markdown in your vault (git). <Link to="/agents" className="text-accent hover:underline">Agents</Link> are notes too.
-      </div>
+      <p className="mt-6 text-xs text-muted">
+        Notes are plain Markdown in your vault. <Link to="/agents" className="text-accent hover:underline">Agents</Link> are notes too.
+      </p>
     </div>
   );
 }

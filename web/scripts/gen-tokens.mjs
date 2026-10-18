@@ -31,6 +31,7 @@ function vars(mode) {
 const shared = [];
 shared.push(`  --font-sans-stack: ${t.font.sans.web};`);
 shared.push(`  --font-mono-stack: ${t.font.mono.web};`);
+shared.push(`  --font-heading-stack: ${t.font.heading.web};`);
 for (const [k, v] of Object.entries(t.radius)) shared.push(`  --radius-${k}: ${px(v)};`);
 for (const [k, v] of Object.entries(t.motion.duration)) shared.push(`  --dur-${k}: ${ms(v)};`);
 for (const [k, v] of Object.entries(t.motion.easing)) shared.push(`  --ease-${k}: ${v};`);
@@ -55,6 +56,7 @@ ${vars("dark")}
 
 // ---- contrast check ----
 function lum(hex) {
+  hex = hex.slice(0, 7);
   const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
   return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
 }
@@ -67,6 +69,9 @@ const pairs = [
   ["primary-fg", "primary", 4.5], ["accent", "surface", 4.5], ["ok", "surface", 3], ["warn", "surface", 3],
   ["danger", "surface", 3], ["info", "surface", 3], ["ok", "ok-soft", 4.5], ["warn", "warn-soft", 4.5],
   ["danger", "danger-soft", 4.5], ["info", "info-soft", 4.5], ["accent", "accent-soft", 4.5],
+  // Non-text contrast (WCAG 1.4.11): control boundaries and the focus ring.
+  ["border-input", "surface", 3], ["border-input", "bg", 3], ["ring", "bg", 3], ["ring", "surface", 3],
+  ["muted", "surface-2", 4.5], ["fg-2", "surface-2", 4.5],
 ];
 let bad = 0;
 const report = [];

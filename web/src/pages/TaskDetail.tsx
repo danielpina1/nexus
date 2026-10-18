@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { VirtualList } from "../components/VirtualList";
 import { Link, useNavigate, useParams } from "react-router";
-import { ArrowLeft, ArrowUpCircle, ChevronRight, Copy, OctagonX, RotateCcw, Smartphone } from "lucide-react";
-import { useCancelTask, useEscalateTask, useRetryTask, useTaskQuery } from "../lib/queries";
+import { ArrowLeft, ArrowUpCircle, ChevronRight, Copy, RotateCcw, Smartphone } from "lucide-react";
+import { useEscalateTask, useRetryTask, useTaskQuery } from "../lib/queries";
 import { useTask, useTimeline, useRunSummary } from "../lib/selectors";
-import { useEvents } from "../lib/store";
+import { throughSeq, useEvents } from "../lib/store";
 import { api } from "../lib/api";
 import { toast } from "../lib/toast";
 import { RunView } from "../components/RunView";
@@ -16,7 +17,20 @@ import { ErrorState } from "../components/ui/ErrorState";
 import { AgentIcon } from "../components/AgentIcon";
 import { StateBadge, StateIcon } from "../components/StateBadge";
 import { agentName, useAgentMap } from "../components/agentMeta";
-import { costMinor, cx, formatClock, formatDateTime, formatMoney, formatTokens, isActive, shortId, taskStateLabel, tierLabel, tsDate, tsMs } from "../lib/format";
+import {
+  costMinor,
+  cx,
+  formatClock,
+  formatDateTime,
+  formatMoney,
+  formatTokens,
+  isActive,
+  shortId,
+  taskStateLabel,
+  tierLabel,
+  tsDate,
+  tsMs,
+} from "../lib/format";
 import type { Event } from "../gen/nexus/v1/event_pb";
 import type { Task } from "../gen/nexus/v1/task_pb";
 import { toJson } from "@bufbuild/protobuf";
@@ -27,18 +41,28 @@ function eventSummary(e: Event): { kind: string; text: string; tone?: string } {
   switch (b.case) {
     case "taskUpdated":
       return { kind: "state", text: b.value.task ? taskStateLabel[b.value.task.state] + (b.value.task.nodeId ? ` · ${b.value.task.nodeId}` : "") : "" };
-    case "runOutput":
-      return { kind: "output", text: b.value.text.replace(/\s+/g, " ").trim() || "(whitespace)" };
+    case "runOutput": {
+      const through = throughSeq(e);
+      const span = through > e.seq ? ` (${(through - e.seq + 1n).toString()} chunks)` : "";
+      return { kind: "output", text: (b.value.text.replace(/\s+/g, " ").trim().slice(0, 300) || "(whitespace)") + span };
+    }
     case "toolCall":
       return { kind: "tool", text: `${b.value.tool} ${JSON.stringify(b.value.input ?? {})}`, tone: "text-info" };
     case "toolResult":
-      return { kind: "result", text: b.value.error || `${b.value.durationMs}ms ${JSON.stringify(b.value.output ?? {})}`, tone: b.value.error ? "text-danger" : undefined };
+      return {
+        kind: "result",
+        text: b.value.error || `${b.value.durationMs}ms ${JSON.stringify(b.value.output ?? {})}`,
+        tone: b.value.error ? "text-danger" : undefined,
+      };
     case "question":
       return { kind: "question", text: b.value.text, tone: "text-warn" };
     case "approval":
       return { kind: "approval", text: `${b.value.title} — ${["", "pending", "approved", "denied", "expired"][b.value.state]}`, tone: "text-warn" };
     case "cost":
-      return { kind: "cost", text: `${formatMoney(Number(b.value.cost?.amount?.minorUnits ?? 0n))} · ${formatTokens(b.value.cost?.inputTokens ?? 0n)} in / ${formatTokens(b.value.cost?.outputTokens ?? 0n)} out · ${b.value.cost?.model}` };
+      return {
+        kind: "cost",
+        text: `${formatMoney(Number(b.value.cost?.amount?.minorUnits ?? 0n))} · ${formatTokens(b.value.cost?.inputTokens ?? 0n)} in / ${formatTokens(b.value.cost?.outputTokens ?? 0n)} out · ${b.value.cost?.model}`,
+      };
     case "artifact":
       return { kind: "artifact", text: b.value.attachment?.name ?? "" };
     case "notice":
@@ -55,7 +79,8 @@ function eventSummary(e: Event): { kind: string; text: string; tone?: string } {
 function EventTimeline({ events }: { events: Event[] }) {
   const [open, setOpen] = useState<bigint | null>(null);
   const [hideOutput, setHideOutput] = useState(false);
-  const list = hideOutput ? events.filter((e) => e.body.case !== "runOutput") : events;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const list = useMemo(() => (hideOutput ? events.filter((e) => e.body.case !== "runOutput") : events), [events, hideOutput]);
   return (
     <div>
       <div className="flex items-center gap-2 border-b border-border px-4 py-2 text-xs text-muted">
@@ -66,28 +91,39 @@ function EventTimeline({ events }: { events: Event[] }) {
           Hide output chunks
         </label>
       </div>
-      <div className="max-h-[70vh] overflow-y-auto font-mono text-[11.5px] scrollbar-thin">
-        {list.map((e) => {
-          const s = eventSummary(e);
-          const isOpen = open === e.seq;
-          return (
-            <div key={e.seq.toString()} className="border-b border-border/60 last:border-0">
-              <button onClick={() => setOpen(isOpen ? null : e.seq)} className="flex w-full items-center gap-3 px-4 py-1.5 text-left hover:bg-surface-2">
-                <ChevronRight className={cx("size-3 shrink-0 text-muted transition-transform", isOpen && "rotate-90")} />
-                <span className="w-14 shrink-0 text-muted tabular">#{e.seq.toString()}</span>
-                <span className="hidden w-16 shrink-0 text-muted tabular sm:block">{formatClock(tsDate(e.at))}</span>
-                <span className="w-16 shrink-0 font-semibold text-fg-2">{s.kind}</span>
-                <span className={cx("min-w-0 flex-1 truncate text-fg-2", s.tone)}>{s.text}</span>
-                <span className="hidden shrink-0 text-muted md:block">{e.actor}</span>
-              </button>
-              {isOpen && (
-                <pre className="mx-4 mb-2 max-h-72 overflow-auto rounded-md bg-surface-2 p-2.5 text-fg-2 scrollbar-thin">
-                  {JSON.stringify(toJson(EventSchema, e), null, 2)}
-                </pre>
-              )}
-            </div>
-          );
-        })}
+      <div ref={scrollRef} className="max-h-[70vh] overflow-y-auto font-mono text-[12px] scrollbar-thin">
+        <VirtualList
+          items={list}
+          scrollRef={scrollRef}
+          estimate={31}
+          threshold={150}
+          getKey={(e) => e.seq.toString()}
+          render={(e) => {
+            const s = eventSummary(e);
+            const isOpen = open === e.seq;
+            return (
+              <div className="border-b border-border/60">
+                <button
+                  onClick={() => setOpen(isOpen ? null : e.seq)}
+                  aria-expanded={isOpen}
+                  className="flex min-h-[30px] w-full items-center gap-3 px-4 py-1.5 text-left hover:bg-surface-2"
+                >
+                  <ChevronRight className={cx("size-3 shrink-0 text-muted transition-transform", isOpen && "rotate-90")} />
+                  <span className="w-14 shrink-0 text-muted tabular">#{e.seq.toString()}</span>
+                  <span className="hidden w-16 shrink-0 text-muted tabular sm:block">{formatClock(tsDate(e.at))}</span>
+                  <span className="w-16 shrink-0 font-semibold text-fg-2">{s.kind}</span>
+                  <span className={cx("min-w-0 flex-1 truncate text-fg-2", s.tone)}>{s.text}</span>
+                  <span className="hidden shrink-0 text-muted md:block">{e.actor}</span>
+                </button>
+                {isOpen && (
+                  <pre className="mx-4 mb-2 max-h-72 overflow-auto rounded-md bg-surface-2 p-2.5 text-fg-2 scrollbar-thin">
+                    {JSON.stringify(toJson(EventSchema, e), null, 2)}
+                  </pre>
+                )}
+              </div>
+            );
+          }}
+        />
       </div>
     </div>
   );
@@ -135,7 +171,6 @@ export default function TaskDetail() {
   const summary = useRunSummary(id);
   const agents = useAgentMap();
   const navigate = useNavigate();
-  const cancel = useCancelTask();
   const escalate = useEscalateTask();
   const retry = useRetryTask();
   const [tab, setTab] = useState<"run" | "events">("run");
@@ -158,13 +193,16 @@ export default function TaskDetail() {
 
   return (
     <div>
-      <button onClick={() => navigate(-1)} className="mb-3 inline-flex items-center gap-1 text-xs text-muted hover:text-fg">
-        <ArrowLeft className="size-3.5" /> Back
+      <button
+        onClick={() => (history.length > 1 ? navigate(-1) : navigate("/tasks"))}
+        className="mb-3 inline-flex min-h-8 items-center gap-1 text-[13px] text-muted hover:text-fg"
+      >
+        <ArrowLeft className="size-3.5" aria-hidden /> Back
       </button>
       <div className="mb-5 flex flex-wrap items-start gap-3">
         <AgentIcon agentId={task.agentId} workflow={!!task.workflowId} size="lg" />
         <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-semibold tracking-tight text-fg">{task.title || task.prompt}</h1>
+          <h1 className="text-[22px] leading-tight font-semibold tracking-[-0.01em] break-words text-fg">{task.title || task.prompt}</h1>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
             <StateBadge state={task.state} />
             <span>{agentName(agents, task.agentId, task.workflowId)}</span>
@@ -182,19 +220,35 @@ export default function TaskDetail() {
             </button>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button icon={<Smartphone className="size-3.5" />} onClick={() => api().tasks.followTask({ taskId: task.id }).then(() => toast.success("Following on iPhone", "A Live Activity will appear on your phone."), (e) => toast.error("Follow failed", e))}>
-            Follow on iPhone
+        <div className="flex gap-1.5">
+          <Button
+            variant="ghost"
+            icon={<Smartphone className="size-4" />}
+            aria-label="Follow on iPhone"
+            title="Follow on iPhone (Live Activity)"
+            onClick={() =>
+              api()
+                .tasks.followTask({ taskId: task.id })
+                .then(
+                  () => toast.success("Following on iPhone", "A Live Activity will appear on your phone."),
+                  (e) => toast.error("Follow failed", e),
+                )
+            }
+          >
+            <span className="hidden sm:inline">Follow</span>
           </Button>
-          <Button icon={<RotateCcw className="size-3.5" />} loading={retry.isPending} onClick={() => retry.mutate({ prompt: task.prompt, agentId: task.agentId })}>
-            Retry
+          <Button
+            variant="ghost"
+            icon={<RotateCcw className="size-4" />}
+            aria-label="Run again"
+            loading={retry.isPending}
+            onClick={() => retry.mutate({ prompt: task.prompt, agentId: task.agentId }, { onSuccess: (r) => r.task && navigate(`/tasks/${r.task.id}`) })}
+          >
+            <span className="hidden sm:inline">Run again</span>
           </Button>
-          <Button icon={<ArrowUpCircle className="size-3.5" />} loading={escalate.isPending} onClick={() => escalate.mutate({ id: task.id })}>
-            Escalate
-          </Button>
-          {active && (
-            <Button variant="danger" icon={<OctagonX className="size-3.5" />} loading={cancel.isPending} onClick={() => cancel.mutate(task.id)}>
-              Cancel
+          {!active && (
+            <Button variant="ghost" icon={<ArrowUpCircle className="size-4" />} aria-label="Try harder" title="Retry on the next tier" loading={escalate.isPending} onClick={() => escalate.mutate({ id: task.id })}>
+              <span className="hidden sm:inline">Try harder</span>
             </Button>
           )}
         </div>
@@ -241,7 +295,8 @@ export default function TaskDetail() {
             <Field label="Source">{task.source || "—"}</Field>
             <Field label="Cost">{formatMoney(cost, task.cost?.amount?.currency)}</Field>
             <Field label="Tokens">
-              {formatTokens(summary.inputTokens || Number(task.cost?.inputTokens ?? 0n))} in · {formatTokens(summary.outputTokens || Number(task.cost?.outputTokens ?? 0n))} out
+              {formatTokens(summary.inputTokens || Number(task.cost?.inputTokens ?? 0n))} in ·{" "}
+              {formatTokens(summary.outputTokens || Number(task.cost?.outputTokens ?? 0n))} out
             </Field>
             {task.cost?.model && <Field label="Model">{task.cost.model}</Field>}
             <Field label="Updated">{formatDateTime(tsDate(task.updatedAt))}</Field>

@@ -20,7 +20,7 @@ export function MobileTabBar() {
     <>
       <nav
         aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden"
+        className="glass fixed inset-x-0 bottom-0 z-20 border-t pb-[env(safe-area-inset-bottom)] lg:hidden"
       >
         <div className="mx-auto flex h-14 max-w-xl items-stretch">
           {tabs.map((s) => {
@@ -52,7 +52,7 @@ function MoreSheet({ onClose, active }: { onClose: () => void; active: string })
   return (
     <div className="fixed inset-0 z-30 lg:hidden" role="dialog" aria-modal="true" aria-label="More">
       <div className="absolute inset-0 bg-overlay" onClick={onClose} />
-      <div className="animate-sheet-up absolute inset-x-0 bottom-0 rounded-t-2xl border-t border-border bg-surface px-3 pt-2 pb-[calc(env(safe-area-inset-bottom)+12px)] shadow-pop">
+      <div className="glass animate-sheet-up absolute inset-x-0 bottom-0 rounded-t-2xl border-t px-3 pt-2 pb-[calc(env(safe-area-inset-bottom)+12px)] shadow-pop">
         <div className="mx-auto mb-2 h-1 w-9 rounded-full bg-border-strong" />
         <div className="flex items-center px-2 pb-1">
           <span className="flex-1 text-[13px] font-semibold text-muted">More</span>

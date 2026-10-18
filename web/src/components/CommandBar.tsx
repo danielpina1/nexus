@@ -20,7 +20,7 @@ export function CommandBar({
   className,
   onSent,
   suggestions = true,
-  placeholder = "Ask or tell Nexus anything…  @ picks an agent",
+  placeholder = "Ask or tell Nexus anything…",
 }: {
   autoFocus?: boolean;
   className?: string;
@@ -70,7 +70,7 @@ export function CommandBar({
           if (options.length && mention) complete(options[Math.min(sel, options.length - 1)].id);
           else submit(text);
         }}
-        className="group flex items-center gap-2 rounded-xl border border-border bg-surface p-1.5 pl-4 shadow-card transition-[border-color,box-shadow] duration-200 focus-within:border-accent/60 focus-within:ring-4 focus-within:ring-ring/15"
+        className="group flex items-center gap-2 rounded-xl border border-border-input bg-surface p-1.5 pl-4 shadow-card transition-[border-color,box-shadow] duration-200 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/40"
       >
         <input
           ref={inputRef}
@@ -99,9 +99,9 @@ export function CommandBar({
           aria-label="Ask or tell Nexus"
           autoComplete="off"
           enterKeyHint="send"
-          className="h-10 min-w-0 flex-1 bg-transparent text-base text-fg outline-none placeholder:text-muted sm:text-[14px]"
+          className="h-10 min-w-0 flex-1 bg-transparent text-base text-fg placeholder:text-muted focus-visible:outline-none sm:text-[14px]"
         />
-        <Kbd className="hidden sm:inline-flex">/</Kbd>
+        <span className="hidden sm:inline-flex"><Kbd>/</Kbd></span>
         <button
           type="submit"
           disabled={!text.trim()}

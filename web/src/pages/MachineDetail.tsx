@@ -170,12 +170,12 @@ export default function MachineDetail() {
             <div className="mt-4 grid grid-cols-2 gap-3 text-[13px]">
               <div>
                 <div className="text-xs text-muted">Active runs</div>
-                <div className="text-lg font-semibold text-fg tabular">{st?.activeRuns ?? 0}</div>
+                <div className="font-heading text-lg font-semibold text-fg tabular">{st?.activeRuns ?? 0}</div>
               </div>
               {(st?.batteryPercent ?? 0) > 0 && (
                 <div>
                   <div className="text-xs text-muted">Battery</div>
-                  <div className="text-lg font-semibold text-fg tabular">{Math.round(st!.batteryPercent)}%</div>
+                  <div className="font-heading text-lg font-semibold text-fg tabular">{Math.round(st!.batteryPercent)}%</div>
                 </div>
               )}
             </div>

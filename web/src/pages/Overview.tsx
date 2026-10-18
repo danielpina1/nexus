@@ -36,7 +36,7 @@ function Metric({ label, value, sub, to, tone, children }: { label: string; valu
       </div>
       <div className="flex items-end justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[22px] leading-7 font-semibold tracking-[-0.01em] text-fg tabular">{value}</div>
+          <div className="font-heading text-[22px] leading-7 font-semibold text-fg tabular">{value}</div>
           {sub && <div className="truncate text-xs text-muted">{sub}</div>}
         </div>
         {children}

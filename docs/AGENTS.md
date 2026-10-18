@@ -67,10 +67,13 @@ Fill a Continente cart that matches the list and the guidelines, then ask for ap
 | `tier` | Cost/difficulty class. Drives routing and escalation. |
 | `node` | Selector: tags, explicit node id, or `any`. |
 | `tools` | Allow-list. Runtimes that bring their own tools (Claude Code, Codex) also get these via MCP (§2.3). `browser` (or `browser.*`, `browser.<tool>`) adds the browser tools to any runtime. |
-| `limits` | Time, LLM cost, real spend, max sub-tasks, max tokens. |
+| `limits` | Per run: time, LLM cost, real spend, max sub-tasks. Whole tree (when the agent's task is a root): `max_depth`, `max_parallel`, `max_tasks`, `max_runs`, `max_tree_cost_eur` (enforced by the hub). |
 | `policy` | Per-agent overrides of trust levels (cannot be looser than global policy unless global allows). |
-| `memory` | What the agent is given as context by default, and where it writes episodes. |
+| `memory` | `reads` are injected into every run's context (`[[Note]]`, `folder/`, `search: q`); `writes` is where it writes episodes. |
 | `triggers` | Phrases/patterns used by the rule stage of the router; schedules and events live in workflows. |
+| `skills` | Reusable skill notes (`skills/<id>.md`): instructions appended, tools merged at assignment ([SWARMS.md](SWARMS.md) §2.1). |
+| `inputs` / `output` | JSON Schemas of structured params and result; the hub validates the result (one automatic repair run) and stores it in `Task.result`. |
+| `review` | `{critic, rounds, criteria}`: reflection loop — a critic agent approves or sends feedback for a revision. |
 | body | System instructions + playbook. "Lessons learned" is appended by the agent (procedural memory). |
 
 Agent notes are versioned by git; the Agent Studio shows diffs and lets you roll back.
@@ -270,12 +273,22 @@ For important tasks an agent can be configured with `strategy: race` (first good
 
 ---
 
-## 5. Multi-agent orchestration
+## 5. Multi-agent orchestration — teams
 
-- **Planner agents** decompose a request into sub-tasks (`spawn_agent`), wait, and combine results.
-- Tasks form a **tree**; the UI shows it live and costs roll up.
-- **Bundled approvals:** a planner can collect its children's approvals into one decision card.
-- Guardrails: max depth, max children, total budget per root task.
+See **[SWARMS.md](SWARMS.md)**. A **team** (`teams/<id>.md`) is an orchestrator plus members
+(`{agent, role, count, when}`) with a strategy (`hierarchical | parallel | pipeline | debate | auto`),
+a shared blackboard, limits and approval bundling. `CreateTask{team_id}` (or the router, which treats
+teams like agents) starts a team run: the orchestrator — any runtime — gets team tools
+(`team.delegate`, `team.delegate_many`, `team.await`, `team.spawn`, `team.blackboard.*`,
+`team.message`, `team.status`, `team.cancel`, `team.run_strategy`), members get `team.report`,
+`team.message` and the blackboard.
+
+- Tasks form a **tree**; `Task.tree_cost` rolls costs up live; `TeamService.GetTeamRun` returns the tree.
+- **Guardrails in the hub:** max depth, tasks, parallel slots (others queue), runs, tree budget and
+  timeout; cancel cascades; spawned specialists never exceed the orchestrator's tools or policy;
+  `anthrex.*` tools only for coding agents.
+- **Bundled approvals:** approvals carry `root_task_id` / `team_id` / `role` / `bundle` for grouping.
+- Plain `spawn_agent` sub-tasks use the same tree rules (limits from the root agent).
 
 ---
 

@@ -501,6 +501,47 @@ type spawnReq struct {
 	Runtime      string         `json:"runtime"`
 	Tools        []string       `json:"tools"`
 	Inputs       map[string]any `json:"inputs"`
+	// Coding makes the specialist a coding agent (claude/codex coding: true),
+	// allowed only when the orchestrator is a coding agent itself.
+	Coding bool `json:"coding"`
+}
+
+// codeOnlyPrefixes are tool families reserved for coding agents (the node
+// enforces the same rule in internal/node/codeonly.go).
+var codeOnlyPrefixes = []string{"anthrex."}
+
+func isCodeOnlyTool(name string) bool {
+	for _, p := range codeOnlyPrefixes {
+		if strings.HasPrefix(name, p) || name+"." == p {
+			return true
+		}
+	}
+	return false
+}
+
+// isCodingAgent reports whether an effective agent is a coding agent: it
+// runs on the anthrex runtime or its note's claude/codex block says coding: true.
+func isCodingAgent(ra *resolvedAgent, runtimes []string) bool {
+	if ra.agent.GetRuntime() == "anthrex" {
+		return true
+	}
+	for _, r := range runtimes {
+		if r == "anthrex" {
+			return true
+		}
+	}
+	ctx, _ := structpb.NewStruct(map[string]any{})
+	if err := mergeAgentConfig(ctx, ra.markdown); err != nil {
+		return false
+	}
+	for _, k := range []string{"claude", "codex"} {
+		if m, ok := ctx.AsMap()[k].(map[string]any); ok {
+			if v, ok := m["coding"].(bool); ok && v {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // spawn creates an ephemeral specialist (no agent note) as a child of the
@@ -531,20 +572,34 @@ func (e *Engine) spawn(ctx context.Context, caller *taskRec, tree *treeRec, s sp
 	if err != nil {
 		return nil, err
 	}
+	cands := RuntimeCandidates(parent.agent, parent.markdown, parent.agent.Tier, e.runtimePrefs())
+	runtime := strings.TrimSpace(s.Runtime)
+	// Coding-only tools (anthrex.*) go only to explicit coding specialists of
+	// a coding orchestrator.
+	parentCoding := isCodingAgent(parent, cands)
+	if s.Coding && !parentCoding {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("only a coding orchestrator can spawn a coding specialist"))
+	}
+	specialistCoding := parentCoding && (s.Coding || runtime == "anthrex")
 	base := parent.agent.GetTools()
 	tools := []string{}
 	if len(s.Tools) == 0 {
-		tools = append(tools, base...)
+		for _, t := range base {
+			if !isCodeOnlyTool(t) || specialistCoding {
+				tools = append(tools, t)
+			}
+		}
 	} else {
 		for _, t := range s.Tools {
 			if !kernel.ToolAllowed(base, t) {
 				return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("tool %q is not in your own allow-list; a spawned specialist can only get tools you have", t))
 			}
+			if isCodeOnlyTool(t) && !specialistCoding {
+				return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("tool %q is reserved for coding agents: spawn a coding specialist (coding: true or runtime anthrex) from a coding orchestrator", t))
+			}
 			tools = addTools(tools, t)
 		}
 	}
-	cands := RuntimeCandidates(parent.agent, parent.markdown, parent.agent.Tier, e.runtimePrefs())
-	runtime := strings.TrimSpace(s.Runtime)
 	switch {
 	case runtime == "" || runtime == kernel.RuntimeAuto:
 		runtime = kernel.RuntimeAuto
@@ -583,8 +638,12 @@ func (e *Engine) spawn(ctx context.Context, caller *taskRec, tree *treeRec, s sp
 			return nil, bad("inputs: %v", err)
 		}
 	}
-	child, err := e.createChild(ctx, req, caller, createOpts{role: role, teamID: tree.teamID, agentID: agent.Id,
-		ext: &taskExt{AgentJSON: aj, Instructions: strings.TrimSpace(s.Instructions)}})
+	x := &taskExt{AgentJSON: aj, Instructions: strings.TrimSpace(s.Instructions)}
+	if specialistCoding && s.Coding {
+		// Forwarded like an agent note's claude/codex blocks.
+		x.Context = map[string]any{"claude": map[string]any{"coding": true}, "codex": map[string]any{"coding": true}}
+	}
+	child, err := e.createChild(ctx, req, caller, createOpts{role: role, teamID: tree.teamID, agentID: agent.Id, ext: x})
 	if err != nil {
 		return nil, err
 	}

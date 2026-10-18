@@ -1,8 +1,12 @@
-import { useEffect, useRef, type ReactNode } from "react";
-import { createPortal } from "react-dom";
+import type { ReactNode } from "react";
+import * as D from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { cx } from "../../lib/format";
 
+/**
+ * Modal dialog (shadcn/ui-style, on Radix Dialog): focus trap, Escape, scroll lock, aria wiring and
+ * focus return come from Radix. Glass panel over a dim scrim.
+ */
 export function Dialog({
   open,
   onClose,
@@ -26,61 +30,46 @@ export function Dialog({
   /** Accessible name when there is no visible title. */
   label?: string;
 }) {
-  const panel = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const prev = document.activeElement as HTMLElement | null;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKey, true);
-    const t = setTimeout(() => {
-      const el = panel.current?.querySelector<HTMLElement>("[data-autofocus], input, textarea, button");
-      el?.focus();
-    }, 10);
-    return () => {
-      window.removeEventListener("keydown", onKey, true);
-      clearTimeout(t);
-      prev?.focus?.();
-    };
-  }, [open, onClose]);
-
-  if (!open) return null;
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-start justify-center p-3 pt-[max(12px,env(safe-area-inset-top))] sm:p-4 sm:pt-[12vh]">
-      <div className="absolute inset-0 bg-overlay" onClick={onClose} />
-      <div
-        ref={panel}
-        role="dialog"
-        aria-modal="true"
-        aria-label={label ?? (typeof title === "string" ? title : undefined)}
-        className={cx(
-          "animate-pop-in relative w-full max-w-md rounded-2xl border border-border bg-surface shadow-pop",
-          className,
-        )}
-      >
-        {bare ? (
-          children
-        ) : (
-          <>
-            <div className="flex items-start gap-3 px-5 pt-5">
-              <div className="min-w-0 flex-1">
-                {title && <h2 className="text-[15px] font-semibold text-fg">{title}</h2>}
-                {description && <p className="mt-1 text-[13px] text-muted">{description}</p>}
-              </div>
-              <button onClick={onClose} className="-mt-1.5 -mr-2 flex size-9 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-fg pointer-coarse:size-11" aria-label="Close">
-                <X className="size-4" />
-              </button>
-            </div>
-            <div className="px-5 py-4">{children}</div>
-            {footer && <div className="flex justify-end gap-2 border-t border-border px-5 py-3">{footer}</div>}
-          </>
-        )}
-      </div>
-    </div>,
-    document.body,
+  return (
+    <D.Root open={open} onOpenChange={(o) => !o && onClose()}>
+      <D.Portal>
+        <D.Overlay className="animate-fade-in fixed inset-0 z-50 bg-overlay" />
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-start justify-center p-3 pt-[max(12px,env(safe-area-inset-top))] sm:p-4 sm:pt-[12vh]">
+          <D.Content
+            {...(description ? {} : { "aria-describedby": undefined })}
+            onOpenAutoFocus={(e) => {
+              // Prefer an explicit [data-autofocus] target (palette input) over the first button.
+              const el = (e.currentTarget as HTMLElement | null)?.querySelector<HTMLElement>("[data-autofocus]");
+              if (el) {
+                e.preventDefault();
+                el.focus();
+              }
+            }}
+            className={cx("glass animate-pop-in pointer-events-auto relative w-full max-w-md rounded-2xl border shadow-pop outline-none", className)}
+          >
+            {bare ? (
+              <>
+                <D.Title className="sr-only">{label ?? "Dialog"}</D.Title>
+                {children}
+              </>
+            ) : (
+              <>
+                <div className="flex items-start gap-3 px-5 pt-5">
+                  <div className="min-w-0 flex-1">
+                    {title ? <D.Title className="text-[16px] font-semibold text-fg">{title}</D.Title> : <D.Title className="sr-only">{label ?? "Dialog"}</D.Title>}
+                    {description && <D.Description className="mt-1 text-[13px] text-muted">{description}</D.Description>}
+                  </div>
+                  <D.Close className="-mt-1.5 -mr-2 flex size-9 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-fg pointer-coarse:size-11" aria-label="Close">
+                    <X className="size-4" />
+                  </D.Close>
+                </div>
+                <div className="px-5 py-4">{children}</div>
+                {footer && <div className="flex justify-end gap-2 border-t border-border px-5 py-3">{footer}</div>}
+              </>
+            )}
+          </D.Content>
+        </div>
+      </D.Portal>
+    </D.Root>
   );
 }

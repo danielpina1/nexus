@@ -320,7 +320,7 @@ function PaletteBody({ close }: { close: () => void }) {
   const searching = notes.isFetching && dq.length >= 2;
   return (
     <div onKeyDown={onKey}>
-      <div className="flex items-center gap-3 border-b border-border px-4">
+      <div className="flex items-center gap-3 border-b-2 border-border px-4 transition-colors duration-150 has-[input:focus-visible]:border-ring">
         {searching ? <Loader2 className="size-[18px] animate-spin text-muted" /> : mention ? <AtSign className="size-[18px] text-accent" /> : <Search className="size-[18px] text-muted" />}
         <input
           data-autofocus
@@ -336,11 +336,11 @@ function PaletteBody({ close }: { close: () => void }) {
           aria-activedescendant={current ? `pal-${current.id}` : undefined}
           role="combobox"
           aria-expanded="true"
-          className="h-14 flex-1 bg-transparent text-base text-fg outline-none placeholder:text-muted sm:text-[15px]"
+          className="h-14 flex-1 bg-transparent text-base text-fg placeholder:text-muted focus-visible:outline-none sm:text-[15px]"
           autoComplete="off"
           spellCheck={false}
         />
-        <Kbd className="hidden sm:inline-flex">esc</Kbd>
+        <span className="hidden sm:inline-flex"><Kbd>esc</Kbd></span>
       </div>
       <div ref={listRef} id="palette-list" role="listbox" className="max-h-[min(60vh,460px)] overflow-y-auto p-2 scrollbar-thin">
         {filtered.length === 0 && <div className="px-3 py-10 text-center text-[13px] text-muted">No matches. Press Enter to ask Nexus.</div>}

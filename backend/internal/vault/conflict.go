@@ -89,7 +89,8 @@ func (v *Vault) writeConflictCopyLocked(ctx context.Context, rel string, content
 		return "", err
 	}
 	// The copy must not share the original's id.
-	fields := map[string]any{"id": NewID(), "conflict_of": "[[" + strings.TrimSuffix(rel, ".md") + "]]"}
+	// A plain path (not a [[link]]) so the copy does not show up as a backlink.
+	fields := map[string]any{"id": NewID(), "conflict_of": rel}
 	out, err := note.SetFields(content, fields, "id", "conflict_of")
 	if err != nil {
 		out = content // invalid frontmatter: keep verbatim (EnsureID leaves it)

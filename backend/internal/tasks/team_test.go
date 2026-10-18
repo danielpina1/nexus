@@ -1011,3 +1011,41 @@ func (v *fakeVault) Capture(context.Context, *nexusv1.CaptureRequest) (*nexusv1.
 }
 
 func (v *fakeVault) Root() string { return v.root }
+
+func TestSpawnCodeOnlyTools(t *testing.T) {
+	lead := agentWith("lead", func(a *nexusv1.Agent) { a.Tools = []string{"memory.search", "anthrex.run"} })
+	coder := agentWith("coder-lead", func(a *nexusv1.Agent) { a.Runtime = "anthrex"; a.Tools = []string{"anthrex.run", "memory.search"} })
+	teams := taskstest.NewTeams(
+		taskstest.Team("plain", "lead", nexusv1.TeamStrategy_TEAM_STRATEGY_HIERARCHICAL),
+		taskstest.Team("devs", "coder-lead", nexusv1.TeamStrategy_TEAM_STRATEGY_HIERARCHICAL))
+	f := teamFixture(t, teams, lead, coder)
+	spec := map[string]any{"role": "helper2", "instructions": "Help.", "task": "t"}
+	root := f.create(t, &nexusv1.CreateTaskRequest{Prompt: "go", TeamId: "plain"})
+	out, err := f.tool(t, "team.spawn", root.Id, spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hasTool(f.lastAssignment(t, out["task_id"].(string)), "anthrex.run") {
+		t.Fatal("non-coding specialist got anthrex.run")
+	}
+	spec["tools"] = []string{"anthrex.run"}
+	if _, err := f.tool(t, "team.spawn", root.Id, spec); connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("anthrex tool for non-coding specialist: %v", err)
+	}
+	delete(spec, "tools")
+	spec["coding"] = true
+	spec["role"] = "helper3"
+	if _, err := f.tool(t, "team.spawn", root.Id, spec); connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("coding specialist from non-coding orchestrator: %v", err)
+	}
+	// A coding orchestrator may spawn a coding specialist with anthrex tools.
+	root2 := f.create(t, &nexusv1.CreateTaskRequest{Prompt: "go", TeamId: "devs"})
+	out, err = f.tool(t, "team.spawn", root2.Id, spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := f.lastAssignment(t, out["task_id"].(string))
+	if !hasTool(a, "anthrex.run") || !a.Context.Fields["claude"].GetStructValue().Fields["coding"].GetBoolValue() {
+		t.Fatalf("coding specialist = %v / %v", a.Agent.Tools, a.Context.Fields["claude"])
+	}
+}

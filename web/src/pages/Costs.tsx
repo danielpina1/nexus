@@ -203,7 +203,7 @@ export default function Costs() {
     <div>
       <PageHeader
         icon={<Coins />}
-        title="Costs"
+        title="Spend"
         subtitle="Spend from CostRecorded events, per agent, model and runtime."
         actions={
           <Tabs<"7" | "14" | "30">
@@ -226,15 +226,15 @@ export default function Costs() {
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Card className="p-4">
               <div className="text-xs font-medium text-muted">Spend · {n} days</div>
-              <div className="mt-2 text-2xl font-semibold tracking-tight text-fg tabular">{formatMoney(totals.cloud)}</div>
+              <div className="mt-2 font-heading text-2xl font-semibold text-fg tabular">{formatMoney(totals.cloud)}</div>
             </Card>
             <Card className="p-4">
               <div className="text-xs font-medium text-muted">Today</div>
-              <div className="mt-2 text-2xl font-semibold tracking-tight text-fg tabular">{formatMoney(today)}</div>
+              <div className="mt-2 font-heading text-2xl font-semibold text-fg tabular">{formatMoney(today)}</div>
             </Card>
             <Card className="p-4">
               <div className="text-xs font-medium text-muted">Avg per task</div>
-              <div className="mt-2 text-2xl font-semibold tracking-tight text-fg tabular">{formatMoney(taskCount ? totals.cloud / taskCount : 0)}</div>
+              <div className="mt-2 font-heading text-2xl font-semibold text-fg tabular">{formatMoney(taskCount ? totals.cloud / taskCount : 0)}</div>
               <div className="text-xs text-muted">{taskCount} tasks</div>
             </Card>
             <Card className="p-4">

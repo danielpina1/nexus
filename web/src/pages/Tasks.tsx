@@ -44,7 +44,7 @@ function Select({ value, onChange, children, label }: { value: string; onChange:
       aria-label={label}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="h-9 rounded-lg border border-border bg-surface px-2.5 text-[13px] text-fg outline-none focus:border-accent/60 pointer-coarse:h-11"
+      className="h-9 rounded-lg border border-border-input bg-surface px-2.5 text-[13px] text-fg pointer-coarse:h-11"
     >
       {children}
     </select>
@@ -146,7 +146,7 @@ export default function Tasks() {
           <option value="30d">Last 30 days</option>
           <option value="all">All time</option>
         </Select>
-        <label className="flex h-9 items-center gap-2 rounded-lg border border-border bg-surface px-2.5 text-[13px] text-fg-2">
+        <label className="flex h-9 items-center gap-2 rounded-lg border border-border-input bg-surface px-2.5 text-[13px] text-fg-2 pointer-coarse:h-11">
           <input type="checkbox" checked={roots} onChange={(e) => set("roots", e.target.checked ? "" : "0")} className="accent-[var(--accent)]" />
           Top-level only
         </label>

@@ -10,7 +10,7 @@ export function Toaster() {
       {toasts.map((t) => {
         const Icon = t.tone === "success" ? CheckCircle2 : t.tone === "error" ? XCircle : t.tone === "warn" ? TriangleAlert : Info;
         return (
-          <div key={t.id} className="animate-toast-in pointer-events-auto flex items-start gap-3 rounded-xl border border-border bg-surface p-3 shadow-pop">
+          <div key={t.id} className="glass animate-toast-in pointer-events-auto flex items-start gap-3 rounded-xl border p-3 shadow-pop">
             <Icon className={cx("mt-0.5 size-4 shrink-0", t.tone === "success" ? "text-ok" : t.tone === "error" ? "text-danger" : t.tone === "warn" ? "text-warn" : "text-info")} />
             <div className="min-w-0 flex-1">
               <div className="text-[13px] font-medium text-fg">{t.title}</div>

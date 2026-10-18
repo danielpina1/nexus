@@ -100,7 +100,7 @@ flowchart LR
 |---|---|
 | **API** | Connect-RPC services (gRPC, gRPC-Web and JSON over HTTP from one handler). Auth middleware. |
 | **Command & Router** | Takes any free-form input (command bar, Siri, share sheet) and decides: search, capture, task, or workflow — and which agent/runtime tier. See [AGENTS.md §4](AGENTS.md#4-router). |
-| **Task engine** | Task state machine, assignment to Nodes, retries, escalation, sub-task trees, cancellation. |
+| **Task engine** | Task state machine, assignment to Nodes, retries, escalation, sub-task trees, cancellation. Also complex agents (skills, structured output validation, critic review loop, memory injection) and teams/swarms: team runs, team tools, blackboard, messages, hub-driven strategies and tree limits/budgets ([SWARMS.md](SWARMS.md)). |
 | **Workflow engine** | Executes workflow notes (steps, conditions, loops, parallel branches, approvals). |
 | **Triggers** | Cron schedules, webhooks, email, file/vault changes, location & NFC events from iOS, Node alerts. |
 | **Policy & approvals** | Evaluates every sensitive action against trust levels, budgets and per-agent rules; creates approval requests; verifies biometric signatures. |
@@ -164,6 +164,8 @@ erDiagram
 |---|---|---|
 | **Agent** | vault `agents/*.md` | Runtime, model tier, tools, node selector, limits, policy overrides, playbook. |
 | **Workflow** | vault `workflows/*.md` | Triggers + steps. |
+| **Team** | vault `teams/*.md` | Orchestrator, members, strategy, limits ([SWARMS.md](SWARMS.md)). |
+| **Skill** | vault `skills/*.md` | Reusable instructions + tools merged into agents. |
 | **Policy** | vault `policies/*.md` | Trust levels, budgets, global rules. |
 | **Note / Entity** | vault | People, projects, places, products, episodes… |
 | **Task** | Hub DB | A unit of intent ("buy these groceries"). Has a tree of sub-tasks. |
@@ -380,6 +382,7 @@ A new integration (Home Assistant, Gmail, a new agent runtime, Anthrex) is one p
 - [AGENTS.md](AGENTS.md) — agent definitions, runtimes, router, escalation
 - [VAULT.md](VAULT.md) — knowledge vault format, graph, memory pipeline
 - [WORKFLOWS.md](WORKFLOWS.md) — workflow format and catalogue
+- [SWARMS.md](SWARMS.md) — complex agents, teams of agents, team tools, strategies, limits
 - [NETWORK.md](NETWORK.md) — reaching the Hub through the UniFi Gateway (VPN, DNS, firewall) of workflows
 - [SECURITY.md](SECURITY.md) — pairing, keys, trust levels, threat model
 - [ROADMAP.md](ROADMAP.md) — phased delivery plan

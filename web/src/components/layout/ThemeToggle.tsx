@@ -19,6 +19,7 @@ export function ThemeToggle() {
           role="radio"
           aria-checked={theme === v}
           title={label}
+          aria-label={`${label} theme`}
           onClick={() => update({ theme: v })}
           className={cx("flex size-6 items-center justify-center rounded-md transition-colors", theme === v ? "bg-surface text-fg shadow-card" : "text-muted hover:text-fg")}
         >

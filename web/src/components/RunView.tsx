@@ -374,7 +374,7 @@ export function RunView({ task, embedded, showHeader = true }: { task: Task; emb
       <div className="border-t border-border px-4 py-3">
         <div className="mb-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <CostMeter minor={costMinor} currency={summary.currency} limitMinor={limit} tokensIn={summary.inputTokens} tokensOut={summary.outputTokens} />
-          {summary.toolCalls > 0 && <span className="text-xs text-muted tabular">{summary.toolCalls} tool calls</span>}
+          {summary.toolCalls > 0 && <span className="text-xs text-muted tabular">{summary.toolCalls} tool call{summary.toolCalls === 1 ? "" : "s"}</span>}
           <span className="flex-1" />
           {active && (
             <Button size="xs" variant="ghost" icon={<ArrowUpCircle className="size-3.5" />} loading={escalate.isPending} onClick={() => escalate.mutate({ id: task.id })} title="Retry on the next tier">
@@ -395,7 +395,7 @@ export function RunView({ task, embedded, showHeader = true }: { task: Task; emb
                 Confirm cancel
               </Button>
             ) : (
-              <Button size="xs" variant="ghost" className="text-danger hover:text-danger" icon={<OctagonX className="size-3.5" />} onClick={() => setConfirmCancel(true)}>
+              <Button size="xs" variant="outline" icon={<OctagonX className="size-3.5 text-danger" />} onClick={() => setConfirmCancel(true)}>
                 Cancel
               </Button>
             ))}

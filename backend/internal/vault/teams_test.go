@@ -57,6 +57,23 @@ func TestTemplateTeamsAndSkills(t *testing.T) {
 	if len(want) > 0 {
 		t.Fatalf("missing teams: %v", want)
 	}
+	// anthrex.* tools are for coding agents only: non-coding teams never list them.
+	for _, id := range []string{"research-squad", "product-buyer", "debate-panel"} {
+		tm, _, _, _ := teams.GetTeam(ctx, id)
+		for _, m := range tm.Members {
+			a, _, _, _ := cat.GetAgent(ctx, m.AgentId)
+			for _, tool := range a.Tools {
+				if strings.HasPrefix(tool, "anthrex") {
+					t.Errorf("team %s member %s lists %s", id, m.AgentId, tool)
+				}
+			}
+		}
+		for _, tool := range tm.GetInlineOrchestrator().GetTools() {
+			if strings.HasPrefix(tool, "anthrex") {
+				t.Errorf("team %s orchestrator lists %s", id, tool)
+			}
+		}
+	}
 
 	// Cross references: an unknown member disables the team; validate_only reports it.
 	bad := "---\ntype: team\nid: ghost-team\ndescription: d\norchestrator: research-lead\nmembers: [ghost]\n---\n"
