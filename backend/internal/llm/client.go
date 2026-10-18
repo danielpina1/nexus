@@ -12,11 +12,13 @@ import (
 	"log/slog"
 	"math"
 	"math/rand/v2"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	nexusv1 "github.com/danielpina1/nexus/backend/gen/nexus/v1"
@@ -391,6 +393,9 @@ func (c *Client) do(ctx context.Context, provider, path string, body []byte) (*h
 			if isTLSError(err) {
 				return nil, lastErr // retrying will not fix certificates
 			}
+			if isUnreachable(err) {
+				return nil, lastErr // nothing is listening (e.g. Ollama not running): fail fast
+			}
 		} else if resp.StatusCode/100 == 2 {
 			resp.Body = &cancelBody{ReadCloser: resp.Body, cancel: cancel}
 			return resp, nil
@@ -428,6 +433,16 @@ func (c *Client) do(ctx context.Context, provider, path string, body []byte) (*h
 		case <-t.C:
 		}
 	}
+}
+
+// isUnreachable reports errors where an immediate retry cannot help: the
+// connection was refused or the host name does not resolve.
+func isUnreachable(err error) bool {
+	var dns *net.DNSError
+	if errors.As(err, &dns) && dns.IsNotFound {
+		return true
+	}
+	return errors.Is(err, syscall.ECONNREFUSED)
 }
 
 func isTLSError(err error) bool {

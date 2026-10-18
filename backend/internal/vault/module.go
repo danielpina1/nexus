@@ -189,11 +189,22 @@ func (m *Module) startVectors(ctx context.Context) {
 	go func() {
 		defer m.wg.Done()
 		enabled := false
+		// While the embedding model is unreachable (e.g. Ollama not running)
+		// refreshes back off from 30s to 10min, warning once, not per change.
+		var failing time.Duration
+		var retryAt time.Time
+		retry := time.NewTimer(time.Hour)
+		retry.Stop()
 		for {
 			select {
 			case <-ctx.Done():
+				retry.Stop()
 				return
 			case <-m.vecKick:
+			case <-retry.C:
+			}
+			if wait := time.Until(retryAt); wait > 0 {
+				continue // the pending retry timer will refresh
 			}
 			time.Sleep(2 * time.Second) // let bursts of writes settle
 			if _, ok := m.V.LLM(); !ok {
@@ -201,8 +212,20 @@ func (m *Module) startVectors(ctx context.Context) {
 			}
 			n, err := vec.Refresh(ctx)
 			if err != nil {
-				m.h.Logger().Warn("vault: embedding refresh failed", "err", err)
+				if failing == 0 {
+					m.h.Logger().Warn("vault: embedding refresh failed; retrying with backoff", "err", err)
+					failing = 30 * time.Second
+				} else {
+					m.h.Logger().Debug("vault: embedding refresh failed", "err", err, "next_in", failing)
+					failing = min(failing*2, 10*time.Minute)
+				}
+				retryAt = time.Now().Add(failing)
+				retry.Reset(failing)
 				continue
+			}
+			if failing > 0 {
+				m.h.Logger().Info("vault: embedding refresh recovered")
+				failing, retryAt = 0, time.Time{}
 			}
 			if !enabled {
 				m.V.Index().SetVectorSearcher(vec)
