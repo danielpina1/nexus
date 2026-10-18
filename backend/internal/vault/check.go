@@ -187,11 +187,12 @@ func (v *Vault) Check(ctx context.Context, full bool) (*Report, error) {
 	ids := map[string][]string{}
 	for _, e := range indexed {
 		if e.ID != "" && files[e.Path] {
-			k := strings.ToLower(e.ID)
+			k := idNamespace(e.Path) + strings.ToLower(e.ID)
 			ids[k] = append(ids[k], e.Path)
 		}
 	}
-	for id, ps := range ids {
+	for k, ps := range ids {
+		id := k[strings.Index(k, "\x00")+1:]
 		if len(ps) > 1 {
 			sort.Strings(ps)
 			add(Issue{Kind: IssueDuplicateID, Severity: "error", Path: ps[0], Detail: "id " + id + " is used by " + fmt.Sprint(len(ps)) + " notes", Fixable: true, Related: ps[1:]})
@@ -396,4 +397,18 @@ func (v *Vault) oldestNote(paths []string) string {
 		return cs[i].p < cs[j].p
 	})
 	return cs[0].p
+}
+
+// idNamespaces are folders whose notes are looked up by id within their own
+// kind: an agent and a workflow may share an id ("shop") without clashing.
+var idNamespaces = []string{"agents/", "workflows/", "teams/", "skills/", "policies/", "shops/"}
+
+// idNamespace is the duplicate-id scope of a note path, NUL-terminated.
+func idNamespace(path string) string {
+	for _, ns := range idNamespaces {
+		if strings.HasPrefix(path, ns) {
+			return ns + "\x00"
+		}
+	}
+	return "\x00"
 }

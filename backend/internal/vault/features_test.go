@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -614,5 +615,30 @@ func TestWebClipCapture(t *testing.T) {
 	ref, _ = v.Capture(ctx, &nexusv1.CaptureRequest{Url: "https://example.com/b", Clip: true})
 	if n, _ := v.Read(ctx, ref.Path); n.Type != "capture" {
 		t.Fatalf("fallback = %v", n)
+	}
+}
+
+// An agent and a workflow may share an id: they are looked up per kind.
+func TestCheckIDsArePerConfigFolder(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	v := newVault(t, Options{Root: root})
+	writeFile(t, root, "agents/shop.md", "---\nid: shop\n---\n# Shop agent\n")
+	writeFile(t, root, "workflows/shop.md", "---\nid: shop\n---\n# Shop workflow\n")
+	writeFile(t, root, "agents/shop-2.md", "---\nid: shop\n---\n# Another shop agent\n")
+	if _, err := v.Sync(ctx); err != nil {
+		t.Fatal(err)
+	}
+	rep, err := v.Check(ctx, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := rep.Counts()[IssueDuplicateID]; n != 1 {
+		t.Fatalf("duplicate ids = %d, want 1 (the two agents only): %s", n, rep.Summary())
+	}
+	for _, is := range rep.Issues {
+		if is.Kind == IssueDuplicateID && (strings.HasPrefix(is.Path, "workflows/") || slices.Contains(is.Related, "workflows/shop.md")) {
+			t.Fatalf("workflow flagged as a duplicate: %+v", is)
+		}
 	}
 }
