@@ -187,3 +187,14 @@ the nodelink request/stream plumbing and the web terminal (xterm.js) in `web/`.
 - `internal/tasks/agentconfig.go`: add `"anthrex"` to `ForwardedAgentKeys` so the agent note's
   `anthrex:` block (repo, delivery, design, orchestrator, plan_approval) reaches the node.
 - `docs/AGENTS.md` §2's `anthrex` row ("TBD") can now point here.
+
+## Who gets the Anthrex tools
+
+`anthrex.*` tools are **reserved for coding agents**. The node removes them from every other run,
+whatever the agent's `tools:` list, a team orchestrator or the Agent Architect asks for
+(`backend/internal/node/codeonly.go`). A coding agent is one that:
+
+- runs on the `anthrex` runtime (`anthrex-dev`, `anthrex-design`), or
+- sets `coding: true` in its `claude:` or `codex:` block (e.g. `code-fixer`, `tester`).
+
+To let another coding agent use Anthrex, mark it `coding: true` and list the tools it needs.

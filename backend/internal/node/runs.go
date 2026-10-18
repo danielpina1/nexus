@@ -271,6 +271,7 @@ func (m *RunManager) start(ar *activeRun) error {
 		Emit: func(ev *nexusv1.Event) { m.emit(a, ev) },
 	}
 	spec = m.providerTools(ar, spec)
+	spec.Tools = codeOnlyTools(a, spec.Tools)
 	run, err := rt.Start(m.ctx, spec)
 	if err != nil {
 		return err
