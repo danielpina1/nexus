@@ -119,7 +119,7 @@ public nonisolated struct Nexus_V1_CommandContext: Sendable {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  /// command-bar | siri | share | widget | nfc | location
+  /// command-bar | chat | siri | share | widget | nfc | location
   public var source: String = String()
 
   /// iOS Focus mode name
@@ -131,6 +131,13 @@ public nonisolated struct Nexus_V1_CommandContext: Sendable {
 
   /// url | text | image | pdf | audio
   public var shareType: String = String()
+
+  /// source "chat": the conversation this message belongs to. Chat messages
+  /// skip the router: they go to the assistant agent (or the @agent named),
+  /// except "/search …" (search) and "/remember …" / "remember …" (capture).
+  /// The runtime keeps one CLI session per conversation and agent, so
+  /// follow-ups remember earlier turns. A new id starts a new conversation.
+  public var conversationID: String = String()
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -396,7 +403,7 @@ nonisolated extension Nexus_V1_Route: SwiftProtobuf.Message, SwiftProtobuf._Mess
 
 nonisolated extension Nexus_V1_CommandContext: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".CommandContext"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}source\0\u{1}focus\0\u{1}latitude\0\u{1}longitude\0\u{3}share_type\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}source\0\u{1}focus\0\u{1}latitude\0\u{1}longitude\0\u{3}share_type\0\u{3}conversation_id\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -409,6 +416,7 @@ nonisolated extension Nexus_V1_CommandContext: SwiftProtobuf.Message, SwiftProto
       case 3: try { try decoder.decodeSingularDoubleField(value: &self.latitude) }()
       case 4: try { try decoder.decodeSingularDoubleField(value: &self.longitude) }()
       case 5: try { try decoder.decodeSingularStringField(value: &self.shareType) }()
+      case 6: try { try decoder.decodeSingularStringField(value: &self.conversationID) }()
       default: break
       }
     }
@@ -430,6 +438,9 @@ nonisolated extension Nexus_V1_CommandContext: SwiftProtobuf.Message, SwiftProto
     if !self.shareType.isEmpty {
       try visitor.visitSingularStringField(value: self.shareType, fieldNumber: 5)
     }
+    if !self.conversationID.isEmpty {
+      try visitor.visitSingularStringField(value: self.conversationID, fieldNumber: 6)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -439,6 +450,7 @@ nonisolated extension Nexus_V1_CommandContext: SwiftProtobuf.Message, SwiftProto
     if lhs.latitude != rhs.latitude {return false}
     if lhs.longitude != rhs.longitude {return false}
     if lhs.shareType != rhs.shareType {return false}
+    if lhs.conversationID != rhs.conversationID {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

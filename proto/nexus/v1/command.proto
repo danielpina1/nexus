@@ -30,11 +30,17 @@ message Route {
 
 // CommandContext gives the router hints about where the command came from.
 message CommandContext {
-  string source = 1; // command-bar | siri | share | widget | nfc | location
+  string source = 1; // command-bar | chat | siri | share | widget | nfc | location
   string focus = 2; // iOS Focus mode name
   double latitude = 3;
   double longitude = 4;
   string share_type = 5; // url | text | image | pdf | audio
+  // source "chat": the conversation this message belongs to. Chat messages
+  // skip the router: they go to the assistant agent (or the @agent named),
+  // except "/search …" (search) and "/remember …" / "remember …" (capture).
+  // The runtime keeps one CLI session per conversation and agent, so
+  // follow-ups remember earlier turns. A new id starts a new conversation.
+  string conversation_id = 6;
 }
 
 // CommandService is the single entry point behind the command bar, Siri and the share sheet.
