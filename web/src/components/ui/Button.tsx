@@ -29,6 +29,16 @@ const sizes: Record<Size, string> = {
   icon: "h-8 w-8 rounded-lg justify-center pointer-coarse:size-11",
 };
 
+/** The same look for a navigation link (react-router `<Link className={buttonClass(…)}>`). */
+export function buttonClass(variant: Variant = "secondary", size: Size = "sm", className?: string): string {
+  return cx(
+    "inline-flex shrink-0 items-center font-medium whitespace-nowrap transition-[background,opacity,color,transform] duration-100 select-none active:scale-[0.98]",
+    variants[variant],
+    sizes[size],
+    className,
+  );
+}
+
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
   { variant = "secondary", size = "sm", loading, icon, className, children, disabled, ...rest },
   ref,

@@ -2,12 +2,14 @@ import { createClient, type Client, type Interceptor, type Transport } from "@co
 import { createConnectTransport } from "@connectrpc/connect-web";
 import type { DescService } from "@bufbuild/protobuf";
 import type { AgentService } from "../gen/nexus/v1/agent_pb";
+import type { ArchitectService } from "../gen/nexus/v1/architect_pb";
 import { ApprovalService } from "../gen/nexus/v1/approval_pb";
 import { CommandService } from "../gen/nexus/v1/command_pb";
 import type { DeviceService } from "../gen/nexus/v1/device_pb";
 import { EventService } from "../gen/nexus/v1/event_pb";
 import { NodeService } from "../gen/nexus/v1/node_pb";
 import { TaskService } from "../gen/nexus/v1/task_pb";
+import type { TeamService } from "../gen/nexus/v1/team_pb";
 import type { VaultService } from "../gen/nexus/v1/vault_pb";
 import { getSettings } from "./settings";
 
@@ -19,11 +21,13 @@ import { getSettings } from "./settings";
 export interface Clients {
   agents: Client<typeof AgentService>;
   approvals: Client<typeof ApprovalService>;
+  architect: Client<typeof ArchitectService>;
   command: Client<typeof CommandService>;
   devices: Client<typeof DeviceService>;
   events: Client<typeof EventService>;
   nodes: Client<typeof NodeService>;
   tasks: Client<typeof TaskService>;
+  teams: Client<typeof TeamService>;
   vault: Client<typeof VaultService>;
 }
 
@@ -65,11 +69,13 @@ function makeClients(transport: Transport): Clients {
   return {
     agents: lazyClient(async () => (await import("../gen/nexus/v1/agent_pb")).AgentService, transport),
     approvals: createClient(ApprovalService, transport),
+    architect: lazyClient(async () => (await import("../gen/nexus/v1/architect_pb")).ArchitectService, transport),
     command: createClient(CommandService, transport),
     devices: lazyClient(async () => (await import("../gen/nexus/v1/device_pb")).DeviceService, transport),
     events: createClient(EventService, transport),
     nodes: createClient(NodeService, transport),
     tasks: createClient(TaskService, transport),
+    teams: lazyClient(async () => (await import("../gen/nexus/v1/team_pb")).TeamService, transport),
     vault: lazyClient(async () => (await import("../gen/nexus/v1/vault_pb")).VaultService, transport),
   };
 }

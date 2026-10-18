@@ -6,10 +6,11 @@ import type { ComponentType } from "react";
  * The single registry of pages and navigation. Sidebar, mobile tab bar, section tabs, ⌘K
  * "Go to" commands, g-shortcuts, route definitions and hover-prefetch are all derived from it.
  *
- * Adding a feature (e.g. Teams) is one entry: a page in `PAGES`, plus a tab in its section:
+ * Adding a feature is one entry: a page in `PAGES`, plus a tab in its section. Teams, for example:
  *
  *   teams: { path: "teams", load: () => import("../pages/Teams") },
  *   …and in SECTIONS.work.tabs: { to: "/teams", label: "Teams", page: "teams" }
+ *   …and "/teams" in SECTIONS.work.match so its detail pages keep Work highlighted.
  */
 
 type Loader = () => Promise<{ default: ComponentType }>;
@@ -28,8 +29,13 @@ export const PAGES = {
   chat: { path: "chat", load: () => import("../pages/Chat"), fullBleed: true },
   tasks: { path: "tasks", load: () => import("../pages/Tasks") },
   task: { path: "tasks/:id", load: () => import("../pages/TaskDetail") },
+  teams: { path: "teams", load: () => import("../pages/Teams") },
+  team: { path: "teams/:id", load: () => import("../pages/TeamDetail") },
+  teamRun: { path: "teams/runs/:id", load: () => import("../pages/TeamRun") },
   agents: { path: "agents", load: () => import("../pages/Agents") },
   agent: { path: "agents/:id", load: () => import("../pages/AgentDetail") },
+  architect: { path: "architect", load: () => import("../pages/Architect") },
+  draft: { path: "architect/:id", load: () => import("../pages/ArchitectDraft") },
   costs: { path: "costs", load: () => import("../pages/Costs") },
   vault: { path: "vault", load: () => import("../pages/Vault") },
   machines: { path: "machines", load: () => import("../pages/Machines") },
@@ -75,12 +81,14 @@ export const SECTIONS: SectionDef[] = [
     icon: SquareStack,
     to: "/tasks",
     key: "w",
-    match: ["/tasks", "/agents", "/costs"],
+    match: ["/tasks", "/teams", "/agents", "/architect", "/costs"],
     badge: "running",
     mobile: "tab",
     tabs: [
       { to: "/tasks", label: "Tasks", page: "tasks" },
+      { to: "/teams", label: "Teams", page: "teams" },
       { to: "/agents", label: "Agents", page: "agents" },
+      { to: "/architect", label: "Architect", page: "architect" },
       { to: "/costs", label: "Spend", page: "costs" },
     ],
   },
@@ -105,6 +113,8 @@ export const SECTIONS: SectionDef[] = [
 export const SUB_KEYS: Array<{ key: string; to: string; label: string }> = [
   { key: "t", to: "/tasks", label: "Tasks" },
   { key: "a", to: "/agents", label: "Agents" },
+  { key: "e", to: "/teams", label: "Teams" },
+  { key: "r", to: "/architect", label: "Agent Architect" },
   { key: "v", to: "/vault", label: "Vault" },
   { key: "$", to: "/costs", label: "Spend" },
   { key: "o", to: "/", label: "Home" },
