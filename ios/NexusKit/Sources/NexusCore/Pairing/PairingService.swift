@@ -178,7 +178,11 @@ public struct PairingService: Sendable {
         // Pair at home on Wi-Fi: probe every Hub URL from the QR (`hub=` is repeatable) and
         // pair through the first one that answers. If none answers, still try the first URL
         // (the probe is advisory) and turn a transport failure into a clear message.
-        let probe = await HubProbe.firstReachable(payload.hubURLs, path: nil)
+        let probe = await HubProbe.firstReachable(
+            payload.hubURLs,
+            path: nil,
+            caFingerprint: payload.caFingerprint
+        )
         var probeReason = "It did not answer."
         var baseURL = payload.hubURLs.first
         switch probe {

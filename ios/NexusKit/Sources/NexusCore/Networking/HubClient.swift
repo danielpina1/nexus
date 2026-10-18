@@ -33,9 +33,9 @@ public enum HubError: Error, LocalizedError {
 /// or a short-lived access token from `DeviceService.GetChallenge` + `Authenticate` signed with
 /// the Secure Enclave device auth key.
 ///
-/// TODO(mTLS): CA pinning / client certificates (SECURITY.md Layer 2) need a custom
-/// `HTTPClientInterface` with a URLSession delegate; the CA fingerprint is already stored in
-/// `HubConfiguration.caFingerprint`.
+/// TLS: the Hub's certificate comes from its own private CA. `PinnedURLSessionHTTPClient` pins
+/// that CA (`HubConfiguration.caFingerprint`, from the pairing QR) with `HubTrust`.
+/// TODO(mTLS): client certificates (SECURITY.md Layer 2).
 public final class HubClient: @unchecked Sendable {
     public let configuration: HubConfiguration
     public let protocolClient: ProtocolClient
@@ -69,7 +69,7 @@ public final class HubClient: @unchecked Sendable {
         self.baseURL = url
         let codec: Codec = configuration.useJSONCodec ? JSONCodec() : ProtoCodec()
         self.protocolClient = ProtocolClient(
-            httpClient: URLSessionHTTPClient(),
+            httpClient: PinnedURLSessionHTTPClient(caFingerprint: configuration.caFingerprint),
             config: ProtocolClientConfig(
                 host: host,
                 networkProtocol: .connect,
@@ -102,7 +102,11 @@ public final class HubClient: @unchecked Sendable {
         configuration: HubConfiguration,
         path: NetworkPathInfo?
     ) async -> (client: HubClient?, outcome: HubProbe.Outcome) {
-        let outcome = await HubProbe.firstReachable(configuration.orderedURLs, path: path)
+        let outcome = await HubProbe.firstReachable(
+            configuration.orderedURLs,
+            path: path,
+            caFingerprint: configuration.caFingerprint
+        )
         guard case .reachable(let url) = outcome else { return (nil, outcome) }
         HubRouteMemory.recordContact(url: url, viaVPN: path.map(\.hasVPNInterface))
         return (try? HubClient(configuration: configuration, baseURL: url), outcome)
