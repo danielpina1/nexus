@@ -77,30 +77,33 @@ final class AppLock {
     }
 }
 
-/// Shown over the app while locked.
+/// Shown over the app while locked. Glass over the content (solid under Reduce Transparency).
 struct LockView: View {
     let lock: AppLock
 
     var body: some View {
         ZStack {
-            Rectangle().fill(.ultraThickMaterial).ignoresSafeArea()
-            VStack(spacing: 16) {
-                Image(systemName: "lock.shield.fill")
-                    .font(.system(size: 56))
-                    .foregroundStyle(.tint)
-                Text("Nexus is locked").font(.title2.bold())
+            Rectangle()
+                .fill(.clear)
+                .nxGlass(showsBorder: false)
+                .ignoresSafeArea()
+            VStack(spacing: NXSpace.s4) {
+                NXIconTile(systemImage: "lock.shield", tone: .accent, size: 64)
+                Text("Nexus is locked")
+                    .nx(NXType.title1)
+                    .foregroundStyle(NXColor.fg)
+                    .accessibilityAddTraits(.isHeader)
                 if let error = lock.lastError {
-                    Text(error).font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                    Text(error)
+                        .nx(NXType.footnote)
+                        .foregroundStyle(NXColor.muted)
+                        .multilineTextAlignment(.center)
                 }
-                Button {
+                NXButton("Unlock with Face ID", systemImage: "faceid", kind: .primary, size: .large, isLoading: lock.isAuthenticating) {
                     Task { await lock.unlock() }
-                } label: {
-                    Label("Unlock with Face ID", systemImage: "faceid")
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(lock.isAuthenticating)
             }
-            .padding()
+            .padding(NXSpace.s6)
         }
     }
 }
@@ -109,10 +112,9 @@ struct LockView: View {
 struct PrivacyCover: View {
     var body: some View {
         ZStack {
-            Rectangle().fill(.ultraThickMaterial).ignoresSafeArea()
-            Image(systemName: "circle.hexagongrid.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(.tint)
+            NXColor.bg.ignoresSafeArea()
+            NXIconTile(systemImage: "circle.hexagongrid.fill", tone: .accent, size: 72)
         }
+        .accessibilityHidden(true)
     }
 }

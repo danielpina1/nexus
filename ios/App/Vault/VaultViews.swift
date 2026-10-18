@@ -1,13 +1,8 @@
 import NexusCore
 import SwiftUI
 
-struct NoteRoute: Hashable {
-    let id: String
-    let path: String
-    let title: String
-}
-
-struct VaultView: View {
+/// Knowledge (web Vault): search notes, people, projects and facts; quick capture.
+struct KnowledgeView: View {
     @Environment(NexusStore.self) private var store
     @Environment(AppRouter.self) private var router
 
@@ -17,49 +12,68 @@ struct VaultView: View {
     @State private var errorMessage: String?
 
     var body: some View {
-        NavigationStack {
-            List {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: NXSpace.s4) {
+                NXButton("Quick capture", systemImage: "square.and.pencil", kind: .secondary, fullWidth: true) {
+                    router.showCapture = true
+                }
                 if let errorMessage {
-                    ErrorBanner(message: errorMessage)
-                }
-                if hits.isEmpty && !isSearching {
-                    Text(query.isEmpty ? "Search your notes, people, projects and facts." : "No results.")
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(hits, id: \.note.id) { hit in
-                    NavigationLink(value: NoteRoute(id: hit.note.id, path: hit.note.path, title: hit.note.title)) {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(hit.note.title.isEmpty ? hit.note.path : hit.note.title).font(.subheadline.weight(.semibold))
-                            Text(hit.snippet).font(.caption).foregroundStyle(.secondary).lineLimit(2)
-                            Text(hit.note.path).font(.caption2.monospaced()).foregroundStyle(.tertiary)
+                    NXErrorState(title: "Search failed", message: errorMessage, compact: true) {
+                        Task { await search() }
+                    }
+                    .nxCard(padding: 0)
+                } else if isSearching && hits.isEmpty {
+                    NXSkeletonRows(rows: 4)
+                } else if hits.isEmpty {
+                    NXEmptyState(
+                        systemImage: query.isEmpty ? "books.vertical" : "magnifyingglass",
+                        title: query.isEmpty ? "Search your knowledge" : "No results",
+                        message: query.isEmpty ? "Search your notes, people, projects and facts." : "Try other words, or capture this as a new note.",
+                        compact: true
+                    )
+                    .nxCard(padding: 0)
+                } else {
+                    VStack(spacing: 0) {
+                        ForEach(Array(hits.enumerated()), id: \.element.note.id) { index, hit in
+                            NavigationLink(value: NoteRoute(id: hit.note.id, path: hit.note.path, title: hit.note.title)) {
+                                VStack(alignment: .leading, spacing: NXSpace.s1) {
+                                    Text(hit.note.title.isEmpty ? hit.note.path : hit.note.title)
+                                        .nx(NXType.body.weight(.semibold))
+                                        .foregroundStyle(NXColor.fg)
+                                    if !hit.snippet.isEmpty {
+                                        Text(hit.snippet)
+                                            .nx(NXType.footnote)
+                                            .foregroundStyle(NXColor.fg2)
+                                            .lineLimit(2)
+                                    }
+                                    Text(hit.note.path)
+                                        .nx(NXType.mono)
+                                        .foregroundStyle(NXColor.muted)
+                                        .lineLimit(1)
+                                }
+                                .padding(.horizontal, NXSpace.s4)
+                                .padding(.vertical, NXSpace.s3)
+                                .frame(maxWidth: .infinity, minHeight: 60, alignment: .leading)
+                                .contentShape(Rectangle())
+                                .accessibilityElement(children: .combine)
+                            }
+                            .buttonStyle(NXPlainPressStyle())
+                            if index < hits.count - 1 { NXDivider() }
                         }
                     }
+                    .nxCard(padding: 0)
                 }
             }
-            .overlay {
-                if isSearching { ProgressView() }
-            }
-            .navigationTitle("Vault")
-            .searchable(text: $query, prompt: "Search the vault")
-            .task(id: query) {
-                // Debounce typing.
-                try? await Task.sleep(for: .milliseconds(300))
-                guard !Task.isCancelled else { return }
-                await search()
-            }
-            .toolbar {
-                CommonToolbar()
-                ToolbarItem(placement: .bottomBar) {
-                    Button {
-                        router.showCapture = true
-                    } label: {
-                        Label("Quick capture", systemImage: "square.and.pencil")
-                    }
-                }
-            }
-            .navigationDestination(for: NoteRoute.self) { route in
-                NoteView(route: route)
-            }
+            .padding(NXSpace.s4)
+        }
+        .nxScreenBackground()
+        .navigationTitle("Knowledge")
+        .searchable(text: $query, prompt: "Search the vault")
+        .task(id: query) {
+            // Debounce typing.
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            await search()
         }
     }
 
@@ -84,43 +98,64 @@ struct NoteView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: NXSpace.s4) {
                 if let note {
                     if !note.tags.isEmpty {
-                        Text(note.tags.map { "#" + $0 }.joined(separator: " "))
-                            .font(.caption)
-                            .foregroundStyle(.tint)
-                    }
-                    MarkdownText(markdown: note.body)
-                        .textSelection(.enabled)
-                    if !note.backlinks.isEmpty {
-                        Divider()
-                        Text("Backlinks").font(.headline)
-                        ForEach(note.backlinks, id: \.id) { link in
-                            NavigationLink(value: NoteRoute(id: link.id, path: link.path, title: link.title)) {
-                                Label(link.title.isEmpty ? link.path : link.title, systemImage: "link")
+                        FlowBadges {
+                            ForEach(note.tags, id: \.self) { tag in
+                                NXBadge("#" + tag, tone: .accent)
                             }
                         }
                     }
+                    MarkdownText(markdown: note.body)
+                        .nxText(NXType.bodyLg)
+                        .foregroundStyle(NXColor.fg)
+                        .textSelection(.enabled)
+                    if !note.backlinks.isEmpty {
+                        VStack(alignment: .leading, spacing: NXSpace.s3) {
+                            NXSectionHeader("Backlinks", count: note.backlinks.count)
+                            VStack(spacing: 0) {
+                                ForEach(Array(note.backlinks.enumerated()), id: \.element.id) { index, link in
+                                    NavigationLink(value: NoteRoute(id: link.id, path: link.path, title: link.title)) {
+                                        NXRow(link.title.isEmpty ? link.path : link.title, leading: {
+                                            Image(systemName: "link").foregroundStyle(NXColor.muted).accessibilityHidden(true)
+                                        }, trailing: { NXChevron() })
+                                    }
+                                    .buttonStyle(NXPlainPressStyle())
+                                    if index < note.backlinks.count - 1 { NXDivider() }
+                                }
+                            }
+                            .nxCard(padding: 0)
+                        }
+                    }
                     if let updated = note.updatedAt.optionalDate {
-                        Text("Updated \(Format.relative(updated))").font(.caption2).foregroundStyle(.secondary)
+                        Text("Updated \(Format.relative(updated))")
+                            .nx(NXType.caption.weight(.regular))
+                            .foregroundStyle(NXColor.muted)
                     }
                 } else if let errorMessage {
-                    ErrorBanner(message: errorMessage)
+                    NXErrorState(message: errorMessage) { Task { await load() } }
                 } else {
-                    ProgressView().frame(maxWidth: .infinity)
+                    NXSkeleton(height: 20, width: 220)
+                    NXSkeleton(height: 14)
+                    NXSkeleton(height: 14)
+                    NXSkeleton(height: 14, width: 180)
                 }
             }
-            .padding()
+            .padding(NXSpace.s4)
         }
+        .nxScreenBackground()
         .navigationTitle(note?.ref.title ?? route.title)
         .navigationBarTitleDisplayMode(.inline)
-        .task {
-            do {
-                note = try await store.note(id: route.id, path: route.path)
-            } catch {
-                errorMessage = error.localizedDescription
-            }
+        .task { await load() }
+    }
+
+    private func load() async {
+        do {
+            note = try await store.note(id: route.id, path: route.path)
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 }
@@ -142,16 +177,21 @@ struct CaptureView: View {
                 Section {
                     TextField("What's on your mind?", text: $text, axis: .vertical)
                         .lineLimit(4...12)
+                        .nxText(NXType.bodyLg)
                         .focused($focused)
                     TextField("Link (optional)", text: $url)
+                        .nxText(NXType.bodyLg)
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 }
+                .listRowBackground(NXColor.surface)
                 if let errorMessage {
-                    Section { ErrorBanner(message: errorMessage) }
+                    Section { NXInlineError(errorMessage) { self.errorMessage = nil } }
+                        .listRowBackground(Color.clear)
                 }
             }
+            .scrollContentBackground(.hidden)
             .navigationTitle("Capture")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -159,12 +199,18 @@ struct CaptureView: View {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { Task { await save() } }
-                        .disabled(text.isEmpty || isSaving)
+                    if isSaving {
+                        ProgressView()
+                    } else {
+                        Button("Save") { Task { await save() } }
+                            .disabled(text.isEmpty)
+                    }
                 }
             }
             .onAppear { focused = true }
         }
+        .presentationDetents([.medium, .large])
+        .nxSheetBackground()
     }
 
     private func save() async {

@@ -1,42 +1,54 @@
 import NexusCore
 import SwiftUI
 
+/// Machines (web Machines): nodes with live CPU / memory / disk, what runs on them, and the
+/// kill switch.
 struct MachinesView: View {
     @Environment(NexusStore.self) private var store
     @Environment(AppRouter.self) private var router
 
     var body: some View {
-        @Bindable var router = router
-        NavigationStack(path: $router.machinesPath) {
-            List {
+        let online = store.nodes.filter { store.status(ofNode: $0.id)?.online == true }.count
+        let running = store.runningTasks.filter { !$0.nodeID.isEmpty }
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: NXSpace.s6) {
+                NXPageHeader("Machines", subtitle: store.nodes.isEmpty ? "Nodes paired with your Hub" : "\(online) of \(store.nodes.count) nodes online · telemetry via the Hub")
                 if store.nodes.isEmpty {
-                    Text("No machines paired yet. Run `nexus-node pair` on a computer.")
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(store.nodes, id: \.id) { node in
-                    NavigationLink(value: node.id) {
-                        MachineRow(node: node, status: store.status(ofNode: node.id))
+                    NXEmptyState(systemImage: "cpu", title: "No machines yet", message: "Install nexus-node on a machine and pair it with the Hub (`nexus-node pair`).", compact: true)
+                        .nxCard(padding: 0)
+                } else {
+                    ForEach(store.nodes, id: \.id) { node in
+                        NavigationLink(value: MachineRoute(id: node.id)) {
+                            MachineCard(node: node, status: store.status(ofNode: node.id))
+                        }
+                        .buttonStyle(NXPlainPressStyle(cornerRadius: NXRadius.lg))
                     }
                 }
-                Section {
-                    Button(role: .destructive) {
-                        router.showKillSwitchConfirmation = true
-                    } label: {
-                        Label("Kill switch — stop everything", systemImage: "stop.circle.fill")
+                VStack(alignment: .leading, spacing: NXSpace.s3) {
+                    NXSectionHeader("Running on your machines", count: running.count, live: !running.isEmpty)
+                    if running.isEmpty {
+                        NXEmptyState(systemImage: "checkmark.circle", title: "Nothing running", compact: true)
+                            .nxCard(padding: 0)
+                    } else {
+                        TaskList(tasks: running)
                     }
                 }
+                NXButton("Kill switch — stop everything", systemImage: "stop.circle", kind: .destructive, fullWidth: true) {
+                    router.showKillSwitchConfirmation = true
+                }
+                .accessibilityHint("Asks to confirm, then cancels every running task and pauses triggers.")
             }
-            .navigationTitle("Machines")
-            .toolbar { CommonToolbar() }
-            .refreshable { await store.refresh() }
-            .navigationDestination(for: String.self) { nodeID in
-                MachineDetailView(nodeID: nodeID)
-            }
+            .padding(NXSpace.s4)
         }
+        .nxScreenBackground()
+        .navigationTitle("Machines")
+        .navigationBarTitleDisplayMode(.inline)
+        .refreshable { await store.refresh() }
     }
 }
 
-struct MachineRow: View {
+/// Node card with live stats.
+struct MachineCard: View {
     let node: Nexus_V1_Node
     let status: Nexus_V1_NodeStatus?
 
@@ -46,32 +58,56 @@ struct MachineRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: node.os == "macos" ? "desktopcomputer" : "server.rack")
-                .font(.title3)
-                .frame(width: 32)
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Circle().fill(status?.online == true ? Color.green : Color.gray).frame(width: 8, height: 8)
-                    Text(node.name).font(.headline)
+        let online = status?.online == true
+        VStack(alignment: .leading, spacing: NXSpace.s3) {
+            HStack(spacing: NXSpace.s3) {
+                NXIconTile(systemImage: node.os == "macos" ? "desktopcomputer" : "server.rack", tone: online ? .accent : .neutral, size: 36)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(node.name)
+                        .nx(NXType.title3)
+                        .foregroundStyle(NXColor.fg)
+                    Text("\(node.os) · \(node.arch)")
+                        .nx(NXType.caption.weight(.regular))
+                        .foregroundStyle(NXColor.muted)
                 }
-                if let status, status.online {
-                    Text("CPU \(Int(status.cpuPercent))% · RAM \(Int(status.memoryPercent))% · disk \(Int(status.diskPercent))%")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                if online {
+                    NXBadge("online", tone: .ok, dot: true, pulse: true)
                 } else {
-                    Text(offlineText)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    NXBadge("offline")
                 }
+                NXChevron()
             }
-            Spacer()
-            if let runs = status?.activeRuns, runs > 0 {
-                Label("\(runs)", systemImage: "play.circle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.blue)
+            if let status, online {
+                NXMetricRow(label: "CPU", percent: status.cpuPercent)
+                NXMetricRow(label: "RAM", percent: status.memoryPercent)
+                NXMetricRow(label: "Disk", percent: status.diskPercent)
+                HStack(spacing: NXSpace.s3) {
+                    if status.activeRuns > 0 {
+                        Label("\(status.activeRuns) running", systemImage: "play.circle")
+                            .foregroundStyle(NXColor.info)
+                    }
+                    if status.batteryPercent > 0 {
+                        Label("\(Int(status.batteryPercent))%", systemImage: "battery.75")
+                    }
+                    Spacer()
+                    if let seen = status.lastSeen.optionalDate {
+                        TimelineView(.periodic(from: .now, by: 5)) { _ in
+                            Text("updated \(Format.relative(seen))")
+                        }
+                    }
+                }
+                .nxText(NXType.caption.weight(.regular))
+                .foregroundStyle(NXColor.muted)
+            } else {
+                Text(offlineText)
+                    .nx(NXType.footnote)
+                    .foregroundStyle(NXColor.muted)
             }
         }
+        .nxCard()
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("Opens the machine.")
     }
 }
 
@@ -79,78 +115,138 @@ struct MachineDetailView: View {
     let nodeID: String
 
     @Environment(NexusStore.self) private var store
-    @State private var message: String?
+    @Environment(ToastCenter.self) private var toasts
+    @State private var isWaking = false
 
     var body: some View {
         let node = store.node(nodeID)
         let status = store.status(ofNode: nodeID)
-        List {
-            if let node {
-                Section("Status") {
-                    LabeledContent("Online", value: status?.online == true ? "Yes" : "No")
-                    if let status {
-                        LabeledContent("CPU", value: "\(Int(status.cpuPercent))%")
-                        LabeledContent("Memory", value: "\(Int(status.memoryPercent))%")
-                        LabeledContent("Disk", value: "\(Int(status.diskPercent))%")
-                        if status.batteryPercent > 0 {
-                            LabeledContent("Battery", value: "\(Int(status.batteryPercent))%")
-                        }
-                        LabeledContent("Active runs", value: "\(status.activeRuns)")
-                    }
-                    LabeledContent("System", value: "\(node.os) / \(node.arch)")
-                    if !node.tags.isEmpty {
-                        LabeledContent("Tags", value: node.tags.joined(separator: ", "))
-                    }
-                }
-                Section("Runtimes") {
-                    ForEach(node.runtimes, id: \.name) { runtime in
-                        HStack {
-                            Text(runtime.name)
-                            Spacer()
-                            Text(runtime.version).foregroundStyle(.secondary)
-                            Image(systemName: runtime.available ? "checkmark.circle.fill" : "xmark.circle")
-                                .foregroundStyle(runtime.available ? Color.green : Color.secondary)
+        ScrollView {
+            VStack(alignment: .leading, spacing: NXSpace.s6) {
+                if let node {
+                    let online = status?.online == true
+                    HStack(alignment: .top, spacing: NXSpace.s3) {
+                        NXIconTile(systemImage: node.os == "macos" ? "desktopcomputer" : "server.rack", tone: online ? .accent : .neutral, size: 48)
+                        VStack(alignment: .leading, spacing: NXSpace.s1) {
+                            Text(node.name)
+                                .nx(NXType.title1)
+                                .foregroundStyle(NXColor.fg)
+                                .accessibilityAddTraits(.isHeader)
+                            Text("\(node.os) / \(node.arch)" + (node.tags.isEmpty ? "" : " · " + node.tags.joined(separator: ", ")))
+                                .nx(NXType.footnote)
+                                .foregroundStyle(NXColor.muted)
+                            NXBadge(online ? "online" : "offline", tone: online ? .ok : .neutral, dot: online, pulse: online)
                         }
                     }
-                }
-                Section("Running here") {
-                    let tasks = store.runningTasks.filter { $0.nodeID == nodeID }
-                    if tasks.isEmpty {
-                        Text("Nothing running.").foregroundStyle(.secondary)
+
+                    if let status, online {
+                        LazyVGrid(columns: [GridItem(.flexible(), spacing: NXSpace.s3), GridItem(.flexible(), spacing: NXSpace.s3)], spacing: NXSpace.s3) {
+                            statTile("CPU", status.cpuPercent)
+                            statTile("Memory", status.memoryPercent)
+                            statTile("Disk", status.diskPercent)
+                            if status.batteryPercent > 0 {
+                                statTile("Battery", status.batteryPercent, inverted: true)
+                            } else {
+                                NXStatTile("Active runs", value: "\(status.activeRuns)", dot: status.activeRuns > 0 ? .info : nil)
+                            }
+                        }
+                    } else {
+                        VStack(alignment: .leading, spacing: NXSpace.s3) {
+                            Text(status?.lastSeen.optionalDate.map { "Offline · seen " + Format.relative($0) } ?? "Offline")
+                                .nx(NXType.body)
+                                .foregroundStyle(NXColor.fg2)
+                            NXButton("Wake", systemImage: "power", kind: .primary, isLoading: isWaking) {
+                                wake()
+                            }
+                            .accessibilityHint("Sends Wake-on-LAN through the Hub.")
+                        }
+                        .nxCard()
                     }
-                    ForEach(tasks, id: \.id) { task in
-                        TaskRow(task: task)
-                    }
-                }
-                Section {
-                    NavigationLink {
-                        FilesView(nodeID: nodeID, path: "")
-                    } label: {
-                        Label("Files", systemImage: "folder")
-                    }
-                    if status?.online != true {
-                        Button {
-                            Task {
-                                do {
-                                    try await store.wake(nodeID: nodeID)
-                                    message = "Wake-on-LAN sent."
-                                } catch {
-                                    message = error.localizedDescription
+
+                    VStack(alignment: .leading, spacing: NXSpace.s3) {
+                        NXSectionHeader("Runtimes", count: node.runtimes.count)
+                        Text("Installed agent runtimes reported by the node")
+                            .nx(NXType.footnote)
+                            .foregroundStyle(NXColor.muted)
+                        if node.runtimes.isEmpty {
+                            NXEmptyState(systemImage: "shippingbox", title: "No runtimes reported", compact: true)
+                                .nxCard(padding: 0)
+                        } else {
+                            VStack(spacing: 0) {
+                                ForEach(Array(node.runtimes.enumerated()), id: \.element.name) { index, runtime in
+                                    NXRow(runtime.name, subtitle: runtime.version, leading: {
+                                        Image(systemName: runtime.available ? "checkmark.circle.fill" : "xmark.circle")
+                                            .foregroundStyle(runtime.available ? NXColor.ok : NXColor.muted)
+                                            .accessibilityLabel(runtime.available ? "Available" : "Unavailable")
+                                    })
+                                    if index < node.runtimes.count - 1 { NXDivider() }
                                 }
                             }
-                        } label: {
-                            Label("Wake", systemImage: "power")
+                            .nxCard(padding: 0)
                         }
                     }
-                    if let message {
-                        Text(message).font(.caption).foregroundStyle(.secondary)
+
+                    VStack(alignment: .leading, spacing: NXSpace.s3) {
+                        let tasks = store.runningTasks.filter { $0.nodeID == nodeID }
+                        NXSectionHeader("Running here", count: tasks.count, live: !tasks.isEmpty)
+                        if tasks.isEmpty {
+                            NXEmptyState(systemImage: "checkmark.circle", title: "No runs on this machine", compact: true)
+                                .nxCard(padding: 0)
+                        } else {
+                            TaskList(tasks: tasks)
+                        }
                     }
+
+                    NavigationLink(value: FilesRoute(nodeID: nodeID, path: "")) {
+                        NXRow("Files", subtitle: "Browse the node's workspace", leading: {
+                            NXIconTile(systemImage: "folder", tone: .neutral, size: 32)
+                        }, trailing: { NXChevron() })
+                        .nxCard(padding: 0)
+                    }
+                    .buttonStyle(NXPlainPressStyle(cornerRadius: NXRadius.lg))
+                } else {
+                    NXEmptyState(systemImage: "questionmark.circle", title: "Unknown machine", message: "It may have been removed from the Hub.")
                 }
-            } else {
-                Text("Unknown machine.")
+            }
+            .padding(NXSpace.s4)
+        }
+        .nxScreenBackground()
+        .navigationTitle(node?.name ?? "Machine")
+        .navigationBarTitleDisplayMode(.inline)
+        .refreshable { await store.refresh() }
+    }
+
+    private func statTile(_ label: String, _ percent: Double, inverted: Bool = false) -> some View {
+        let fraction = percent / 100
+        let tone = inverted ? (fraction <= 0.1 ? NXTone.danger : (fraction <= 0.25 ? .warn : .ok)) : nxMeterTone(fraction)
+        return VStack(alignment: .leading, spacing: NXSpace.s2) {
+            Text(label)
+                .nx(NXType.caption)
+                .foregroundStyle(NXColor.muted)
+            Text("\(Int(percent.rounded()))%")
+                .nx(NXType.title2)
+                .monospacedDigit()
+                .foregroundStyle(tone == .danger ? NXColor.danger : (tone == .warn ? NXColor.warn : NXColor.fg))
+            NXMeter(value: fraction, label: label, tone: tone)
+                .accessibilityHidden(true)
+        }
+        .nxCard(padding: NXSpace.s3 + 2)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue("\(Int(percent.rounded())) percent")
+    }
+
+    private func wake() {
+        isWaking = true
+        Task {
+            defer { isWaking = false }
+            do {
+                try await store.wake(nodeID: nodeID)
+                toasts.success("Wake-on-LAN sent")
+            } catch {
+                toasts.error("Couldn't wake the machine", error) { wake() }
             }
         }
-        .navigationTitle(node?.name ?? "Machine")
     }
 }
 
@@ -164,38 +260,66 @@ struct FilesView: View {
     @State private var errorMessage: String?
 
     var body: some View {
-        List {
-            if let errorMessage {
-                ErrorBanner(message: errorMessage)
-            }
-            ForEach(entries, id: \.path) { entry in
-                if entry.isDir {
-                    NavigationLink {
-                        FilesView(nodeID: nodeID, path: entry.path)
-                    } label: {
-                        Label(entry.name, systemImage: "folder.fill")
-                    }
+        ScrollView {
+            VStack(alignment: .leading, spacing: NXSpace.s4) {
+                Text(path.isEmpty ? "/" : path)
+                    .nx(NXType.mono)
+                    .foregroundStyle(NXColor.muted)
+                    .lineLimit(1)
+                    .truncationMode(.head)
+                if isLoading {
+                    NXSkeletonRows(rows: 5)
+                } else if let errorMessage {
+                    NXErrorState(message: errorMessage, compact: true) { Task { await load() } }
+                        .nxCard(padding: 0)
+                } else if entries.isEmpty {
+                    NXEmptyState(systemImage: "folder", title: "Empty folder", compact: true)
+                        .nxCard(padding: 0)
                 } else {
-                    HStack {
-                        Label(entry.name, systemImage: "doc")
-                        Spacer()
-                        Text(Format.bytes(entry.sizeBytes)).font(.caption).foregroundStyle(.secondary)
+                    VStack(spacing: 0) {
+                        ForEach(Array(entries.enumerated()), id: \.element.path) { index, entry in
+                            if entry.isDir {
+                                NavigationLink(value: FilesRoute(nodeID: nodeID, path: entry.path)) {
+                                    NXRow(entry.name, leading: {
+                                        Image(systemName: "folder.fill").foregroundStyle(NXColor.accent).accessibilityHidden(true)
+                                    }, trailing: { NXChevron() })
+                                }
+                                .buttonStyle(NXPlainPressStyle())
+                                .accessibilityLabel("Folder \(entry.name)")
+                            } else {
+                                NXRow(entry.name, leading: {
+                                    Image(systemName: "doc").foregroundStyle(NXColor.muted).accessibilityHidden(true)
+                                }, trailing: {
+                                    Text(Format.bytes(entry.sizeBytes))
+                                        .nx(NXType.caption.weight(.regular))
+                                        .monospacedDigit()
+                                        .foregroundStyle(NXColor.muted)
+                                })
+                                .accessibilityElement(children: .combine)
+                            }
+                            if index < entries.count - 1 { NXDivider(inset: 44) }
+                        }
                     }
+                    .nxCard(padding: 0)
                 }
             }
+            .padding(NXSpace.s4)
         }
-        .overlay {
-            if isLoading { ProgressView() }
-        }
+        .nxScreenBackground()
         .navigationTitle(path.isEmpty ? "Files" : (path as NSString).lastPathComponent)
-        .task {
-            do {
-                entries = try await store.files(nodeID: nodeID, path: path)
-                    .sorted { ($0.isDir ? 0 : 1, $0.name.lowercased()) < ($1.isDir ? 0 : 1, $1.name.lowercased()) }
-            } catch {
-                errorMessage = error.localizedDescription
-            }
-            isLoading = false
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await load() }
+    }
+
+    private func load() async {
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            entries = try await store.files(nodeID: nodeID, path: path)
+                .sorted { ($0.isDir ? 0 : 1, $0.name.lowercased()) < ($1.isDir ? 0 : 1, $1.name.lowercased()) }
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 }
