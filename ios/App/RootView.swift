@@ -6,6 +6,7 @@ struct RootView: View {
     @Environment(AppRouter.self) private var router
     @Environment(AppLock.self) private var lock
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage(AppAppearance.storageKey) private var appearance: AppAppearance = .system
 
     var body: some View {
         @Bindable var router = router
@@ -16,6 +17,8 @@ struct RootView: View {
                 OnboardingView()
             }
         }
+        .tint(NXColor.accent)
+        .modifier(ToastHost())
         .sheet(item: $router.approval) { route in
             ApprovalSheet(approvalID: route.id)
         }
@@ -38,29 +41,47 @@ struct RootView: View {
                 PrivacyCover()
             }
         }
+        // Light / System / Dark override; applies to sheets and alerts of this window too.
+        .preferredColorScheme(appearance.colorScheme)
     }
 }
 
+/// Phone tab bar like the web (Home, Inbox, Chat, Work, More). Bars are glass (Chrome
+/// appearance); badges announce what waits.
 struct MainTabView: View {
+    @Environment(NexusStore.self) private var store
     @Environment(AppRouter.self) private var router
 
     var body: some View {
         @Bindable var router = router
         TabView(selection: $router.tab) {
-            Tab("Home", systemImage: "house.fill", value: AppRouter.Tab.home) {
-                HomeView()
+            Tab("Home", systemImage: "house", value: AppRouter.Tab.home) {
+                NavigationStack(path: $router.homePath) {
+                    HomeView()
+                        .nexusDestinations()
+                }
             }
-            Tab("Chat", systemImage: "bubble.left.and.bubble.right.fill", value: AppRouter.Tab.chat) {
+            Tab("Inbox", systemImage: "tray", value: AppRouter.Tab.inbox) {
+                NavigationStack(path: $router.inboxPath) {
+                    InboxView()
+                        .nexusDestinations()
+                }
+            }
+            .badge(store.inbox.count)
+            Tab("Chat", systemImage: "bubble.left", value: AppRouter.Tab.chat) {
                 ChatListView()
             }
-            Tab("Tasks", systemImage: "list.bullet.rectangle.portrait.fill", value: AppRouter.Tab.tasks) {
-                TasksView()
+            Tab("Work", systemImage: "square.stack", value: AppRouter.Tab.work) {
+                NavigationStack(path: $router.workPath) {
+                    WorkView()
+                        .nexusDestinations()
+                }
             }
-            Tab("Vault", systemImage: "books.vertical.fill", value: AppRouter.Tab.vault) {
-                VaultView()
-            }
-            Tab("Machines", systemImage: "desktopcomputer", value: AppRouter.Tab.machines) {
-                MachinesView()
+            Tab("More", systemImage: "ellipsis", value: AppRouter.Tab.more) {
+                NavigationStack(path: $router.morePath) {
+                    MoreView()
+                        .nexusDestinations()
+                }
             }
         }
     }

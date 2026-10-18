@@ -52,6 +52,8 @@ public final class NexusStore {
     public private(set) var notices: [NoticeItem] = []
     public private(set) var timelines: [String: [TimelineItem]] = [:]
     public private(set) var devices: [Nexus_V1_Device] = []
+    /// Team / task-tree lifecycle events per root task id, oldest first (team run view).
+    public private(set) var teamEvents: [String: [TeamEventItem]] = [:]
     public var lastError: String?
 
     // Remote access
@@ -95,6 +97,8 @@ public final class NexusStore {
 
     public var isPaired: Bool { configuration?.isPaired ?? false }
     public var actions: NexusActions? { hub.map(NexusActions.init(hub:)) }
+    /// The current Hub client (nil in demo mode and before the first connection).
+    public var hubClient: HubClient? { hub }
 
     /// The Hub URL currently in use (nil before the first connection attempt).
     public var currentHubURL: URL? { hub?.baseURL }
@@ -474,6 +478,7 @@ public final class NexusStore {
         questions = [:]
         notices = []
         timelines = [:]
+        teamEvents = [:]
         devices = []
         connection = isDemo ? .demo : .disconnected
     }
@@ -490,6 +495,11 @@ public final class NexusStore {
         for task in MockData.tasks where timelines[task.id] == nil {
             timelines[task.id] = MockData.timeline(for: task.id)
         }
+        for task in MockData.teamRunTasks {
+            tasks[task.id] = task
+        }
+        approvals[MockData.teamApproval.id] = MockData.teamApproval
+        teamEvents[MockData.teamRunRootID] = MockData.teamEvents
         scheduleSnapshot()
     }
 
@@ -608,10 +618,37 @@ public final class NexusStore {
         case .userMessage(let message):
             append(TimelineItem(id: entryID, at: at, runID: event.runID, kind: .userMessage(message.text)), to: event.taskID)
 
+        case .team(let teamEvent):
+            let rootID = teamEvent.rootTaskID.isEmpty ? event.taskID : teamEvent.rootTaskID
+            if !rootID.isEmpty {
+                var entries = teamEvents[rootID] ?? []
+                entries.append(TeamEventItem(id: entryID, at: at, event: teamEvent))
+                if entries.count > Self.maxTimelineEntries {
+                    entries.removeFirst(entries.count - Self.maxTimelineEntries)
+                }
+                teamEvents[rootID] = entries
+            }
+
         case .none:
             break
         }
         scheduleSnapshot()
+    }
+
+    /// Merges tasks fetched outside the event stream (team runs, task trees).
+    public func upsert(tasks newTasks: [Nexus_V1_Task]) {
+        for task in newTasks where !task.id.isEmpty {
+            tasks[task.id] = task
+        }
+    }
+
+    /// Adds or replaces an approval fetched outside the event stream (e.g. Architect publish).
+    public func upsert(approval: Nexus_V1_Approval) {
+        if approval.state == .pending {
+            approvals[approval.id] = approval
+        } else {
+            approvals.removeValue(forKey: approval.id)
+        }
     }
 
     private func append(_ entry: TimelineItem, to taskID: String) {

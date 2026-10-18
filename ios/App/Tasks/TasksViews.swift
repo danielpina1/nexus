@@ -2,9 +2,9 @@ import ActivityKit
 import NexusCore
 import SwiftUI
 
-struct TasksView: View {
+/// Work → Tasks (web Tasks): running / scheduled / done with a search field.
+struct TasksSection: View {
     @Environment(NexusStore.self) private var store
-    @Environment(AppRouter.self) private var router
 
     enum Segment: String, CaseIterable, Identifiable {
         case running = "Running"
@@ -14,66 +14,45 @@ struct TasksView: View {
     }
 
     @State private var segment: Segment = .running
+    @State private var query = ""
 
     private var tasks: [Nexus_V1_Task] {
+        let list: [Nexus_V1_Task]
         switch segment {
-        case .running: return store.runningTasks.filter { $0.parentID.isEmpty }
-        case .scheduled: return store.scheduledTasks
-        case .done: return store.doneTasks.filter { $0.parentID.isEmpty }
+        case .running: list = store.runningTasks.filter { $0.parentID.isEmpty }
+        case .scheduled: list = store.scheduledTasks
+        case .done: list = store.doneTasks.filter { $0.parentID.isEmpty }
+        }
+        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !q.isEmpty else { return list }
+        return list.filter { task in
+            task.displayTitle.lowercased().contains(q)
+                || (store.agent(task.agentID)?.name.lowercased().contains(q) ?? false)
         }
     }
 
     var body: some View {
-        @Bindable var router = router
-        NavigationStack(path: $router.tasksPath) {
-            List {
-                Picker("Show", selection: $segment) {
-                    ForEach(Segment.allCases) { segment in
-                        Text(segment.rawValue).tag(segment)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets())
-
-                if tasks.isEmpty {
-                    Text(segment == .scheduled ? "Nothing scheduled." : "No tasks.")
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(tasks, id: \.id) { task in
-                    NavigationLink(value: task.id) {
-                        TaskRow(task: task)
-                    }
+        let list = tasks
+        VStack(alignment: .leading, spacing: NXSpace.s4) {
+            NXPageHeader("Tasks", subtitle: "\(list.count) \(list.count == 1 ? "task" : "tasks") · \(Format.cost(cents: list.reduce(0) { $0 + $1.costCents })) spent in view")
+            Picker("Show", selection: $segment) {
+                ForEach(Segment.allCases) { segment in
+                    Text(segment.rawValue).tag(segment)
                 }
             }
-            .navigationTitle("Tasks")
-            .toolbar { CommonToolbar() }
-            .refreshable { await store.refresh() }
-            .navigationDestination(for: String.self) { taskID in
-                TaskDetailView(taskID: taskID)
+            .pickerStyle(.segmented)
+            NXTextField(placeholder: "Search tasks…", text: $query)
+            if list.isEmpty {
+                NXEmptyState(
+                    systemImage: query.isEmpty ? "tray" : "magnifyingglass",
+                    title: query.isEmpty ? (segment == .scheduled ? "Nothing scheduled" : "No tasks") : "No tasks match",
+                    message: query.isEmpty ? (segment == .running ? "Ask Nexus for something in Chat." : nil) : "Try a different search.",
+                    compact: true
+                )
+                .nxCard(padding: 0)
+            } else {
+                TaskList(tasks: list)
             }
-        }
-    }
-}
-
-struct TaskRow: View {
-    let task: Nexus_V1_Task
-    @Environment(NexusStore.self) private var store
-
-    var body: some View {
-        HStack(spacing: 12) {
-            AgentIconView(agent: store.agent(task.agentID), size: 32)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(task.displayTitle).font(.subheadline).lineLimit(2)
-                HStack(spacing: 6) {
-                    TaskStateBadge(state: task.state)
-                    if let date = task.updatedAt.optionalDate {
-                        Text("· \(Format.relative(date))").font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-            }
-            Spacer()
-            Text(Format.cost(cents: task.costCents)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
         }
     }
 }
@@ -85,43 +64,51 @@ struct TaskDetailView: View {
     @Environment(AppRouter.self) private var router
     @State private var liveError: String?
     @State private var isFollowing = false
+    @State private var loaded = false
 
     var body: some View {
         Group {
             if let task = store.tasks[taskID] {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: NXSpace.s6) {
                         header(task)
                         RunControls(task: task)
+                            .nxCard()
                         if task.state.isActive {
-                            Button {
-                                follow(task)
-                            } label: {
-                                Label(isFollowing ? "Following live" : "Follow live", systemImage: "livephoto")
+                            VStack(alignment: .leading, spacing: NXSpace.s2) {
+                                NXButton(isFollowing ? "Following live" : "Follow live", systemImage: "livephoto", kind: .primary) {
+                                    follow(task)
+                                }
+                                .disabled(isFollowing)
+                                .accessibilityHint("Shows this run on the Lock Screen and in the Dynamic Island.")
+                                if let liveError {
+                                    NXInlineError(liveError)
+                                }
                             }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(isFollowing)
-                            if let liveError {
-                                Text(liveError).font(.caption).foregroundStyle(.red)
+                        }
+                        if !task.teamID.isEmpty && task.parentID.isEmpty {
+                            NavigationLink(value: TeamRunRoute(rootTaskID: task.id)) {
+                                Label("Open team run", systemImage: "person.3")
                             }
+                            .buttonStyle(NXButtonStyle(kind: .secondary))
                         }
 
                         let children = store.children(of: task.id)
                         if !children.isEmpty {
-                            Text("Subtasks").font(.headline)
-                            ForEach(children, id: \.id) { child in
-                                NavigationLink(value: child.id) {
-                                    TaskRow(task: child)
-                                }
-                                .buttonStyle(.plain)
+                            VStack(alignment: .leading, spacing: NXSpace.s3) {
+                                NXSectionHeader("Subtasks", count: children.count)
+                                TaskList(tasks: children)
                             }
                         }
 
-                        Text("Timeline").font(.headline)
-                        RunTimelineView(task: task)
+                        VStack(alignment: .leading, spacing: NXSpace.s3) {
+                            NXSectionHeader("Timeline")
+                            RunTimelineView(task: task)
+                        }
                     }
-                    .padding()
+                    .padding(NXSpace.s4)
                 }
+                .nxScreenBackground()
                 .safeAreaInset(edge: .bottom) {
                     if task.state.isActive {
                         ComposerView(agentID: task.agentID, replyTaskID: task.id)
@@ -129,29 +116,43 @@ struct TaskDetailView: View {
                 }
                 .navigationTitle(task.displayTitle)
                 .navigationBarTitleDisplayMode(.inline)
+            } else if loaded {
+                NXEmptyState(systemImage: "questionmark.folder", title: "Task not found", message: "It may have been removed, or it belongs to another Hub.")
+                    .nxScreenBackground()
             } else {
-                ProgressView()
+                NXLoadingState(label: "Loading task…")
+                    .nxScreenBackground()
             }
         }
         .task {
             await store.loadTask(taskID)
+            loaded = true
             isFollowing = AppEnvironment.shared.liveActivities.activity(for: taskID) != nil
         }
     }
 
     @ViewBuilder
     private func header(_ task: Nexus_V1_Task) -> some View {
-        HStack(spacing: 12) {
-            AgentIconView(agent: store.agent(task.agentID), size: 44)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(store.agent(task.agentID)?.name ?? (task.agentID.isEmpty ? "Routing…" : task.agentID))
-                    .font(.headline)
+        HStack(alignment: .top, spacing: NXSpace.s3) {
+            AgentIconView(agent: store.agent(task.agentID), agentID: task.agentID, size: 44)
+            VStack(alignment: .leading, spacing: NXSpace.s1) {
+                Text(task.displayTitle)
+                    .nx(NXType.title2)
+                    .foregroundStyle(NXColor.fg)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityAddTraits(.isHeader)
+                Text([
+                    store.agent(task.agentID)?.name ?? (task.agentID.isEmpty ? "Routing…" : task.agentID),
+                    store.node(task.nodeID)?.name,
+                    Format.cost(cents: task.costCents),
+                ].compactMap { $0 }.joined(separator: " · "))
+                    .nx(NXType.footnote)
+                    .foregroundStyle(NXColor.muted)
                 HStack(spacing: 6) {
                     TaskStateBadge(state: task.state)
-                    if let node = store.node(task.nodeID) {
-                        Text("· \(node.name)").font(.caption).foregroundStyle(.secondary)
+                    if !task.role.isEmpty {
+                        NXBadge(task.role)
                     }
-                    Text("· \(Format.cost(cents: task.costCents))").font(.caption).foregroundStyle(.secondary)
                 }
             }
         }
@@ -175,7 +176,11 @@ struct TaskDetailView: View {
 }
 
 #Preview {
-    TasksView()
-        .environment(NexusStore.preview())
-        .environment(AppRouter())
+    NavigationStack {
+        TaskDetailView(taskID: "tsk_fix")
+            .nexusDestinations()
+    }
+    .environment(NexusStore.preview())
+    .environment(AppRouter())
+    .environment(ToastCenter())
 }

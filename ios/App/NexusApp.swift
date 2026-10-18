@@ -12,6 +12,7 @@ final class AppEnvironment {
     let store: NexusStore
     let router = AppRouter()
     let lock = AppLock()
+    let toasts = ToastCenter()
     let liveActivities = LiveActivityManager()
 
     private init() {
@@ -44,6 +45,7 @@ struct NexusApp: App {
                 .environment(env.store)
                 .environment(env.router)
                 .environment(env.lock)
+                .environment(env.toasts)
                 .onOpenURL { url in
                     env.router.handle(url: url)
                 }
@@ -76,6 +78,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         UNUserNotificationCenter.current().delegate = self
         NotificationCategories.register()
         MainActor.assumeIsolated {
+            // Before the first scene connects, so every bar picks it up.
+            ChromeAppearance.apply()
             let env = AppEnvironment.shared
             if env.store.isPaired || env.store.isDemo {
                 env.store.start()

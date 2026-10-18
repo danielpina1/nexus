@@ -1,6 +1,6 @@
 BUF ?= buf
 
-.PHONY: mac-selftest gen lint backend backend-test web web-dev ios-project all mac-setup mac-services ios run-local
+.PHONY: mac-selftest gen ios-tokens lint backend backend-test web web-dev ios-project all mac-setup mac-services ios run-local
 
 all: gen backend web
 
@@ -9,6 +9,11 @@ gen:
 	$(BUF) lint
 	rm -rf backend/gen web/src/gen ios/NexusKit/Sources/NexusAPI/Generated
 	$(BUF) generate
+	node scripts/gen-ios-tokens.mjs
+
+## Regenerate the iOS design tokens (Swift + AccentColor) from design/tokens.json
+ios-tokens:
+	node scripts/gen-ios-tokens.mjs
 
 lint:
 	$(BUF) lint

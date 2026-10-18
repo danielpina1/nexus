@@ -11,54 +11,58 @@ struct ChatThread: Hashable {
 struct ChatListView: View {
     @Environment(NexusStore.self) private var store
     @Environment(AppRouter.self) private var router
-    @State private var path: [ChatThread] = []
+    @State private var path = NavigationPath()
 
     var body: some View {
         NavigationStack(path: $path) {
-            List {
-                if store.reachability.isUnavailable && !store.isDemo {
-                    Section {
-                        HubUnreachableBanner()
-                    }
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets())
-                }
-                Section {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: NXSpace.s6) {
+                    HubUnreachableBanner()
+
                     NavigationLink(value: ChatThread(agentID: nil)) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "circle.hexagongrid.fill")
-                                .font(.title2)
-                                .foregroundStyle(.tint)
-                                .frame(width: 36)
-                            VStack(alignment: .leading) {
-                                Text("Nexus").font(.headline)
-                                Text("Routed automatically to the right agent").font(.caption).foregroundStyle(.secondary)
-                            }
-                        }
+                        NXRow("Nexus", subtitle: "Routed automatically to the right agent", minHeight: 64, leading: {
+                            NXIconTile(systemImage: "circle.hexagongrid.fill", tone: .accent, size: 40)
+                        }, trailing: {
+                            NXChevron()
+                        })
+                        .nxCard(padding: 0)
                     }
-                }
-                Section("Agents") {
-                    ForEach(store.agents, id: \.id) { agent in
-                        NavigationLink(value: ChatThread(agentID: agent.id)) {
-                            HStack(spacing: 12) {
-                                AgentIconView(agent: agent, size: 36)
-                                VStack(alignment: .leading) {
-                                    Text(agent.name).font(.headline)
-                                    Text(agent.description_p).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    .buttonStyle(NXPlainPressStyle(cornerRadius: NXRadius.lg))
+
+                    VStack(alignment: .leading, spacing: NXSpace.s3) {
+                        NXSectionHeader("Agents", count: store.agents.count)
+                        if store.agents.isEmpty {
+                            NXEmptyState(systemImage: "cpu", title: "No agents yet", message: "Add a note under agents/ in the vault, or design one with the Architect.", compact: true)
+                                .nxCard(padding: 0)
+                        } else {
+                            VStack(spacing: 0) {
+                                ForEach(Array(store.agents.enumerated()), id: \.element.id) { index, agent in
+                                    NavigationLink(value: ChatThread(agentID: agent.id)) {
+                                        NXRow(agent.name, subtitle: agent.description_p, minHeight: 60, leading: {
+                                            AgentIconView(agent: agent, size: 36)
+                                        }, trailing: {
+                                            NXChevron()
+                                        })
+                                    }
+                                    .buttonStyle(NXPlainPressStyle(cornerRadius: NXRadius.lg))
+                                    if index < store.agents.count - 1 { NXDivider(inset: 64) }
                                 }
                             }
+                            .nxCard(padding: 0)
                         }
                     }
                 }
+                .padding(.horizontal, NXSpace.s4)
+                .padding(.top, NXSpace.s2)
+                .padding(.bottom, NXSpace.s8)
             }
+            .nxScreenBackground()
             .navigationTitle("Chat")
             .toolbar { CommonToolbar() }
-            .navigationDestination(for: ChatThread.self) { thread in
-                ChatThreadView(thread: thread)
-            }
+            .nexusDestinations()
             .onChange(of: router.focusComposer) { _, focus in
                 if focus {
-                    path = [ChatThread(agentID: nil)]
+                    path = NavigationPath([ChatThread(agentID: nil)])
                 }
             }
         }
@@ -90,29 +94,30 @@ struct ChatThreadView: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 16) {
+                LazyVStack(alignment: .leading, spacing: NXSpace.s5) {
                     if tasks.isEmpty && queuedCommands.isEmpty {
-                        ContentUnavailableView(
-                            "Start a conversation",
+                        NXEmptyState(
                             systemImage: "bubble.left.and.text.bubble.right",
-                            description: Text(thread.agentID == nil ? "Ask anything — Nexus routes it to the right agent." : "Send \(title) a task.")
+                            title: "Start a conversation",
+                            message: thread.agentID == nil ? "Ask anything — Nexus routes it to the right agent." : "Send \(title) a task."
                         )
-                        .padding(.top, 40)
+                        .padding(.top, NXSpace.s10)
                     }
                     ForEach(tasks, id: \.id) { task in
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: NXSpace.s3) {
                             RunTimelineView(task: task, compact: true)
                             RunControls(task: task)
                         }
                         .id(task.id)
-                        Divider()
+                        NXDivider()
                     }
                     ForEach(queuedCommands) { item in
                         QueuedBubble(text: item.summary)
                     }
                 }
-                .padding()
+                .padding(NXSpace.s4)
             }
+            .nxScreenBackground()
             .onAppear {
                 if let last = tasks.last { proxy.scrollTo(last.id, anchor: .bottom) }
             }
@@ -123,8 +128,8 @@ struct ChatThreadView: View {
         .safeAreaInset(edge: .top) {
             if store.reachability.isUnavailable && !store.isDemo {
                 HubUnreachableBanner()
-                    .padding(.horizontal)
-                    .padding(.top, 4)
+                    .padding(.horizontal, NXSpace.s4)
+                    .padding(.top, NXSpace.s1)
             }
         }
         .safeAreaInset(edge: .bottom) {
@@ -135,71 +140,71 @@ struct ChatThreadView: View {
     }
 }
 
-/// Reply / Try harder / Stop + cost for a task.
+/// Reply / Try harder / Stop + cost for a task (MASTER.md: Cancel needs a second tap).
 struct RunControls: View {
     let task: Nexus_V1_Task
     @Environment(NexusStore.self) private var store
     @State private var showReply = false
     @State private var replyText = ""
+    @State private var busy: String?
     @State private var errorMessage: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: NXSpace.s2) {
+            HStack(spacing: NXSpace.s2) {
                 TaskStateBadge(state: task.state)
                 Spacer()
-                Text(Format.cost(cents: task.costCents)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                Text(Format.cost(cents: task.costCents))
+                    .nx(NXType.caption)
+                    .monospacedDigit()
+                    .foregroundStyle(NXColor.muted)
+                    .accessibilityLabel("Cost \(Format.cost(cents: task.costCents))")
             }
             if task.state.isActive {
-                HStack {
-                    Button {
-                        showReply.toggle()
-                    } label: {
-                        Label("Reply", systemImage: "arrowshape.turn.up.left")
-                    }
-                    Button {
-                        perform { try await store.escalate(taskID: task.id) }
-                    } label: {
-                        Label("Try harder", systemImage: "bolt.fill")
-                    }
-                    Button(role: .destructive) {
-                        perform { try await store.cancel(taskID: task.id) }
-                    } label: {
-                        Label("Stop", systemImage: "stop.fill")
-                    }
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: NXSpace.s2) { activeButtons }
+                    VStack(alignment: .leading, spacing: NXSpace.s2) { activeButtons }
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
             } else if task.state == .failed {
-                Button {
-                    perform { try await store.escalate(taskID: task.id) }
-                } label: {
-                    Label("Retry harder", systemImage: "arrow.clockwise")
+                NXButton("Retry harder", systemImage: "arrow.clockwise", kind: .secondary, size: .small, isLoading: busy == "escalate") {
+                    perform("escalate") { try await store.escalate(taskID: task.id) }
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
             }
             if showReply {
-                HStack {
-                    TextField("Message the agent…", text: $replyText, axis: .vertical)
-                        .textFieldStyle(.roundedBorder)
-                    Button("Send") {
+                HStack(spacing: NXSpace.s2) {
+                    NXTextField(placeholder: "Message the agent…", text: $replyText, axis: .vertical)
+                    NXIconButton(systemImage: "paperplane.fill", label: "Send", tint: NXColor.accent, isLoading: busy == "reply") {
                         let text = replyText
                         replyText = ""
                         showReply = false
-                        perform { _ = try await store.sendMessage(taskID: task.id, text: text) }
+                        perform("reply") { _ = try await store.sendMessage(taskID: task.id, text: text) }
                     }
-                    .disabled(replyText.isEmpty)
+                    .disabled(replyText.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
             if let errorMessage {
-                Text(errorMessage).font(.caption).foregroundStyle(.red)
+                NXInlineError(errorMessage) { self.errorMessage = nil }
             }
         }
     }
 
-    private func perform(_ action: @escaping () async throws -> Void) {
+    @ViewBuilder
+    private var activeButtons: some View {
+        NXButton("Reply", systemImage: "arrowshape.turn.up.left", kind: .secondary, size: .small) {
+            showReply.toggle()
+        }
+        NXButton("Try harder", systemImage: "arrow.up.circle", kind: .secondary, size: .small, isLoading: busy == "escalate") {
+            perform("escalate") { try await store.escalate(taskID: task.id) }
+        }
+        NXConfirmButton("Stop", confirmTitle: "Confirm stop", systemImage: "stop.circle", kind: .ghost, size: .small, isLoading: busy == "cancel") {
+            perform("cancel") { try await store.cancel(taskID: task.id) }
+        }
+    }
+
+    private func perform(_ key: String, _ action: @escaping () async throws -> Void) {
+        busy = key
         Task {
+            defer { busy = nil }
             do {
                 try await action()
                 errorMessage = nil
@@ -221,17 +226,32 @@ struct RunTimelineView: View {
     var body: some View {
         let entries = store.timelines[task.id] ?? []
         let lastEntryID = entries.last?.id
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: NXSpace.s3) {
             if entries.isEmpty || !entries.contains(where: { if case .userMessage = $0.kind { return true }; return false }) {
                 UserBubble(text: task.prompt.isEmpty ? task.displayTitle : task.prompt)
+            }
+            if entries.isEmpty && task.state.isActive {
+                HStack(spacing: NXSpace.s2) {
+                    ProgressView().controlSize(.small)
+                    Text(task.state == .queued || task.state == .routing ? "Finding the right machine…" : "Starting…")
+                        .nx(NXType.footnote)
+                        .foregroundStyle(NXColor.muted)
+                }
+                .accessibilityElement(children: .combine)
             }
             ForEach(entries) { entry in
                 entryView(entry, isLast: entry.id == lastEntryID)
             }
-            if task.state.isTerminal && !task.summary.isEmpty {
-                Label(task.summary, systemImage: task.state == .succeeded ? "checkmark.seal.fill" : "xmark.octagon")
-                    .font(.subheadline)
-                    .foregroundStyle(task.state == .succeeded ? Color.green : Color.red)
+            if task.state.isTerminal {
+                if !task.summary.isEmpty {
+                    Label(task.summary, systemImage: task.state == .succeeded ? "checkmark.seal.fill" : "xmark.octagon")
+                        .nxText(NXType.body.weight(.medium))
+                        .foregroundStyle(task.state == .succeeded ? NXColor.ok : NXColor.danger)
+                } else if entries.isEmpty {
+                    Text("No output recorded.")
+                        .nx(NXType.footnote)
+                        .foregroundStyle(NXColor.muted)
+                }
             }
         }
     }
@@ -242,75 +262,103 @@ struct RunTimelineView: View {
         case .userMessage(let text):
             UserBubble(text: text)
         case .output(let text, let isFinal):
-            HStack(alignment: .top, spacing: 8) {
-                AgentIconView(agent: store.agent(task.agentID), size: 24)
-                VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .top, spacing: NXSpace.s2) {
+                AgentIconView(agent: store.agent(task.agentID), agentID: task.agentID, size: 24)
+                VStack(alignment: .leading, spacing: NXSpace.s1) {
                     MarkdownText(markdown: text)
-                        .font(.body)
+                        .nxText(NXType.bodyLg)
+                        .foregroundStyle(NXColor.fg)
                         .textSelection(.enabled)
                     // Streaming indicator only on the chunk that is still growing.
                     if !isFinal && isLast && task.state.isActive {
-                        ProgressView().controlSize(.mini)
+                        StreamingCaret()
                     }
                 }
             }
         case .toolCall(let call, let result):
             ToolCallView(call: call, result: result)
         case .question(let question):
-            Label(question.text, systemImage: "questionmark.bubble.fill")
-                .font(.subheadline)
-                .foregroundStyle(.orange)
+            Label(question.text, systemImage: "questionmark.bubble")
+                .nxText(NXType.body.weight(.medium))
+                .foregroundStyle(NXColor.info)
+                .padding(NXSpace.s3)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(NXColor.infoSoft, in: RoundedRectangle(cornerRadius: NXRadius.md, style: .continuous))
         case .approval(let approval):
-            Button {
-                router.openApproval(approval.id)
-            } label: {
-                Label(
-                    approval.state == .pending ? "Approval needed: \(approval.title)" : "\(approval.title) — \(Self.label(approval.state))",
-                    systemImage: approval.isBiometric ? "faceid" : "hand.raised.fill"
-                )
-                .font(.subheadline.weight(.semibold))
+            if approval.state == .pending {
+                ApprovalCardView(approval: approval, compact: true)
+            } else {
+                HStack(spacing: NXSpace.s2) {
+                    Image(systemName: approval.isBiometric ? "faceid" : "hand.raised")
+                        .foregroundStyle(NXColor.muted)
+                        .accessibilityHidden(true)
+                    Text(approval.title)
+                        .nx(NXType.footnote)
+                        .foregroundStyle(NXColor.fg2)
+                    NXBadge(approval.state.badgeLabel, tone: approval.state.tone)
+                }
+                .accessibilityElement(children: .combine)
             }
-            .disabled(approval.state != .pending)
         case .cost(let cost):
             if !compact {
                 Text("\(cost.hasAmount ? cost.amount.formatted : "") · \(cost.model) · \(cost.inputTokens)→\(cost.outputTokens) tokens")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .nx(NXType.caption.weight(.regular))
+                    .monospacedDigit()
+                    .foregroundStyle(NXColor.muted)
             }
         case .artifact(let attachment):
             ArtifactView(attachment: attachment)
         case .status(let state, _):
             if !compact {
-                Label(state.label, systemImage: state.symbol)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: NXSpace.s2) {
+                    Rectangle().fill(NXColor.border).frame(height: 1)
+                    TaskStateBadge(state: state)
+                    Rectangle().fill(NXColor.border).frame(height: 1)
+                }
             }
         case .notice(let notice):
             Label(notice.title, systemImage: "bell")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    static func label(_ state: Nexus_V1_ApprovalState) -> String {
-        switch state {
-        case .approved: return "approved"
-        case .denied: return "denied"
-        case .expired: return "expired"
-        default: return "pending"
+                .nxText(NXType.footnote)
+                .foregroundStyle(NXColor.muted)
         }
     }
 }
 
+/// Blinking caret while text streams (static under Reduce Motion).
+struct StreamingCaret: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var visible = true
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 1)
+            .fill(NXColor.accent)
+            .frame(width: 8, height: 14)
+            .opacity(visible ? 1 : 0.15)
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) {
+                    visible = false
+                }
+            }
+            .accessibilityLabel("Streaming")
+    }
+}
+
+/// Prompt bubble: primary fill, primary-fg text (MASTER.md "Run / stream view").
 struct UserBubble: View {
     let text: String
 
     var body: some View {
         HStack {
-            Spacer(minLength: 40)
+            Spacer(minLength: 48)
             Text(text)
-                .padding(10)
-                .background(Color.accentColor.opacity(0.15), in: RoundedRectangle(cornerRadius: 14))
+                .nx(NXType.bodyLg)
+                .foregroundStyle(NXColor.primaryFg)
+                .padding(.horizontal, 14)
+                .padding(.vertical, NXSpace.s2)
+                .background(NXColor.primary, in: UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 16, bottomTrailingRadius: 6, topTrailingRadius: 16, style: .continuous))
+                .textSelection(.enabled)
+                .accessibilityLabel("You: \(text)")
         }
     }
 }
@@ -320,51 +368,83 @@ struct QueuedBubble: View {
     let text: String
 
     var body: some View {
-        VStack(alignment: .trailing, spacing: 4) {
+        VStack(alignment: .trailing, spacing: NXSpace.s1) {
             UserBubble(text: text)
                 .opacity(0.6)
             Label("Waiting for your Nexus — sent when you're connected", systemImage: "clock")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .nxText(NXType.caption.weight(.regular))
+                .foregroundStyle(NXColor.muted)
         }
         .frame(maxWidth: .infinity, alignment: .trailing)
     }
 }
 
+/// Collapsible tool row (mono, surface-2).
 struct ToolCallView: View {
     let call: Nexus_V1_ToolCall
     let result: Nexus_V1_ToolResult?
     @State private var expanded = false
 
+    private var failed: Bool { result?.error.isEmpty == false }
+
     var body: some View {
-        DisclosureGroup(isExpanded: $expanded) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Input").font(.caption.weight(.semibold))
-                Text(call.input.compactJSON).font(.caption.monospaced()).textSelection(.enabled)
-                if let result {
-                    Text(result.error.isEmpty ? "Output" : "Error").font(.caption.weight(.semibold))
-                    Text(result.error.isEmpty ? result.output.compactJSON : result.error)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(result.error.isEmpty ? Color.primary : Color.red)
-                        .textSelection(.enabled)
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                expanded.toggle()
+            } label: {
+                HStack(spacing: NXSpace.s2) {
+                    Image(systemName: result == nil ? "gearshape.2" : (failed ? "xmark.circle" : "checkmark.circle"))
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(failed ? NXColor.danger : NXColor.muted)
+                        .accessibilityHidden(true)
+                    Text(call.tool)
+                        .nx(NXType.mono)
+                        .foregroundStyle(NXColor.fg)
+                        .lineLimit(1)
+                    if let result, result.durationMs > 0 {
+                        Text("\(Double(result.durationMs) / 1000, specifier: "%.1f")s")
+                            .nx(NXType.caption.weight(.regular))
+                            .monospacedDigit()
+                            .foregroundStyle(NXColor.muted)
+                    }
+                    if result == nil { ProgressView().controlSize(.mini) }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(NXColor.muted)
+                        .rotationEffect(.degrees(expanded ? 90 : 0))
+                        .accessibilityHidden(true)
                 }
+                .padding(.horizontal, NXSpace.s3)
+                .frame(minHeight: NXSize.touchMin)
+                .contentShape(Rectangle())
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: result == nil ? "gearshape.2" : (result?.error.isEmpty == false ? "xmark.circle" : "checkmark.circle"))
-                    .foregroundStyle(result?.error.isEmpty == false ? Color.red : Color.secondary)
-                Text(call.tool).font(.caption.monospaced())
-                if let result, result.durationMs > 0 {
-                    Text("\(Double(result.durationMs) / 1000, specifier: "%.1f")s")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+            .buttonStyle(NXPlainPressStyle())
+            .accessibilityLabel("Tool \(call.tool), \(result == nil ? "running" : (failed ? "failed" : "done"))")
+            .accessibilityHint(expanded ? "Collapses the details." : "Shows input and output.")
+
+            if expanded {
+                VStack(alignment: .leading, spacing: NXSpace.s2) {
+                    NXOverline("Input")
+                    Text(call.input.compactJSON)
+                        .nx(NXType.mono)
+                        .foregroundStyle(NXColor.fg2)
+                        .textSelection(.enabled)
+                    if let result {
+                        NXOverline(result.error.isEmpty ? "Output" : "Error")
+                        Text(result.error.isEmpty ? result.output.compactJSON : result.error)
+                            .nx(NXType.mono)
+                            .foregroundStyle(result.error.isEmpty ? NXColor.fg2 : NXColor.danger)
+                            .textSelection(.enabled)
+                    }
                 }
-                if result == nil { ProgressView().controlSize(.mini) }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, NXSpace.s3)
+                .padding(.bottom, NXSpace.s3)
             }
         }
-        .padding(8)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
+        .background(NXColor.surface2, in: RoundedRectangle(cornerRadius: NXRadius.md, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: NXRadius.md, style: .continuous).strokeBorder(NXColor.border, lineWidth: 1))
     }
 }
 
@@ -377,15 +457,19 @@ struct ArtifactView: View {
                 .resizable()
                 .scaledToFit()
                 .frame(maxHeight: 240)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .clipShape(RoundedRectangle(cornerRadius: NXRadius.md, style: .continuous))
+                .accessibilityLabel("Image: \(attachment.name)")
         } else {
             Label("\(attachment.name) · \(Format.bytes(attachment.sizeBytes))", systemImage: "doc")
-                .font(.caption)
+                .nxText(NXType.footnote)
+                .foregroundStyle(NXColor.fg2)
+                .padding(NXSpace.s3)
+                .background(NXColor.surface2, in: RoundedRectangle(cornerRadius: NXRadius.md, style: .continuous))
         }
     }
 }
 
-/// Command composer with photo attachments (PhotosPicker).
+/// Command composer with photo attachments (PhotosPicker). Glass bar (chrome).
 struct ComposerView: View {
     let agentID: String?
     let replyTaskID: String?
@@ -399,51 +483,85 @@ struct ComposerView: View {
     @State private var info: String?
     @FocusState private var focused: Bool
 
+    private var canSend: Bool {
+        !isSending && !(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && attachments.isEmpty)
+    }
+
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: NXSpace.s2) {
             if let info {
-                Text(info).font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
+                Text(info)
+                    .nx(NXType.footnote)
+                    .foregroundStyle(NXColor.fg2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityAddTraits(.updatesFrequently)
             }
             if !attachments.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack {
+                    HStack(spacing: NXSpace.s2) {
                         ForEach(Array(attachments.enumerated()), id: \.offset) { index, attachment in
                             HStack(spacing: 4) {
-                                Image(systemName: "photo")
+                                Image(systemName: "photo").accessibilityHidden(true)
                                 Text(attachment.name).lineLimit(1)
-                                Button {
+                                NXIconButton(systemImage: "xmark.circle.fill", label: "Remove \(attachment.name)", tint: NXColor.muted) {
                                     attachments.remove(at: index)
-                                } label: {
-                                    Image(systemName: "xmark.circle.fill")
                                 }
-                                .buttonStyle(.plain)
+                                .padding(.vertical, -10)
                             }
-                            .font(.caption)
-                            .padding(6)
-                            .background(.thinMaterial, in: Capsule())
+                            .nxText(NXType.caption)
+                            .foregroundStyle(NXColor.fg2)
+                            .padding(.leading, NXSpace.s2)
+                            .background(NXColor.surface2, in: Capsule())
                         }
                     }
                 }
             }
-            HStack(alignment: .bottom, spacing: 8) {
+            HStack(alignment: .bottom, spacing: NXSpace.s2) {
                 PhotosPicker(selection: $photoItems, maxSelectionCount: 4, matching: .images) {
-                    Image(systemName: "photo.on.rectangle.angled").font(.title3)
+                    Image(systemName: "photo.on.rectangle.angled")
+                        .font(.system(size: 18))
+                        .foregroundStyle(NXColor.fg2)
+                        .frame(width: NXSize.touchMin, height: NXSize.touchMin)
+                        .contentShape(Rectangle())
                 }
+                .accessibilityLabel("Attach photos")
                 TextField(agentID == nil ? "Ask Nexus…" : "Message…", text: $text, axis: .vertical)
                     .lineLimit(1...5)
-                    .textFieldStyle(.roundedBorder)
+                    .nxText(NXType.bodyLg)
+                    .foregroundStyle(NXColor.fg)
                     .focused($focused)
+                    .padding(.horizontal, NXSpace.s3)
+                    .padding(.vertical, 10)
+                    .frame(minHeight: NXSize.touchMin)
+                    .background(NXColor.surface, in: RoundedRectangle(cornerRadius: NXRadius.xl, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: NXRadius.xl, style: .continuous)
+                            .strokeBorder(focused ? NXColor.ring : NXColor.borderInput, lineWidth: focused ? 2 : 1)
+                    }
+                    .accessibilityLabel(agentID == nil ? "Ask Nexus" : "Message")
                 Button {
                     Task { await send() }
                 } label: {
-                    Image(systemName: "arrow.up.circle.fill").font(.title2)
+                    ZStack {
+                        Circle().fill(canSend ? NXColor.primary : NXColor.surface3)
+                        if isSending {
+                            ProgressView().tint(NXColor.primaryFg)
+                        } else {
+                            Image(systemName: "arrow.up")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundStyle(canSend ? NXColor.primaryFg : NXColor.muted)
+                        }
+                    }
+                    .frame(width: NXSize.touchMin, height: NXSize.touchMin)
                 }
-                .disabled(isSending || (text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && attachments.isEmpty))
+                .buttonStyle(NXPlainPressStyle(cornerRadius: NXSize.touchMin / 2))
+                .disabled(!canSend)
+                .accessibilityLabel("Send")
             }
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
-        .background(.bar)
+        .padding(.horizontal, NXSpace.s3)
+        .padding(.vertical, NXSpace.s2)
+        .nxGlass()
         .onChange(of: photoItems) { _, items in
             Task { await load(items) }
         }
@@ -501,7 +619,7 @@ struct ComposerView: View {
             attachments = []
             photoItems = []
         } catch {
-            info = error.localizedDescription
+            info = "Not sent: " + error.localizedDescription
         }
     }
 }
@@ -512,4 +630,5 @@ struct ComposerView: View {
     }
     .environment(NexusStore.preview())
     .environment(AppRouter())
+    .environment(ToastCenter())
 }

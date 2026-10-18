@@ -42,11 +42,13 @@ public final class HubClient: @unchecked Sendable {
 
     public let agents: Nexus_V1_AgentServiceClient
     public let approvals: Nexus_V1_ApprovalServiceClient
+    public let architect: Nexus_V1_ArchitectServiceClient
     public let commands: Nexus_V1_CommandServiceClient
     public let devices: Nexus_V1_DeviceServiceClient
     public let events: Nexus_V1_EventServiceClient
     public let nodes: Nexus_V1_NodeServiceClient
     public let tasks: Nexus_V1_TaskServiceClient
+    public let teams: Nexus_V1_TeamServiceClient
     public let vault: Nexus_V1_VaultServiceClient
 
     private let tokens: TokenStore
@@ -76,11 +78,13 @@ public final class HubClient: @unchecked Sendable {
         )
         self.agents = Nexus_V1_AgentServiceClient(client: protocolClient)
         self.approvals = Nexus_V1_ApprovalServiceClient(client: protocolClient)
+        self.architect = Nexus_V1_ArchitectServiceClient(client: protocolClient)
         self.commands = Nexus_V1_CommandServiceClient(client: protocolClient)
         self.devices = Nexus_V1_DeviceServiceClient(client: protocolClient)
         self.events = Nexus_V1_EventServiceClient(client: protocolClient)
         self.nodes = Nexus_V1_NodeServiceClient(client: protocolClient)
         self.tasks = Nexus_V1_TaskServiceClient(client: protocolClient)
+        self.teams = Nexus_V1_TeamServiceClient(client: protocolClient)
         self.vault = Nexus_V1_VaultServiceClient(client: protocolClient)
         self.tokens = TokenStore()
     }

@@ -104,6 +104,19 @@ public struct TimelineItem: Identifiable, Sendable {
     }
 }
 
+/// A team / task-tree lifecycle event from the stream (team run timeline).
+public struct TeamEventItem: Identifiable, Sendable {
+    public var id: String
+    public var at: Date
+    public var event: Nexus_V1_TeamEvent
+
+    public init(id: String, at: Date, event: Nexus_V1_TeamEvent) {
+        self.id = id
+        self.at = at
+        self.event = event
+    }
+}
+
 // MARK: - Display helpers
 
 public extension Nexus_V1_TaskState {
@@ -132,10 +145,10 @@ public extension Nexus_V1_TaskState {
         case .needsInput: return "Needs input"
         case .assigned: return "Assigned"
         case .running: return "Running"
-        case .waitingApproval: return "Waiting for approval"
-        case .waitingInput: return "Waiting for you"
-        case .escalating: return "Trying harder"
-        case .succeeded: return "Done"
+        case .waitingApproval: return "Waiting approval"
+        case .waitingInput: return "Waiting input"
+        case .escalating: return "Escalating"
+        case .succeeded: return "Succeeded"
         case .failed: return "Failed"
         case .cancelled: return "Cancelled"
         case .UNRECOGNIZED: return "Unknown"
