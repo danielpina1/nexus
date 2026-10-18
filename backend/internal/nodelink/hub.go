@@ -210,8 +210,19 @@ func (hb *Hub) Connect(ctx context.Context, stream *connect.BidiStream[nexusv1.C
 
 	tick := time.NewTicker(hb.cfg.HeartbeatTimeout / 3)
 	defer tick.Stop()
+	// Keepalive: an Ack of the last node seq (harmless and idempotent for
+	// every node version) so the node can detect a hung link; a failed send
+	// ends the session.
+	var keepalive <-chan time.Time
+	if hb.cfg.Keepalive > 0 {
+		kt := time.NewTicker(hb.cfg.Keepalive)
+		defer kt.Stop()
+		keepalive = kt.C
+	}
 	for {
 		select {
+		case <-keepalive:
+			hb.sendAck(ns, ns.lastNodeSeq.Load())
 		case <-sctx.Done():
 			if ctx.Err() != nil {
 				return nil // client went away
@@ -293,7 +304,7 @@ func (hb *Hub) attach(ns *nodeState, sess *session, resumeSeq int64) error {
 	ns.outbox = keep
 	ns.nextSeq = resumeSeq
 	welcome := &nexusv1.ConnectResponse{Msg: &nexusv1.ConnectResponse_Welcome{
-		Welcome: &nexusv1.HubWelcome{ResumeSeq: ns.lastNodeSeq.Load()},
+		Welcome: &nexusv1.HubWelcome{ResumeSeq: ns.lastNodeSeq.Load(), KeepaliveMs: int32(max(hb.cfg.Keepalive, 0) / time.Millisecond)},
 	}}
 	if err := sess.stream.Send(welcome); err != nil {
 		return err

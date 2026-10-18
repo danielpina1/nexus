@@ -29,6 +29,7 @@
 //	  threshold: 0.6
 //	  answer_model: smart
 //	  search_limit: 8
+//	  chat_agent: assistant   # chat messages without @agent (source "chat", see chat.go)
 package command
 
 import (
@@ -58,6 +59,8 @@ type Config struct {
 	AnswerModel string  `yaml:"answer_model"`
 	SearchLimit int     `yaml:"search_limit"`
 	MaxChoices  int     `yaml:"max_choices"`
+	// ChatAgent answers chat messages (source "chat") without an @agent.
+	ChatAgent string `yaml:"chat_agent"`
 }
 
 func (c *Config) defaults() {
@@ -72,6 +75,9 @@ func (c *Config) defaults() {
 	}
 	if c.MaxChoices <= 0 {
 		c.MaxChoices = 6
+	}
+	if c.ChatAgent == "" {
+		c.ChatAgent = DefaultChatAgent
 	}
 }
 
@@ -132,9 +138,18 @@ func (s *Service) Execute(ctx context.Context, req *connect.Request[nexusv1.Exec
 	if strings.TrimSpace(m.Input) == "" && len(m.Attachments) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("input or attachments required"))
 	}
-	route, err := s.resolveRoute(ctx, m)
-	if err != nil {
-		return nil, err
+	var route *nexusv1.Route
+	var err error
+	if isChat(m) && m.Route == nil {
+		// Chat: no router call (see chat.go).
+		if m, route, err = s.prepareChat(ctx, m); err != nil {
+			return nil, err
+		}
+	}
+	if route == nil {
+		if route, err = s.resolveRoute(ctx, m); err != nil {
+			return nil, err
+		}
 	}
 	resp := &nexusv1.ExecuteResponse{Route: route}
 	if route.AgentId == architect.ChoiceCreateAgent { // "Create a new agent for this"
@@ -265,6 +280,9 @@ func (s *Service) task(ctx context.Context, m *nexusv1.ExecuteRequest, r *nexusv
 			treq.Params = nil
 		}
 	}
+	if isChat(m) {
+		s.chatParams(ctx, m, treq)
+	}
 	t, err := s.tasks.CreateTask(ctx, treq)
 	if err != nil {
 		return err
@@ -299,8 +317,8 @@ func (s *Service) search(ctx context.Context, m *nexusv1.ExecuteRequest, resp *n
 		return nil
 	}
 	llm, ok := lookup[kernel.LLM](s.h, kernel.SvcLLM)
-	if !ok {
-		return nil // hits only
+	if !ok || !kernel.LLMAvailable(llm, s.cfg.AnswerModel) {
+		return nil // hits only (no LLM, or its provider is degraded)
 	}
 	answer, err := s.answer(ctx, llm, m.Input, hits)
 	if err != nil {

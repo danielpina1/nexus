@@ -22,6 +22,19 @@
 //
 // Unknown events are ignored; malformed lines are logged.
 //
+// Model: a zero CostRecorded{model, runtime:"codex"} is emitted when the run
+// starts (model = the --model passed, "" = CLI default) and again when a
+// legacy session_configured event reports a different model, so clients can
+// label the reply with the model that actually served it.
+//
+// Chat runs (context chat=true + conversation_id): no CLI session is
+// resumed; the prompt carries the last turns stored on the node plus the
+// live Nexus status (chatsession.Prompt), and the reply is stored as a turn.
+//
+// Background work: codex exec has no background-shell or built-in subagent
+// tool (its turn ends when its commands end), so nothing needs blocking;
+// sub-work goes through the Nexus spawn_agent / team tools over MCP.
+//
 // Subscriptions: codex is used as logged in on the node (`codex login`, Sign
 // in with ChatGPT). Available() also runs `codex login status` (check_login,
 // default true) and reports the runtime unavailable when it says "not logged
@@ -85,6 +98,7 @@ import (
 	"github.com/danielpina1/nexus/backend/internal/runtime/agentloop"
 	"github.com/danielpina1/nexus/backend/internal/runtime/agentloop/cliproc"
 	"github.com/danielpina1/nexus/backend/internal/runtime/approvalgate"
+	"github.com/danielpina1/nexus/backend/internal/runtime/chatsession"
 	"github.com/danielpina1/nexus/backend/kernel"
 )
 
@@ -368,11 +382,35 @@ func (r *Runtime) Start(_ context.Context, spec kernel.RunSpec) (kernel.Run, err
 		"NEXUS_RUN_ID":  a.GetRunId(),
 		"NEXUS_TASK_ID": a.GetTaskId(),
 	})
-	if err := run.start(cmd, Prompt(a)); err != nil {
+	prompt := Prompt(a)
+	if chatsession.IsChat(a) {
+		prompt = r.chatPrompt(run, a)
+	}
+	if err := run.start(cmd, prompt); err != nil {
 		run.stopBridge()
 		return nil, err
 	}
 	return run, nil
+}
+
+// chatPrompt builds a chat run's prompt. codex exec keeps no session Nexus
+// resumes (`codex exec resume` differs across CLI versions), so every
+// message of a conversation carries the last turns stored on the node
+// (internal/runtime/chatsession) plus the live Nexus status.
+func (r *Runtime) chatPrompt(run *run, a *nexusv1.RunAssignment) string {
+	var turns []chatsession.Turn
+	if conv := chatsession.ConversationID(a); conv != "" {
+		run.chat = chatsession.Open(r.host.DataDir())
+		run.chatKey = chatsession.Key("codex", a.GetAgent().GetId(), conv)
+		run.chatUser = strings.TrimSpace(a.GetPrompt())
+		turns = run.chat.Get(run.chatKey).Turns
+	}
+	task := chatsession.Prompt(a, turns)
+	instr := strings.TrimSpace(a.GetInstructions())
+	if instr == "" {
+		return task
+	}
+	return "# Agent instructions\n\n" + instr + "\n\n# Message\n\n" + task
 }
 
 // startBridge starts the run's Nexus MCP endpoint and returns its URL.

@@ -15,7 +15,8 @@
     "predev:mock": "node scripts/gen-tokens.mjs",
     "prebuild": "node scripts/gen-tokens.mjs",
     "e2e": "node e2e/smoke.mjs",
-    "perf": "node e2e/perf.mjs"
+    "perf": "node e2e/perf.mjs",
+    "test": "node --experimental-strip-types --test e2e/*.test.ts"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.16.0",

@@ -804,8 +804,16 @@ type Question struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	QuestionId    string                 `protobuf:"bytes,1,opt,name=question_id,json=questionId,proto3" json:"question_id,omitempty"`
 	Text          string                 `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`
-	Choices       []string               `protobuf:"bytes,3,rep,name=choices,proto3" json:"choices,omitempty"`
+	Choices       []string               `protobuf:"bytes,3,rep,name=choices,proto3" json:"choices,omitempty"` // option labels (also in options, with descriptions)
 	AllowFreeText bool                   `protobuf:"varint,4,opt,name=allow_free_text,json=allowFreeText,proto3" json:"allow_free_text,omitempty"`
+	// Short label shown above the question (e.g. "Product/category").
+	Header string `protobuf:"bytes,5,opt,name=header,proto3" json:"header,omitempty"`
+	// Choices with descriptions; labels equal `choices`. Clients that know
+	// options render them as cards; older clients use `choices`.
+	Options []*QuestionOption `protobuf:"bytes,6,rep,name=options,proto3" json:"options,omitempty"`
+	// Several options may be picked; the answer (RunInput.choice) joins the
+	// chosen labels with ", ".
+	MultiSelect   bool `protobuf:"varint,7,opt,name=multi_select,json=multiSelect,proto3" json:"multi_select,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -868,6 +876,79 @@ func (x *Question) GetAllowFreeText() bool {
 	return false
 }
 
+func (x *Question) GetHeader() string {
+	if x != nil {
+		return x.Header
+	}
+	return ""
+}
+
+func (x *Question) GetOptions() []*QuestionOption {
+	if x != nil {
+		return x.Options
+	}
+	return nil
+}
+
+func (x *Question) GetMultiSelect() bool {
+	if x != nil {
+		return x.MultiSelect
+	}
+	return false
+}
+
+type QuestionOption struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Label         string                 `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QuestionOption) Reset() {
+	*x = QuestionOption{}
+	mi := &file_nexus_v1_event_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QuestionOption) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QuestionOption) ProtoMessage() {}
+
+func (x *QuestionOption) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_event_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QuestionOption.ProtoReflect.Descriptor instead.
+func (*QuestionOption) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_event_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *QuestionOption) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *QuestionOption) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
 type CostRecorded struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Cost          *Cost                  `protobuf:"bytes,1,opt,name=cost,proto3" json:"cost,omitempty"`
@@ -877,7 +958,7 @@ type CostRecorded struct {
 
 func (x *CostRecorded) Reset() {
 	*x = CostRecorded{}
-	mi := &file_nexus_v1_event_proto_msgTypes[7]
+	mi := &file_nexus_v1_event_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -889,7 +970,7 @@ func (x *CostRecorded) String() string {
 func (*CostRecorded) ProtoMessage() {}
 
 func (x *CostRecorded) ProtoReflect() protoreflect.Message {
-	mi := &file_nexus_v1_event_proto_msgTypes[7]
+	mi := &file_nexus_v1_event_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -902,7 +983,7 @@ func (x *CostRecorded) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CostRecorded.ProtoReflect.Descriptor instead.
 func (*CostRecorded) Descriptor() ([]byte, []int) {
-	return file_nexus_v1_event_proto_rawDescGZIP(), []int{7}
+	return file_nexus_v1_event_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *CostRecorded) GetCost() *Cost {
@@ -921,7 +1002,7 @@ type ArtifactAdded struct {
 
 func (x *ArtifactAdded) Reset() {
 	*x = ArtifactAdded{}
-	mi := &file_nexus_v1_event_proto_msgTypes[8]
+	mi := &file_nexus_v1_event_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -933,7 +1014,7 @@ func (x *ArtifactAdded) String() string {
 func (*ArtifactAdded) ProtoMessage() {}
 
 func (x *ArtifactAdded) ProtoReflect() protoreflect.Message {
-	mi := &file_nexus_v1_event_proto_msgTypes[8]
+	mi := &file_nexus_v1_event_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -946,7 +1027,7 @@ func (x *ArtifactAdded) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ArtifactAdded.ProtoReflect.Descriptor instead.
 func (*ArtifactAdded) Descriptor() ([]byte, []int) {
-	return file_nexus_v1_event_proto_rawDescGZIP(), []int{8}
+	return file_nexus_v1_event_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ArtifactAdded) GetAttachment() *Attachment {
@@ -966,7 +1047,7 @@ type UserMessage struct {
 
 func (x *UserMessage) Reset() {
 	*x = UserMessage{}
-	mi := &file_nexus_v1_event_proto_msgTypes[9]
+	mi := &file_nexus_v1_event_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -978,7 +1059,7 @@ func (x *UserMessage) String() string {
 func (*UserMessage) ProtoMessage() {}
 
 func (x *UserMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_nexus_v1_event_proto_msgTypes[9]
+	mi := &file_nexus_v1_event_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -991,7 +1072,7 @@ func (x *UserMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserMessage.ProtoReflect.Descriptor instead.
 func (*UserMessage) Descriptor() ([]byte, []int) {
-	return file_nexus_v1_event_proto_rawDescGZIP(), []int{9}
+	return file_nexus_v1_event_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *UserMessage) GetText() string {
@@ -1023,7 +1104,7 @@ type Notice struct {
 
 func (x *Notice) Reset() {
 	*x = Notice{}
-	mi := &file_nexus_v1_event_proto_msgTypes[10]
+	mi := &file_nexus_v1_event_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1035,7 +1116,7 @@ func (x *Notice) String() string {
 func (*Notice) ProtoMessage() {}
 
 func (x *Notice) ProtoReflect() protoreflect.Message {
-	mi := &file_nexus_v1_event_proto_msgTypes[10]
+	mi := &file_nexus_v1_event_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1048,7 +1129,7 @@ func (x *Notice) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Notice.ProtoReflect.Descriptor instead.
 func (*Notice) Descriptor() ([]byte, []int) {
-	return file_nexus_v1_event_proto_rawDescGZIP(), []int{10}
+	return file_nexus_v1_event_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *Notice) GetId() string {
@@ -1107,7 +1188,7 @@ type SubscribeRequest struct {
 
 func (x *SubscribeRequest) Reset() {
 	*x = SubscribeRequest{}
-	mi := &file_nexus_v1_event_proto_msgTypes[11]
+	mi := &file_nexus_v1_event_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1119,7 +1200,7 @@ func (x *SubscribeRequest) String() string {
 func (*SubscribeRequest) ProtoMessage() {}
 
 func (x *SubscribeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nexus_v1_event_proto_msgTypes[11]
+	mi := &file_nexus_v1_event_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1132,7 +1213,7 @@ func (x *SubscribeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubscribeRequest.ProtoReflect.Descriptor instead.
 func (*SubscribeRequest) Descriptor() ([]byte, []int) {
-	return file_nexus_v1_event_proto_rawDescGZIP(), []int{11}
+	return file_nexus_v1_event_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *SubscribeRequest) GetSinceSeq() int64 {
@@ -1164,15 +1245,21 @@ func (x *SubscribeRequest) GetRootTaskIds() []string {
 }
 
 type SubscribeResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Event         *Event                 `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Unset on keepalives.
+	Event *Event `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
+	// Keepalive: sent about every 20s while no events flow, with event unset,
+	// so clients can tell an idle stream from a hung one. Clients skip it (and
+	// may treat it as "the stream is alive"). Headers are flushed as soon as
+	// the stream opens, before the first event or keepalive.
+	Heartbeat     bool `protobuf:"varint,2,opt,name=heartbeat,proto3" json:"heartbeat,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SubscribeResponse) Reset() {
 	*x = SubscribeResponse{}
-	mi := &file_nexus_v1_event_proto_msgTypes[12]
+	mi := &file_nexus_v1_event_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1184,7 +1271,7 @@ func (x *SubscribeResponse) String() string {
 func (*SubscribeResponse) ProtoMessage() {}
 
 func (x *SubscribeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nexus_v1_event_proto_msgTypes[12]
+	mi := &file_nexus_v1_event_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1197,7 +1284,7 @@ func (x *SubscribeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubscribeResponse.ProtoReflect.Descriptor instead.
 func (*SubscribeResponse) Descriptor() ([]byte, []int) {
-	return file_nexus_v1_event_proto_rawDescGZIP(), []int{12}
+	return file_nexus_v1_event_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *SubscribeResponse) GetEvent() *Event {
@@ -1205,6 +1292,13 @@ func (x *SubscribeResponse) GetEvent() *Event {
 		return x.Event
 	}
 	return nil
+}
+
+func (x *SubscribeResponse) GetHeartbeat() bool {
+	if x != nil {
+		return x.Heartbeat
+	}
+	return false
 }
 
 var File_nexus_v1_event_proto protoreflect.FileDescriptor
@@ -1264,13 +1358,19 @@ const file_nexus_v1_event_proto_rawDesc = "" +
 	"\x06output\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x06output\x12\x14\n" +
 	"\x05error\x18\x03 \x01(\tR\x05error\x12\x1f\n" +
 	"\vduration_ms\x18\x04 \x01(\x03R\n" +
-	"durationMs\"\x81\x01\n" +
+	"durationMs\"\xf0\x01\n" +
 	"\bQuestion\x12\x1f\n" +
 	"\vquestion_id\x18\x01 \x01(\tR\n" +
 	"questionId\x12\x12\n" +
 	"\x04text\x18\x02 \x01(\tR\x04text\x12\x18\n" +
 	"\achoices\x18\x03 \x03(\tR\achoices\x12&\n" +
-	"\x0fallow_free_text\x18\x04 \x01(\bR\rallowFreeText\"2\n" +
+	"\x0fallow_free_text\x18\x04 \x01(\bR\rallowFreeText\x12\x16\n" +
+	"\x06header\x18\x05 \x01(\tR\x06header\x122\n" +
+	"\aoptions\x18\x06 \x03(\v2\x18.nexus.v1.QuestionOptionR\aoptions\x12!\n" +
+	"\fmulti_select\x18\a \x01(\bR\vmultiSelect\"H\n" +
+	"\x0eQuestionOption\x12\x14\n" +
+	"\x05label\x18\x01 \x01(\tR\x05label\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\"2\n" +
 	"\fCostRecorded\x12\"\n" +
 	"\x04cost\x18\x01 \x01(\v2\x0e.nexus.v1.CostR\x04cost\"E\n" +
 	"\rArtifactAdded\x124\n" +
@@ -1292,9 +1392,10 @@ const file_nexus_v1_event_proto_rawDesc = "" +
 	"\btask_ids\x18\x02 \x03(\tR\ataskIds\x12\x1d\n" +
 	"\n" +
 	"inbox_only\x18\x03 \x01(\bR\tinboxOnly\x12\"\n" +
-	"\rroot_task_ids\x18\x04 \x03(\tR\vrootTaskIds\":\n" +
+	"\rroot_task_ids\x18\x04 \x03(\tR\vrootTaskIds\"X\n" +
 	"\x11SubscribeResponse\x12%\n" +
-	"\x05event\x18\x01 \x01(\v2\x0f.nexus.v1.EventR\x05event*\xda\x03\n" +
+	"\x05event\x18\x01 \x01(\v2\x0f.nexus.v1.EventR\x05event\x12\x1c\n" +
+	"\theartbeat\x18\x02 \x01(\bR\theartbeat*\xda\x03\n" +
 	"\rTeamEventKind\x12\x1f\n" +
 	"\x1bTEAM_EVENT_KIND_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17TEAM_EVENT_KIND_STARTED\x10\x01\x12\x1d\n" +
@@ -1337,7 +1438,7 @@ func file_nexus_v1_event_proto_rawDescGZIP() []byte {
 }
 
 var file_nexus_v1_event_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_nexus_v1_event_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_nexus_v1_event_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_nexus_v1_event_proto_goTypes = []any{
 	(TeamEventKind)(0),            // 0: nexus.v1.TeamEventKind
 	(NoticeKind)(0),               // 1: nexus.v1.NoticeKind
@@ -1348,56 +1449,58 @@ var file_nexus_v1_event_proto_goTypes = []any{
 	(*ToolCall)(nil),              // 6: nexus.v1.ToolCall
 	(*ToolResult)(nil),            // 7: nexus.v1.ToolResult
 	(*Question)(nil),              // 8: nexus.v1.Question
-	(*CostRecorded)(nil),          // 9: nexus.v1.CostRecorded
-	(*ArtifactAdded)(nil),         // 10: nexus.v1.ArtifactAdded
-	(*UserMessage)(nil),           // 11: nexus.v1.UserMessage
-	(*Notice)(nil),                // 12: nexus.v1.Notice
-	(*SubscribeRequest)(nil),      // 13: nexus.v1.SubscribeRequest
-	(*SubscribeResponse)(nil),     // 14: nexus.v1.SubscribeResponse
-	(*timestamppb.Timestamp)(nil), // 15: google.protobuf.Timestamp
-	(*Approval)(nil),              // 16: nexus.v1.Approval
-	(*NodeStatus)(nil),            // 17: nexus.v1.NodeStatus
-	(*structpb.Struct)(nil),       // 18: google.protobuf.Struct
-	(*Task)(nil),                  // 19: nexus.v1.Task
-	(ActionClass)(0),              // 20: nexus.v1.ActionClass
-	(*Cost)(nil),                  // 21: nexus.v1.Cost
-	(*Attachment)(nil),            // 22: nexus.v1.Attachment
-	(*NoteRef)(nil),               // 23: nexus.v1.NoteRef
+	(*QuestionOption)(nil),        // 9: nexus.v1.QuestionOption
+	(*CostRecorded)(nil),          // 10: nexus.v1.CostRecorded
+	(*ArtifactAdded)(nil),         // 11: nexus.v1.ArtifactAdded
+	(*UserMessage)(nil),           // 12: nexus.v1.UserMessage
+	(*Notice)(nil),                // 13: nexus.v1.Notice
+	(*SubscribeRequest)(nil),      // 14: nexus.v1.SubscribeRequest
+	(*SubscribeResponse)(nil),     // 15: nexus.v1.SubscribeResponse
+	(*timestamppb.Timestamp)(nil), // 16: google.protobuf.Timestamp
+	(*Approval)(nil),              // 17: nexus.v1.Approval
+	(*NodeStatus)(nil),            // 18: nexus.v1.NodeStatus
+	(*structpb.Struct)(nil),       // 19: google.protobuf.Struct
+	(*Task)(nil),                  // 20: nexus.v1.Task
+	(ActionClass)(0),              // 21: nexus.v1.ActionClass
+	(*Cost)(nil),                  // 22: nexus.v1.Cost
+	(*Attachment)(nil),            // 23: nexus.v1.Attachment
+	(*NoteRef)(nil),               // 24: nexus.v1.NoteRef
 }
 var file_nexus_v1_event_proto_depIdxs = []int32{
-	15, // 0: nexus.v1.Event.at:type_name -> google.protobuf.Timestamp
+	16, // 0: nexus.v1.Event.at:type_name -> google.protobuf.Timestamp
 	4,  // 1: nexus.v1.Event.task_updated:type_name -> nexus.v1.TaskUpdated
 	5,  // 2: nexus.v1.Event.run_output:type_name -> nexus.v1.RunOutput
 	6,  // 3: nexus.v1.Event.tool_call:type_name -> nexus.v1.ToolCall
 	7,  // 4: nexus.v1.Event.tool_result:type_name -> nexus.v1.ToolResult
 	8,  // 5: nexus.v1.Event.question:type_name -> nexus.v1.Question
-	16, // 6: nexus.v1.Event.approval:type_name -> nexus.v1.Approval
-	9,  // 7: nexus.v1.Event.cost:type_name -> nexus.v1.CostRecorded
-	10, // 8: nexus.v1.Event.artifact:type_name -> nexus.v1.ArtifactAdded
-	17, // 9: nexus.v1.Event.node_status:type_name -> nexus.v1.NodeStatus
-	12, // 10: nexus.v1.Event.notice:type_name -> nexus.v1.Notice
-	11, // 11: nexus.v1.Event.user_message:type_name -> nexus.v1.UserMessage
+	17, // 6: nexus.v1.Event.approval:type_name -> nexus.v1.Approval
+	10, // 7: nexus.v1.Event.cost:type_name -> nexus.v1.CostRecorded
+	11, // 8: nexus.v1.Event.artifact:type_name -> nexus.v1.ArtifactAdded
+	18, // 9: nexus.v1.Event.node_status:type_name -> nexus.v1.NodeStatus
+	13, // 10: nexus.v1.Event.notice:type_name -> nexus.v1.Notice
+	12, // 11: nexus.v1.Event.user_message:type_name -> nexus.v1.UserMessage
 	3,  // 12: nexus.v1.Event.team:type_name -> nexus.v1.TeamEvent
 	0,  // 13: nexus.v1.TeamEvent.kind:type_name -> nexus.v1.TeamEventKind
-	18, // 14: nexus.v1.TeamEvent.data:type_name -> google.protobuf.Struct
-	19, // 15: nexus.v1.TaskUpdated.task:type_name -> nexus.v1.Task
-	18, // 16: nexus.v1.ToolCall.input:type_name -> google.protobuf.Struct
-	20, // 17: nexus.v1.ToolCall.action_class:type_name -> nexus.v1.ActionClass
-	18, // 18: nexus.v1.ToolResult.output:type_name -> google.protobuf.Struct
-	21, // 19: nexus.v1.CostRecorded.cost:type_name -> nexus.v1.Cost
-	22, // 20: nexus.v1.ArtifactAdded.attachment:type_name -> nexus.v1.Attachment
-	22, // 21: nexus.v1.UserMessage.attachments:type_name -> nexus.v1.Attachment
-	1,  // 22: nexus.v1.Notice.kind:type_name -> nexus.v1.NoticeKind
-	18, // 23: nexus.v1.Notice.data:type_name -> google.protobuf.Struct
-	23, // 24: nexus.v1.Notice.notes:type_name -> nexus.v1.NoteRef
-	2,  // 25: nexus.v1.SubscribeResponse.event:type_name -> nexus.v1.Event
-	13, // 26: nexus.v1.EventService.Subscribe:input_type -> nexus.v1.SubscribeRequest
-	14, // 27: nexus.v1.EventService.Subscribe:output_type -> nexus.v1.SubscribeResponse
-	27, // [27:28] is the sub-list for method output_type
-	26, // [26:27] is the sub-list for method input_type
-	26, // [26:26] is the sub-list for extension type_name
-	26, // [26:26] is the sub-list for extension extendee
-	0,  // [0:26] is the sub-list for field type_name
+	19, // 14: nexus.v1.TeamEvent.data:type_name -> google.protobuf.Struct
+	20, // 15: nexus.v1.TaskUpdated.task:type_name -> nexus.v1.Task
+	19, // 16: nexus.v1.ToolCall.input:type_name -> google.protobuf.Struct
+	21, // 17: nexus.v1.ToolCall.action_class:type_name -> nexus.v1.ActionClass
+	19, // 18: nexus.v1.ToolResult.output:type_name -> google.protobuf.Struct
+	9,  // 19: nexus.v1.Question.options:type_name -> nexus.v1.QuestionOption
+	22, // 20: nexus.v1.CostRecorded.cost:type_name -> nexus.v1.Cost
+	23, // 21: nexus.v1.ArtifactAdded.attachment:type_name -> nexus.v1.Attachment
+	23, // 22: nexus.v1.UserMessage.attachments:type_name -> nexus.v1.Attachment
+	1,  // 23: nexus.v1.Notice.kind:type_name -> nexus.v1.NoticeKind
+	19, // 24: nexus.v1.Notice.data:type_name -> google.protobuf.Struct
+	24, // 25: nexus.v1.Notice.notes:type_name -> nexus.v1.NoteRef
+	2,  // 26: nexus.v1.SubscribeResponse.event:type_name -> nexus.v1.Event
+	14, // 27: nexus.v1.EventService.Subscribe:input_type -> nexus.v1.SubscribeRequest
+	15, // 28: nexus.v1.EventService.Subscribe:output_type -> nexus.v1.SubscribeResponse
+	28, // [28:29] is the sub-list for method output_type
+	27, // [27:28] is the sub-list for method input_type
+	27, // [27:27] is the sub-list for extension type_name
+	27, // [27:27] is the sub-list for extension extendee
+	0,  // [0:27] is the sub-list for field type_name
 }
 
 func init() { file_nexus_v1_event_proto_init() }
@@ -1429,7 +1532,7 @@ func file_nexus_v1_event_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_nexus_v1_event_proto_rawDesc), len(file_nexus_v1_event_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   13,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

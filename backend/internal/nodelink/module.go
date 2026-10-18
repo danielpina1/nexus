@@ -25,18 +25,25 @@ func init() {
 //	  tokens:               # node id -> bearer token (used when no security service authenticates nodes)
 //	    mac: s3cret
 //	  heartbeat_timeout: 90s
+//	  keepalive: 20s        # hub → node keepalive (an Ack); -1s disables
 //	  outbox_limit: 1024
 //	  control_timeout: 15s
 type Config struct {
 	Tokens           map[string]string `yaml:"tokens"`
 	HeartbeatTimeout time.Duration     `yaml:"heartbeat_timeout"`
-	OutboxLimit      int               `yaml:"outbox_limit"`
-	ControlTimeout   time.Duration     `yaml:"control_timeout"`
+	// Keepalive is how often the hub sends a keepalive to idle nodes
+	// (default 20s; negative disables). Advertised in HubWelcome.keepalive_ms.
+	Keepalive      time.Duration `yaml:"keepalive"`
+	OutboxLimit    int           `yaml:"outbox_limit"`
+	ControlTimeout time.Duration `yaml:"control_timeout"`
 }
 
 func (c *Config) defaults() {
 	if c.HeartbeatTimeout <= 0 {
 		c.HeartbeatTimeout = 90 * time.Second
+	}
+	if c.Keepalive == 0 {
+		c.Keepalive = 20 * time.Second
 	}
 	if c.OutboxLimit <= 0 {
 		c.OutboxLimit = 1024

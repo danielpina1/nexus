@@ -108,6 +108,11 @@ func checkStrict(t *testing.T, b []byte, sections map[string]func() any, llmSect
 		if err := cfg.Section(llmSection, &lc); err != nil {
 			t.Fatalf("section %s: %v", llmSection, err)
 		}
+		// No providers = model access off (the MacBook node profile: agents use the
+		// Claude Code / Codex runtimes, local models are opt-in with --with-ollama).
+		if len(lc.Providers) == 0 {
+			return cfg
+		}
 		if _, err := llm.New(lc); err != nil {
 			t.Errorf("section %s: llm.New: %v", llmSection, err)
 		}
@@ -166,10 +171,20 @@ func TestMacbookHubProfile(t *testing.T) {
 	}
 	var lc llm.Config
 	_ = cfg.Section("llm", &lc)
-	for _, a := range []string{"fast-local", "embed"} {
-		if lc.Aliases[a].Model == "" || lc.Aliases[a].Provider != "ollama" {
-			t.Errorf("alias %s = %+v, want a pinned ollama model (setup.sh pulls it)", a, lc.Aliases[a])
+	// Subscriptions only by default: the hub's own model calls go through the
+	// Claude Code CLI with a Codex fallback; no local model and no Ollama.
+	for name, p := range lc.Providers {
+		if p.API != llm.APIClaudeCLI && p.API != llm.APICodexCLI {
+			t.Errorf("provider %s uses api %q, want claude-cli or codex-cli (local models are opt-in)", name, p.API)
 		}
+	}
+	for _, a := range []string{"fast-local", "smart", "best"} {
+		if lc.Aliases[a].Provider != "claude" || lc.Aliases[a].Model == "" {
+			t.Errorf("alias %s = %+v, want a Claude model through the CLI", a, lc.Aliases[a])
+		}
+	}
+	if !bytes.Contains(b, []byte("# >>> ollama")) {
+		t.Error("the opt-in Ollama block (# >>> ollama) is missing: setup.sh --with-ollama relies on it")
 	}
 }
 

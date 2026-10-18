@@ -49,9 +49,34 @@ type run struct {
 	// reader-goroutine state
 	terminal   bool
 	model      string
+	announced  string // model id last announced as a zero cost
 	sessionID  string
 	toolStarts map[string]time.Time
 	toolNames  map[string]string
+
+	// streaming (chat.go)
+	startedAt   time.Time
+	firstToken  bool
+	sawOutput   bool
+	curText     *strings.Builder // text block being streamed
+	curSep      bool             // the block needs a "\n\n" separator
+	streamed    []string         // streamed blocks awaiting their full message
+	lastWasText bool
+	dmu         sync.Mutex
+	dbuf        strings.Builder
+	dtimer      *time.Timer
+	lastFlush   time.Time
+
+	// chat session (nil for other runs) and resume fallback
+	chat         *chatState
+	resumeFailed bool
+
+	// AskUserQuestion (chat.go)
+	qmu      sync.Mutex
+	qseq     int
+	pendingQ map[string]chan *nexusv1.RunInput
+	done     chan struct{}
+	doneOnce sync.Once
 }
 
 func newRun(taskID, runID string, log *slog.Logger) *run {
@@ -61,8 +86,12 @@ func newRun(taskID, runID string, log *slog.Logger) *run {
 		stderr:     &cliproc.Tail{N: 4096},
 		toolStarts: map[string]time.Time{},
 		toolNames:  map[string]string{},
+		pendingQ:   map[string]chan *nexusv1.RunInput{},
+		done:       make(chan struct{}),
 	}
 }
+
+func (r *run) finish() { r.doneOnce.Do(func() { close(r.done) }) }
 
 // start launches cmd and writes the prompt.
 func (r *run) start(cmd *exec.Cmd, prompt string) error {
@@ -74,8 +103,11 @@ func (r *run) start(cmd *exec.Cmd, prompt string) error {
 	if err != nil {
 		return err
 	}
-	r.stdin = stdin
+	r.mu.Lock()
+	r.stdin, r.stdinClosed = stdin, false
+	r.mu.Unlock()
 	cmd.Stderr = r.stderr
+	r.startedAt = time.Now()
 	proc, err := cliproc.Start(cmd)
 	if err != nil {
 		return fmt.Errorf("claude-code: start %s: %w", cmd.Path, err)
@@ -129,6 +161,9 @@ func (r *run) closeStdin() {
 }
 
 func (r *run) Send(_ context.Context, in *nexusv1.RunInput) error {
+	if r.deliverAnswer(in) { // answer to an AskUserQuestion
+		return nil
+	}
 	text := agentloop.FormatInput(in)
 	if text == "" {
 		return errors.New("claude-code: empty input")
@@ -149,6 +184,7 @@ func (r *run) Cancel(context.Context) error {
 	r.mu.Lock()
 	r.cancelled = true
 	r.mu.Unlock()
+	r.finish()
 	if r.gate != nil {
 		r.gate.Close() // releases waiting permission prompts (deny)
 	}
@@ -188,19 +224,38 @@ func (r *run) stopBridge() {
 }
 
 func (r *run) read(stdout io.Reader) {
-	defer r.closeEvents()
 	if err := cliproc.ReadLines(stdout, r.handleLine); err != nil {
 		r.log.Warn("claude-code: reading stdout", "err", err)
 	}
+	r.flushDeltas()
 	r.closeStdin()
 	waitErr := r.proc.Wait()
+	r.mu.Lock()
+	cancelled := r.cancelled
+	r.mu.Unlock()
+	// A resumed chat session that is gone: start again as a fresh session.
+	if c := r.chat; c != nil && c.retry != nil && !cancelled && (r.resumeFailed || (!r.terminal && !r.sawOutput)) {
+		retry := c.retry
+		c.retry, c.resumed = nil, false
+		r.log.Info("claude-code: resume failed; starting a fresh session with the recent turns",
+			"session_id", r.sessionID, "stderr", truncate(r.stderr.String(), 300))
+		if c.store != nil {
+			_ = c.store.Forget(c.key)
+		}
+		r.terminal, r.resumeFailed, r.sessionID = false, false, ""
+		r.stderr = &cliproc.Tail{N: 4096}
+		if err := retry(); err == nil {
+			return // the new reader goroutine owns the events now
+		} else {
+			r.log.Warn("claude-code: fresh session failed to start", "err", err)
+		}
+	}
+	defer r.closeEvents()
+	defer r.finish()
 	r.stopBridge()
 	if r.terminal {
 		return
 	}
-	r.mu.Lock()
-	cancelled := r.cancelled
-	r.mu.Unlock()
 	if cancelled {
 		r.emit(agentloop.TerminalEvent(r.taskID, r.runID, nexusv1.TaskState_TASK_STATE_CANCELLED, "cancelled", "", nil))
 		return
@@ -265,6 +320,9 @@ type ccLine struct {
 	Usage        *ccUsage `json:"usage"`
 	NumTurns     int      `json:"num_turns"`
 	Errors       []string `json:"errors"`
+	// stream_event (--include-partial-messages)
+	Event           json.RawMessage `json:"event"`
+	ParentToolUseID *string         `json:"parent_tool_use_id"`
 }
 
 type ccBlock struct {
@@ -324,26 +382,36 @@ func (r *run) handleLine(line []byte) {
 		r.log.Warn("claude-code: malformed stream-json line", "err", err, "line", truncate(string(line), 300))
 		return
 	}
+	topLevel := l.ParentToolUseID == nil || *l.ParentToolUseID == ""
+	if l.Type == "stream_event" {
+		if topLevel {
+			r.handleStreamEvent(l.Event)
+		}
+		return
+	}
+	r.flushDeltas() // keep streamed text ahead of whatever comes next
 	switch l.Type {
 	case "system":
 		if l.Subtype == "init" {
-			r.sessionID, r.model = l.SessionID, l.Model
-			r.log.Debug("claude-code: session started", "session_id", l.SessionID, "model", l.Model)
+			r.sessionID = l.SessionID
+			r.log.Info("claude-code: session ready", "ms", time.Since(r.startedAt).Milliseconds(),
+				"session_id", l.SessionID, "model", l.Model, "resumed", r.chat != nil && r.chat.resumed)
+			r.announceModel(l.Model)
 		}
 	case "assistant":
 		if l.Message == nil {
 			return
 		}
-		if r.model == "" {
-			r.model = l.Message.Model
+		if topLevel {
+			r.announceModel(l.Message.Model)
 		}
 		for _, b := range blocks(l.Message.Content) {
 			switch b.Type {
 			case "text":
-				if b.Text != "" {
-					r.emit(agentloop.OutputEvent(r.taskID, r.runID, b.Text, false))
-				}
+				r.assistantText(b.Text, topLevel)
 			case "tool_use":
+				r.sawOutput = true
+				r.lastWasText = false
 				r.toolStarts[b.ID] = time.Now()
 				r.toolNames[b.ID] = b.Name
 				r.emit(agentloop.ToolCallEvent(r.taskID, r.runID, b.ID, b.Name, b.Input, ActionClass(b.Name)))
@@ -371,12 +439,21 @@ func (r *run) handleLine(line []byte) {
 			r.emit(agentloop.ToolResultEvent(r.taskID, r.runID, b.ToolUseID, out, "", d))
 		}
 	case "result":
+		if l.SessionID != "" {
+			r.sessionID = l.SessionID
+		}
 		r.handleResult(l)
 	}
 }
 
 func (r *run) handleResult(l ccLine) {
 	r.terminal = true
+	if c := r.chat; c != nil && c.resumed && !r.sawOutput && (l.IsError || l.Subtype != "success") &&
+		resumeGone(strings.Join(append([]string{l.Result}, l.Errors...), " ")) {
+		r.resumeFailed = true // read() restarts as a fresh session
+		r.closeStdin()
+		return
+	}
 	cost := &nexusv1.Cost{Model: r.model, Runtime: "claude-code"}
 	if l.Usage != nil {
 		cost.InputTokens = l.Usage.InputTokens + l.Usage.CacheCreationInputTokens + l.Usage.CacheReadInputTokens
@@ -392,6 +469,7 @@ func (r *run) handleResult(l ccLine) {
 		cost = nil
 	}
 	if l.Subtype == "success" && !l.IsError && !cliproc.LimitMessage(l.Result) {
+		r.recordChat(strings.TrimSpace(l.Result))
 		r.emit(agentloop.OutputEvent(r.taskID, r.runID, "", true))
 		r.emit(agentloop.TerminalEvent(r.taskID, r.runID, nexusv1.TaskState_TASK_STATE_SUCCEEDED, strings.TrimSpace(l.Result), "", cost))
 	} else {

@@ -12,11 +12,9 @@ import {
   OctagonX,
   Send,
   Timer,
-  Wrench,
   X,
 } from "lucide-react";
 import type { Event, ToolCall, ToolResult } from "../gen/nexus/v1/event_pb";
-import type { Attachment } from "../gen/nexus/v1/common_pb";
 import { ActionClass } from "../gen/nexus/v1/common_pb";
 import { TaskState, type Task } from "../gen/nexus/v1/task_pb";
 import { actionClassLabel, cx, formatDuration, formatMoney, formatTokens, isActive, taskStateLabel, tsMs } from "../lib/format";
@@ -29,124 +27,61 @@ import { AgentIcon } from "./AgentIcon";
 import { ArtifactView } from "./Artifact";
 import { ApprovalCard, QuestionCard } from "./InboxCards";
 import { StreamingMarkdown } from "./StreamingMarkdown";
+import { buildItems, summaryShown } from "../lib/runItems";
+import { QuestionsPreview, RawDetails, ToolDetail } from "./ToolView";
+import { toolTitle } from "../lib/tools";
 import { StateBadge, StateIcon } from "./StateBadge";
 import { agentName, useAgentMap } from "./agentMeta";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 
-type Item =
-  | { k: "text"; key: string; text: string; streaming: boolean }
-  | { k: "tool"; key: string; call: ToolCall; result?: ToolResult; at: number }
-  | { k: "state"; key: string; state: TaskState; at: number }
-  | { k: "question"; key: string; qid: string; ev: Event }
-  | { k: "approval"; key: string; id: string }
-  | { k: "artifact"; key: string; att: Attachment }
-  | { k: "user"; key: string; text: string; at: number };
-
-function buildItems(events: Event[], taskId: string): Item[] {
-  const items: Item[] = [];
-  const tools = new Map<string, Extract<Item, { k: "tool" }>>();
-  const seenApprovals = new Set<string>();
-  let lastState: TaskState | undefined;
-  let text: Extract<Item, { k: "text" }> | null = null;
-  for (const e of events) {
-    const b = e.body;
-    switch (b.case) {
-      case "runOutput":
-        if (!text) {
-          text = { k: "text", key: `t${e.seq}`, text: "", streaming: true };
-          items.push(text);
-        }
-        text.text += b.value.text;
-        if (b.value.isFinal) text.streaming = false;
-        break;
-      case "toolCall": {
-        const it: Extract<Item, { k: "tool" }> = { k: "tool", key: `c${e.seq}`, call: b.value, at: tsMs(e.at) };
-        tools.set(b.value.callId, it);
-        items.push(it);
-        break;
-      }
-      case "toolResult": {
-        const it = tools.get(b.value.callId);
-        if (it) it.result = b.value;
-        break;
-      }
-      case "taskUpdated": {
-        const t = b.value.task;
-        if (t && t.id === taskId && t.state !== lastState) {
-          // Only show meaningful transitions.
-          if (lastState !== undefined && t.state !== TaskState.ASSIGNED && t.state !== TaskState.ROUTING) {
-            items.push({ k: "state", key: `s${e.seq}`, state: t.state, at: tsMs(e.at) });
-          }
-          lastState = t.state;
-        }
-        break;
-      }
-      case "question":
-        items.push({ k: "question", key: `q${e.seq}`, qid: b.value.questionId || `q_${e.seq}`, ev: e });
-        break;
-      case "approval":
-        if (!seenApprovals.has(b.value.id)) {
-          seenApprovals.add(b.value.id);
-          items.push({ k: "approval", key: `a${e.seq}`, id: b.value.id });
-        }
-        break;
-      case "artifact":
-        if (b.value.attachment) items.push({ k: "artifact", key: `f${e.seq}`, att: b.value.attachment });
-        break;
-      case "userMessage":
-        items.push({ k: "user", key: `u${e.seq}`, text: b.value.text, at: tsMs(e.at) });
-        break;
-    }
-    // A new non-text item ends the current text block; costs etc. don't.
-    if (text && items[items.length - 1] !== text) text = null;
-  }
-  return items;
+/** The AskUserQuestion answers Claude Code got back ("…"="…" pairs in the tool result). */
+function questionAnswers(result?: ToolResult): Record<string, string> | undefined {
+  const text = (result?.output as { content?: unknown } | undefined)?.content;
+  if (typeof text !== "string") return undefined;
+  const out: Record<string, string> = {};
+  for (const m of text.matchAll(/"([^"]+)"="([^"]*)"/g)) out[m[1]] = m[2];
+  return Object.keys(out).length ? out : undefined;
 }
 
-function inputSummary(call: ToolCall): string {
-  const v = call.input ?? {};
-  const first = v.cmd ?? v.query ?? v.url ?? v.file ?? v.note ?? v.branch ?? v.title ?? Object.values(v)[0];
-  if (first == null) return "";
-  const s = typeof first === "string" ? first : JSON.stringify(first);
-  return s.length > 90 ? s.slice(0, 87) + "…" : s;
-}
-
-const ToolCallRow = memo(function ToolCallRow({ call, result, streaming }: { call: ToolCall; result?: ToolResult; streaming: boolean }) {
+export const ToolCallRow = memo(function ToolCallRow({ call, result, streaming, compact }: { call: ToolCall; result?: ToolResult; streaming: boolean; compact?: boolean }) {
   const [open, setOpen] = useState(false);
   const failed = !!result?.error;
   const risky = call.actionClass >= ActionClass.WRITE_EXTERNAL;
+  const input = (call.input ?? {}) as Record<string, unknown>;
+  const { title, icon: Icon } = toolTitle(call.tool, input);
+  const isQuestion = call.tool === "AskUserQuestion";
   return (
-    <div className="rounded-lg border border-border bg-surface-2/60">
-      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs">
-        <ChevronRight className={cx("size-3.5 shrink-0 text-muted transition-transform", open && "rotate-90")} />
-        <Wrench className="size-3.5 shrink-0 text-muted" />
-        <span className="shrink-0 font-mono font-medium text-fg">{call.tool}</span>
-        <span className="min-w-0 flex-1 truncate font-mono text-muted">{inputSummary(call)}</span>
+    <div className={cx("rounded-lg border border-border", compact ? "bg-surface" : "bg-surface-2/60")} data-testid="tool-chip">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex min-h-8 w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:outline-none pointer-coarse:min-h-11"
+      >
+        <ChevronRight className={cx("size-3.5 shrink-0 text-muted transition-transform", open && "rotate-90")} aria-hidden />
+        <Icon className="size-3.5 shrink-0 text-muted" aria-hidden />
+        <span className="min-w-0 flex-1 truncate font-medium text-fg">{title}</span>
         {risky && <span className="hidden shrink-0 rounded bg-warn-soft px-1 text-[10px] text-warn sm:inline">{actionClassLabel[call.actionClass]}</span>}
         {result ? (
           <span className={cx("flex shrink-0 items-center gap-1 tabular", failed ? "text-danger" : "text-muted")}>
-            {failed ? <X className="size-3" /> : <Check className="size-3 text-ok" />}
+            {failed ? <X className="size-3" aria-label="failed" /> : <Check className="size-3 text-ok" aria-label="done" />}
             {Number(result.durationMs) >= 1000 ? `${(Number(result.durationMs) / 1000).toFixed(1)}s` : `${result.durationMs}ms`}
           </span>
         ) : streaming ? (
-          <Loader2 className="size-3.5 shrink-0 animate-spin text-info" />
+          <Loader2 className="size-3.5 shrink-0 animate-spin text-info" aria-label="running" />
         ) : null}
       </button>
       {open && (
-        <div className="grid gap-2 border-t border-border p-2.5 text-[11.5px]">
-          <div>
-            <div className="mb-1 text-[10px] font-semibold tracking-wide text-muted uppercase">Input</div>
-            <pre className="max-h-48 overflow-auto rounded-md bg-surface p-2 font-mono text-fg-2 scrollbar-thin">{JSON.stringify(call.input ?? {}, null, 2)}</pre>
-          </div>
-          {result && (
+        <div className="grid gap-2 border-t border-border p-2.5 text-[12px]">
+          {isQuestion ? <QuestionsPreview input={input} answers={questionAnswers(result)} /> : <ToolDetail tool={call.tool} input={input} />}
+          {result && failed && <div className="rounded-md bg-danger-soft px-2 py-1.5 text-[12px] whitespace-pre-wrap text-danger">{result.error}</div>}
+          {result && !failed && !isQuestion && (
             <div>
-              <div className="mb-1 text-[10px] font-semibold tracking-wide text-muted uppercase">{failed ? "Error" : "Output"}</div>
-              <pre className={cx("max-h-48 overflow-auto rounded-md bg-surface p-2 font-mono whitespace-pre-wrap scrollbar-thin", failed ? "text-danger" : "text-fg-2")}>
-                {failed ? result.error : formatOutput(result.output)}
-              </pre>
+              <div className="mb-1 text-[10px] font-semibold tracking-wide text-muted uppercase">Output</div>
+              <pre className="max-h-48 overflow-auto rounded-md bg-surface p-2 font-mono text-[11.5px] whitespace-pre-wrap text-fg-2 scrollbar-thin">{formatOutput(result.output)}</pre>
             </div>
           )}
+          <RawDetails value={{ tool: call.tool, input: call.input, output: result?.output, error: result?.error || undefined }} />
         </div>
       )}
     </div>
@@ -157,17 +92,21 @@ function formatOutput(o: unknown): string {
   if (o && typeof o === "object" && "stdout" in o && typeof (o as { stdout: unknown }).stdout === "string") {
     return (o as { stdout: string }).stdout;
   }
+  if (o && typeof o === "object" && Object.keys(o).length === 1) {
+    const v = Object.values(o)[0];
+    if (typeof v === "string") return v;
+  }
   return JSON.stringify(o ?? {}, null, 2);
 }
 
-function InlineQuestion({ qid, ev }: { qid: string; ev: Event }) {
+export function InlineQuestion({ qid, ev }: { qid: string; ev: Event }) {
   const stored = useEvents((s) => s.questions[qid]);
   if (ev.body.case !== "question") return null;
   const item: QuestionItem = stored ?? { seq: ev.seq, at: tsMs(ev.at), taskId: ev.taskId, actor: ev.actor, question: ev.body.value, answered: true };
   return <QuestionCard item={item} compact />;
 }
 
-function InlineApproval({ id }: { id: string }) {
+export function InlineApproval({ id }: { id: string }) {
   const a = useEvents((s) => s.approvals[id]);
   if (!a) return null;
   return <ApprovalCard approval={a} compact />;
@@ -353,7 +292,7 @@ export function RunView({ task, embedded, showHeader = true }: { task: Task; emb
               <span className={cx("text-[11px]", p.status === "failed" ? "text-danger" : "text-muted")}>{p.status === "failed" ? "Not sent" : "Sending…"}</span>
             </div>
           ))}
-          {!active && task.summary && items.length > 0 && (
+          {!active && task.summary && items.length > 0 && !summaryShown(items, task.summary) && (
             <div className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-[13px] text-fg-2">
               <span className="font-medium text-fg">Result · </span>
               {task.summary}

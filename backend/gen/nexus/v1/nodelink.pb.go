@@ -458,8 +458,12 @@ func (x *NodeHello) GetResumeSeq() int64 {
 }
 
 type HubWelcome struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ResumeSeq     int64                  `protobuf:"varint,1,opt,name=resume_seq,json=resumeSeq,proto3" json:"resume_seq,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	ResumeSeq int64                  `protobuf:"varint,1,opt,name=resume_seq,json=resumeSeq,proto3" json:"resume_seq,omitempty"`
+	// When > 0 the hub sends a keepalive (an Ack of the last node seq) at
+	// least this often, so the node can treat a longer silence as a hung link
+	// and reconnect. 0 = old hub without keepalives.
+	KeepaliveMs   int32 `protobuf:"varint,2,opt,name=keepalive_ms,json=keepaliveMs,proto3" json:"keepalive_ms,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -497,6 +501,13 @@ func (*HubWelcome) Descriptor() ([]byte, []int) {
 func (x *HubWelcome) GetResumeSeq() int64 {
 	if x != nil {
 		return x.ResumeSeq
+	}
+	return 0
+}
+
+func (x *HubWelcome) GetKeepaliveMs() int32 {
+	if x != nil {
+		return x.KeepaliveMs
 	}
 	return 0
 }
@@ -1111,11 +1122,12 @@ const file_nexus_v1_nodelink_proto_rawDesc = "" +
 	"\bruntimes\x18\x03 \x03(\v2\x15.nexus.v1.RuntimeInfoR\bruntimes\x12\x12\n" +
 	"\x04tags\x18\x04 \x03(\tR\x04tags\x12\x1d\n" +
 	"\n" +
-	"resume_seq\x18\x05 \x01(\x03R\tresumeSeq\"+\n" +
+	"resume_seq\x18\x05 \x01(\x03R\tresumeSeq\"N\n" +
 	"\n" +
 	"HubWelcome\x12\x1d\n" +
 	"\n" +
-	"resume_seq\x18\x01 \x01(\x03R\tresumeSeq\"\xdc\x02\n" +
+	"resume_seq\x18\x01 \x01(\x03R\tresumeSeq\x12!\n" +
+	"\fkeepalive_ms\x18\x02 \x01(\x05R\vkeepaliveMs\"\xdc\x02\n" +
 	"\rRunAssignment\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x17\n" +
 	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12%\n" +

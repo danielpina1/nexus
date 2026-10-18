@@ -145,6 +145,23 @@ func (h *healthTracker) snapshot(name string) ProviderStatus {
 	}
 }
 
+// Available implements kernel.LLMAvailability: it reports whether any
+// target of model (primary or fallback) has a provider that is not cooling
+// down after repeated failures. It never touches the network; an alias that
+// cannot be resolved offline counts as available (the call decides).
+func (c *Client) Available(model string) bool {
+	ts, err := c.chain(context.Background(), model, false)
+	if err != nil || len(ts) == 0 {
+		return true
+	}
+	for _, t := range ts {
+		if c.st.health.available(t.Provider) {
+			return true
+		}
+	}
+	return false
+}
+
 // Status returns a health snapshot of every provider, sorted by name.
 func (c *Client) Status() []ProviderStatus {
 	names := c.cfg.providerNames()

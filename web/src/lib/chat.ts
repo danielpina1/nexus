@@ -22,16 +22,30 @@ export interface ChatMessage {
   originalInput?: string;
   /** "Create a new agent for this": the architect draft the router started. */
   draftId?: string;
+  /** Final answer of the task, kept so old bubbles render without replaying events. */
+  finalText?: string;
+  /** "Claude Code · claude-sonnet-4-5-20250929" of the run that answered. */
+  engine?: string;
+  /** Send → first streamed token, measured in the browser. */
+  firstTokenMs?: number;
 }
 
 interface ChatState {
   messages: ChatMessage[];
   activeTaskId?: string;
+  /** Conversation id sent with every message (CommandContext.conversation_id); Clear starts a new one. */
+  conversationId: string;
   /** A page the chat wants to open (consumed by the Chat page), e.g. a new architect draft. */
   pendingNav?: string;
   setActiveTask: (id: string | undefined) => void;
-  send: (input: string, opts?: { agentId?: string }) => Promise<ChatMessage | undefined>;
+  /**
+   * source "chat" (the Chat page): a conversation with the assistant, routed by the hub without the
+   * LLM router. "command-bar" (default elsewhere): the router decides, "@agent" forces an agent.
+   */
+  send: (input: string, opts?: { agentId?: string; source?: "chat" | "command-bar" }) => Promise<ChatMessage | undefined>;
   clear: () => void;
+  /** Records facts about a reply once known (final text, engine, first-token time). */
+  annotate: (id: string, p: Pick<ChatMessage, "finalText" | "engine" | "firstTokenMs">) => void;
 }
 
 const KEY = "nexus.chat";
@@ -39,12 +53,16 @@ const KEY = "nexus.chat";
 interface Stored {
   messages: Array<Omit<ChatMessage, "route" | "sources"> & { route?: JsonValue; sources?: { id: string; path: string; title: string }[] }>;
   activeTaskId?: string;
+  conversationId?: string;
 }
 
-function persist(s: Pick<ChatState, "messages" | "activeTaskId">) {
+const newConversationId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36));
+
+function persist(s: Pick<ChatState, "messages" | "activeTaskId" | "conversationId">) {
   if (isMock()) return;
   const stored: Stored = {
     activeTaskId: s.activeTaskId,
+    conversationId: s.conversationId,
     messages: s.messages.slice(-200).map((m) => ({
       ...m,
       pending: false,
@@ -62,6 +80,7 @@ export function loadChat() {
   try {
     useChat.setState({
       activeTaskId: s.activeTaskId,
+      conversationId: s.conversationId || newConversationId(),
       messages: s.messages.map((m) => ({
         ...m,
         route: m.route ? fromJson(RouteSchema, m.route) : undefined,
@@ -78,23 +97,33 @@ const uid = () => Math.random().toString(36).slice(2, 10);
 export const useChat = create<ChatState>((set, get) => ({
   messages: [],
   activeTaskId: undefined,
+  conversationId: newConversationId(),
   setActiveTask: (id) => {
     set({ activeTaskId: id });
     persist(get());
   },
   clear: () => {
-    set({ messages: [], activeTaskId: undefined });
+    set({ messages: [], activeTaskId: undefined, conversationId: newConversationId() });
+    persist(get());
+  },
+  annotate: (id, p) => {
+    set({ messages: get().messages.map((m) => (m.id === id ? { ...m, ...p } : m)) });
     persist(get());
   },
   send: async (input, opts) => {
     let text = input.trim();
     if (!text) return;
-    // "@agent do something" routes explicitly to that agent.
-    const mention = /^@([\w.-]+)\s+([\s\S]+)$/.exec(text);
-    if (mention && !opts?.agentId) {
-      opts = { ...opts, agentId: mention[1] };
-      text = mention[2].trim();
+    const chat = opts?.source !== "command-bar";
+    if (!chat) {
+      // Command bar: "@agent do something" forces that agent; the router decides otherwise.
+      const mention = /^@([\w.-]+)\s+([\s\S]+)$/.exec(text);
+      if (mention && !opts?.agentId) {
+        opts = { ...opts, agentId: mention[1] };
+        text = mention[2].trim();
+      }
     }
+    // The hub routes chat messages itself (no LLM router): "@agent …", "/search …", "remember …",
+    // everything else to the assistant. A forced agent (router question answer) is sent as "@agent".
     const user: ChatMessage = { id: uid(), role: "user", text: opts?.agentId ? `@${opts.agentId} ${text}` : text, at: Date.now() };
     const reply: ChatMessage = { id: uid(), role: "nexus", text: "", at: Date.now(), pending: true };
     set({ messages: [...get().messages, user, reply] });
@@ -104,9 +133,9 @@ export const useChat = create<ChatState>((set, get) => ({
     };
     try {
       const res = await api().command.execute({
-        input: text,
-        context: { source: "command-bar" },
-        route: opts?.agentId ? { agentId: opts.agentId, confidence: 1 } : undefined,
+        input: chat ? user.text : text,
+        context: chat ? { source: "chat", conversationId: get().conversationId } : { source: "command-bar" },
+        route: !chat && opts?.agentId ? { agentId: opts.agentId, confidence: 1 } : undefined,
         idempotencyKey: crypto.randomUUID(),
       });
       if (res.task) {

@@ -21,8 +21,8 @@
 // back to the model as tool results, never fatal.
 //
 // Ask before acting: every tool call goes through an approvalgate.Gate with
-// the tool's ToolSpec.ActionClass (unspecified classes fail safe to
-// approve; ask_user and request_approval, which ask the user themselves, are
+// the tool's ToolSpec.ActionClass and MinLevel (unspecified classes fail
+// safe to approve; ask_user and request_approval, which ask the user themselves, are
 // never gated). AUTO runs at once, NOTIFY runs and emits a Notice, APPROVE and
 // BIOMETRIC emit an Approval (payload {tool, input}) + TaskUpdated
 // WAITING_APPROVAL and wait for Resolve; a denial is returned to the model as
@@ -414,8 +414,9 @@ func (r *Run) execTool(ctx context.Context, tc kernel.LLMToolCall) string {
 	}
 	tool, ok := r.tools[tc.Name]
 	class := nexusv1.ActionClass_ACTION_CLASS_UNSPECIFIED
+	var minLevel nexusv1.TrustLevel
 	if ok {
-		class = tool.Spec().ActionClass
+		class, minLevel = tool.Spec().ActionClass, tool.Spec().MinLevel
 	}
 	r.emit(ToolCallEvent(cfg.TaskID, cfg.RunID, tc.ID, tc.Name, json.RawMessage(args), class))
 	start := time.Now()
@@ -430,7 +431,7 @@ func (r *Run) execTool(ctx context.Context, tc kernel.LLMToolCall) string {
 	if !json.Valid([]byte(args)) {
 		return fail("tool arguments are not valid JSON: " + truncate(args, 200))
 	}
-	if msg := r.gateTool(ctx, tc.Name, args, class); msg != "" {
+	if msg := r.gateTool(ctx, tc.Name, args, class, minLevel); msg != "" {
 		return fail(msg)
 	}
 	res, err := invokeSafe(ctx, tool, kernel.ToolCall{
@@ -456,7 +457,7 @@ func (r *Run) execTool(ctx context.Context, tc kernel.LLMToolCall) string {
 
 // gateTool applies the approval gate to a tool call; it returns "" when the
 // call may proceed, else the error given back to the model.
-func (r *Run) gateTool(ctx context.Context, name, args string, class nexusv1.ActionClass) string {
+func (r *Run) gateTool(ctx context.Context, name, args string, class nexusv1.ActionClass, minLevel nexusv1.TrustLevel) string {
 	if approvalgate.HumanInTheLoopTools[name] {
 		return ""
 	}
@@ -467,10 +468,11 @@ func (r *Run) gateTool(ctx context.Context, name, args string, class nexusv1.Act
 		who = nonEmpty(r.cfg.AgentID, "Agent")
 	}
 	out, err := r.gate.Check(ctx, approvalgate.Request{
-		Class:   class,
-		Title:   fmt.Sprintf("%s wants to use %s", who, name),
-		Summary: truncate(args, 500),
-		Payload: map[string]any{"tool": name, "input": input},
+		Class:    class,
+		MinLevel: minLevel,
+		Title:    fmt.Sprintf("%s wants to use %s", who, name),
+		Summary:  truncate(args, 500),
+		Payload:  map[string]any{"tool": name, "input": input},
 	})
 	switch {
 	case err != nil:

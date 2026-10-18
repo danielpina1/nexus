@@ -57,6 +57,9 @@ func (e *Engine) HandleRunEvent(ctx context.Context, nodeID string, re *nexusv1.
 	if a := ev.GetApproval(); a != nil {
 		return e.handleApproval(ctx, nodeID, run, a)
 	}
+	if tc := ev.GetToolCall(); tc != nil {
+		e.recordSandboxCall(ctx, run.taskID, tc)
+	}
 	// A run that hit a usage limit (or found its CLI logged out) moves on to
 	// the next runtime of the agent's list.
 	if nt := ev.GetTaskUpdated().GetTask(); nt.GetState() == stFailed {
@@ -290,6 +293,10 @@ func (e *Engine) handleApproval(ctx context.Context, nodeID string, run *runRec,
 	}
 	if r.task.CurrentRunId != run.id || IsTerminal(r.task.State) {
 		return connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("run %s is not active", run.id))
+	}
+	// Sandbox test runs never ask anyone: every gated action is denied.
+	if _, ok := e.isSandboxed(ctx, run.taskID); ok {
+		return e.sandboxDeny(ctx, nodeID, run, a)
 	}
 	broker, ok := e.approvals()
 	if !ok {

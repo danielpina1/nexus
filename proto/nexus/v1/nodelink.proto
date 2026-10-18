@@ -55,6 +55,10 @@ message NodeHello {
 
 message HubWelcome {
   int64 resume_seq = 1;
+  // When > 0 the hub sends a keepalive (an Ack of the last node seq) at
+  // least this often, so the node can treat a longer silence as a hung link
+  // and reconnect. 0 = old hub without keepalives.
+  int32 keepalive_ms = 2;
 }
 
 message RunAssignment {

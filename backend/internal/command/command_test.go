@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 
@@ -228,5 +229,51 @@ func TestCorrectRoute(t *testing.T) {
 	}
 	if _, err := f.cli.CorrectRoute(ctx, connect.NewRequest(&nexusv1.CorrectRouteRequest{TaskId: first.Id})); connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+// hangingLLM is a provider that is cooling down: calls hang until their
+// context ends and Available reports false.
+type hangingLLM struct{ calls int }
+
+func (l *hangingLLM) Available(string) bool { return false }
+func (l *hangingLLM) Chat(ctx context.Context, _ kernel.ChatRequest) (*kernel.ChatResponse, error) {
+	l.calls++
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+func (l *hangingLLM) ChatStream(ctx context.Context, req kernel.ChatRequest, _ func(string)) (*kernel.ChatResponse, error) {
+	return l.Chat(ctx, req)
+}
+func (l *hangingLLM) Embed(ctx context.Context, _ string, _ []string) ([][]float32, error) {
+	l.calls++
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+// The command bar answers at once when the LLM provider is down: routing
+// uses the rules result and search returns the hits without an answer.
+func TestCommandBarAnswersWhileProviderDown(t *testing.T) {
+	f := newFixture(t, opts{vault: true})
+	llm := &hangingLLM{}
+	f.env.Host.Provide(kernel.SvcLLM, llm)
+	f.vault.hits = []*nexusv1.SearchHit{{Note: &nexusv1.NoteRef{Id: "p", Path: "people/ana.md", Title: "Ana"}, Snippet: "Ana's birthday is May 3"}}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	start := time.Now()
+	resp, err := f.cli.Execute(ctx, connect.NewRequest(&nexusv1.ExecuteRequest{Input: "hello there"}))
+	if err != nil {
+		t.Fatalf("Execute while provider down: %v (after %v)", err, time.Since(start))
+	}
+	if resp.Msg.Question == "" && resp.Msg.Task == nil {
+		t.Fatalf("resp = %+v", resp.Msg)
+	}
+	resp, err = f.cli.Execute(ctx, connect.NewRequest(&nexusv1.ExecuteRequest{Input: "when is Ana's birthday?", Route: &nexusv1.Route{Kind: kindSearch}}))
+	if err != nil || len(resp.Msg.Sources) != 1 || resp.Msg.Answer != "" {
+		t.Fatalf("search resp = %+v, %v", resp, err)
+	}
+	if took := time.Since(start); took > 2*time.Second || llm.calls != 0 {
+		t.Fatalf("took %v with %d provider calls", took, llm.calls)
 	}
 }

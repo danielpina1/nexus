@@ -132,11 +132,18 @@ func StructToJSON(s *structpb.Struct) ([]byte, error) {
 }
 
 // ToolSpec is the JSON form of kernel.ToolSpec exchanged via ToolListHubTools.
+//
+// A spec with a MinLevel is sent with action_class 0 (unspecified, which
+// every node gates at APPROVE) and its real class in declared_class, so a
+// node that predates min_level never runs it at a looser level than its
+// class alone (e.g. vault.rename at NOTIFY).
 type ToolSpec struct {
-	Name        string          `json:"name"`
-	Description string          `json:"description,omitempty"`
-	InputSchema json.RawMessage `json:"input_schema,omitempty"`
-	ActionClass int32           `json:"action_class,omitempty"`
+	Name          string          `json:"name"`
+	Description   string          `json:"description,omitempty"`
+	InputSchema   json.RawMessage `json:"input_schema,omitempty"`
+	ActionClass   int32           `json:"action_class,omitempty"`
+	DeclaredClass int32           `json:"declared_class,omitempty"`
+	MinLevel      int32           `json:"min_level,omitempty"`
 }
 
 // EncodeToolSpecs builds the ToolListHubTools output.
@@ -145,10 +152,14 @@ func EncodeToolSpecs(specs []kernel.ToolSpec) ([]byte, error) {
 		Tools []ToolSpec `json:"tools"`
 	}{Tools: []ToolSpec{}}
 	for _, s := range specs {
-		out.Tools = append(out.Tools, ToolSpec{
+		ts := ToolSpec{
 			Name: s.Name, Description: s.Description,
 			InputSchema: s.InputSchema, ActionClass: int32(s.ActionClass),
-		})
+		}
+		if s.MinLevel != nexusv1.TrustLevel_TRUST_LEVEL_UNSPECIFIED {
+			ts.ActionClass, ts.DeclaredClass, ts.MinLevel = 0, int32(s.ActionClass), int32(s.MinLevel)
+		}
+		out.Tools = append(out.Tools, ts)
 	}
 	return json.Marshal(out)
 }
@@ -166,9 +177,13 @@ func DecodeToolSpecs(b []byte) ([]kernel.ToolSpec, error) {
 		if t.Name == "" {
 			return nil, errors.New("wire: tool spec without name")
 		}
+		class := t.ActionClass
+		if t.DeclaredClass != 0 {
+			class = t.DeclaredClass
+		}
 		out = append(out, kernel.ToolSpec{
 			Name: t.Name, Description: t.Description, InputSchema: t.InputSchema,
-			ActionClass: nexusv1.ActionClass(t.ActionClass),
+			ActionClass: nexusv1.ActionClass(class), MinLevel: nexusv1.TrustLevel(t.MinLevel),
 		})
 	}
 	return out, nil

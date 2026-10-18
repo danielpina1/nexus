@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, Square } from "lucide-react";
 import { useChat } from "../lib/chat";
 import { useAgents } from "../lib/queries";
 import { isMock } from "../lib/api";
@@ -21,12 +21,20 @@ export function CommandBar({
   onSent,
   suggestions = true,
   placeholder = "Ask or tell Nexus anything…",
+  source = "command-bar",
+  busy,
+  onStop,
 }: {
   autoFocus?: boolean;
   className?: string;
   onSent?: () => void;
   suggestions?: boolean;
   placeholder?: string;
+  /** "chat" on the Chat page (hub-side chat routing); the command bar elsewhere uses the router. */
+  source?: "chat" | "command-bar";
+  /** A reply is streaming: Enter does not send; the button stops the reply when onStop is set. */
+  busy?: boolean;
+  onStop?: () => void;
 }) {
   const [text, setText] = useState("");
   const [sel, setSel] = useState(0);
@@ -48,9 +56,9 @@ export function CommandBar({
 
   const submit = (value: string) => {
     const v = value.trim();
-    if (!v) return;
+    if (!v || busy) return;
     setText("");
-    void send(v);
+    void send(v, { source });
     if (onSent) onSent();
     else navigate("/chat");
   };
@@ -102,9 +110,21 @@ export function CommandBar({
           className="h-10 min-w-0 flex-1 bg-transparent text-base text-fg placeholder:text-muted focus-visible:outline-none sm:text-[14px]"
         />
         <span className="hidden sm:inline-flex"><Kbd>/</Kbd></span>
+        {busy && onStop ? (
+          <button
+            type="button"
+            onClick={onStop}
+            data-testid="chat-stop"
+            className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-fg transition-colors duration-150 hover:bg-surface-3 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none pointer-coarse:size-11"
+            aria-label="Stop the reply"
+            title="Stop"
+          >
+            <Square className="size-3.5 fill-current" />
+          </button>
+        ) : (
         <button
           type="submit"
-          disabled={!text.trim()}
+          disabled={!text.trim() || busy}
           className={cx(
             "flex size-10 shrink-0 items-center justify-center rounded-lg transition-colors duration-150 pointer-coarse:size-11",
             text.trim() ? "bg-primary text-primary-fg hover:opacity-90" : "bg-surface-2 text-muted",
@@ -113,6 +133,7 @@ export function CommandBar({
         >
           <ArrowUp className="size-4" />
         </button>
+        )}
       </form>
       {options.length > 0 && (
         <div role="listbox" aria-label="Agents" className="animate-fade-up absolute inset-x-0 top-full z-30 mt-1.5 overflow-hidden rounded-xl border border-border bg-surface p-1 shadow-pop">

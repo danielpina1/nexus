@@ -9,12 +9,16 @@ import (
 )
 
 // extTools are the agent tools for queries, history and refactoring.
-// vault.restore and vault.rename are unclassified (ACTION_CLASS_UNSPECIFIED),
-// which the approval gate treats as APPROVE: the user confirms each call.
+//
+// vault.restore and vault.rename are internal writes (WRITE_INTERNAL), but
+// unlike vault.write they roll a note back or rewrite links across many
+// notes, so they carry an explicit minimum level of APPROVE
+// (kernel.ToolSpec.MinLevel): the user confirms each call with one tap
+// (not biometric). Owner policy can tighten it, never loosen it.
 func extTools(v *Vault) []kernel.Tool {
 	read := nexusv1.ActionClass_ACTION_CLASS_READ
 	write := nexusv1.ActionClass_ACTION_CLASS_WRITE_INTERNAL
-	approve := nexusv1.ActionClass_ACTION_CLASS_UNSPECIFIED
+	approve := nexusv1.TrustLevel_TRUST_LEVEL_APPROVE
 	return []kernel.Tool{
 		kernel.ToolFunc{
 			S: kernel.ToolSpec{
@@ -127,7 +131,8 @@ func extTools(v *Vault) []kernel.Tool {
 				InputSchema: schema(`{"type":"object","properties":{
 					"path":{"type":"string"},"id":{"type":"string"},
 					"commit":{"type":"string"},"message":{"type":"string"}},"required":["commit"]}`),
-				ActionClass: approve,
+				ActionClass: write,
+				MinLevel:    approve,
 			},
 			F: func(ctx context.Context, c kernel.ToolCall) (kernel.ToolResult, error) {
 				var in struct{ Path, ID, Commit, Message string }
@@ -163,7 +168,8 @@ func extTools(v *Vault) []kernel.Tool {
 					"from":{"type":"string","description":"Current path or id"},
 					"to":{"type":"string","description":"New vault path, e.g. people/João Silva.md"},
 					"message":{"type":"string"}},"required":["from","to"]}`),
-				ActionClass: approve,
+				ActionClass: write,
+				MinLevel:    approve,
 			},
 			F: func(ctx context.Context, c kernel.ToolCall) (kernel.ToolResult, error) {
 				var in struct{ From, To, Message string }

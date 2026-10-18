@@ -189,14 +189,20 @@ func (x *Route) GetTeamId() string {
 
 // CommandContext gives the router hints about where the command came from.
 type CommandContext struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Source        string                 `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"` // command-bar | siri | share | widget | nfc | location
-	Focus         string                 `protobuf:"bytes,2,opt,name=focus,proto3" json:"focus,omitempty"`   // iOS Focus mode name
-	Latitude      float64                `protobuf:"fixed64,3,opt,name=latitude,proto3" json:"latitude,omitempty"`
-	Longitude     float64                `protobuf:"fixed64,4,opt,name=longitude,proto3" json:"longitude,omitempty"`
-	ShareType     string                 `protobuf:"bytes,5,opt,name=share_type,json=shareType,proto3" json:"share_type,omitempty"` // url | text | image | pdf | audio
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Source    string                 `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"` // command-bar | chat | siri | share | widget | nfc | location
+	Focus     string                 `protobuf:"bytes,2,opt,name=focus,proto3" json:"focus,omitempty"`   // iOS Focus mode name
+	Latitude  float64                `protobuf:"fixed64,3,opt,name=latitude,proto3" json:"latitude,omitempty"`
+	Longitude float64                `protobuf:"fixed64,4,opt,name=longitude,proto3" json:"longitude,omitempty"`
+	ShareType string                 `protobuf:"bytes,5,opt,name=share_type,json=shareType,proto3" json:"share_type,omitempty"` // url | text | image | pdf | audio
+	// source "chat": the conversation this message belongs to. Chat messages
+	// skip the router: they go to the assistant agent (or the @agent named),
+	// except "/search …" (search) and "/remember …" / "remember …" (capture).
+	// The runtime keeps one CLI session per conversation and agent, so
+	// follow-ups remember earlier turns. A new id starts a new conversation.
+	ConversationId string `protobuf:"bytes,6,opt,name=conversation_id,json=conversationId,proto3" json:"conversation_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *CommandContext) Reset() {
@@ -260,6 +266,13 @@ func (x *CommandContext) GetLongitude() float64 {
 func (x *CommandContext) GetShareType() string {
 	if x != nil {
 		return x.ShareType
+	}
+	return ""
+}
+
+func (x *CommandContext) GetConversationId() string {
+	if x != nil {
+		return x.ConversationId
 	}
 	return ""
 }
@@ -658,14 +671,15 @@ const file_nexus_v1_command_proto_rawDesc = "" +
 	"\x06params\x18\x06 \x01(\v2\x17.google.protobuf.StructR\x06params\x12\x16\n" +
 	"\x06reason\x18\a \x01(\tR\x06reason\x12\"\n" +
 	"\falternatives\x18\b \x03(\tR\falternatives\x12\x17\n" +
-	"\ateam_id\x18\t \x01(\tR\x06teamId\"\x97\x01\n" +
+	"\ateam_id\x18\t \x01(\tR\x06teamId\"\xc0\x01\n" +
 	"\x0eCommandContext\x12\x16\n" +
 	"\x06source\x18\x01 \x01(\tR\x06source\x12\x14\n" +
 	"\x05focus\x18\x02 \x01(\tR\x05focus\x12\x1a\n" +
 	"\blatitude\x18\x03 \x01(\x01R\blatitude\x12\x1c\n" +
 	"\tlongitude\x18\x04 \x01(\x01R\tlongitude\x12\x1d\n" +
 	"\n" +
-	"share_type\x18\x05 \x01(\tR\tshareType\"\x8f\x01\n" +
+	"share_type\x18\x05 \x01(\tR\tshareType\x12'\n" +
+	"\x0fconversation_id\x18\x06 \x01(\tR\x0econversationId\"\x8f\x01\n" +
 	"\vPlanRequest\x12\x14\n" +
 	"\x05input\x18\x01 \x01(\tR\x05input\x126\n" +
 	"\vattachments\x18\x02 \x03(\v2\x14.nexus.v1.AttachmentR\vattachments\x122\n" +

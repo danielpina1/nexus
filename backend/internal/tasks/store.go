@@ -105,6 +105,13 @@ var migrations = []string{
 		created_at   INTEGER NOT NULL
 	)`,
 	`CREATE INDEX team_messages_root ON team_messages(root_id, created_at)`,
+	// Nested teams: a sub-team run is its own tree whose row points at the
+	// tree it was delegated from (its limits are checked against every
+	// ancestor's).
+	`ALTER TABLE task_trees ADD COLUMN parent_root TEXT NOT NULL DEFAULT ''`,
+	`CREATE INDEX task_trees_parent ON task_trees(parent_root)`,
+	// Sandboxed tasks (architect test runs) are hidden from task lists.
+	`ALTER TABLE tasks ADD COLUMN sandbox INTEGER NOT NULL DEFAULT 0`,
 }
 
 // Run states stored in runs.state.
@@ -127,6 +134,8 @@ type taskRec struct {
 	depth      int
 	questionID string
 	approvalID string
+	// sandbox is written on insert only (tasks.sandbox column).
+	sandbox bool
 
 	path   []nexusv1.TaskState // state changes applied in this mutation
 	notify bool                // publish a TaskUpdated even without a state change
@@ -177,10 +186,25 @@ func (e *Engine) insertTask(ctx context.Context, r *taskRec, idemKey string) err
 		key = idemKey
 	}
 	now := ms(r.task.CreatedAt.AsTime())
+	sandbox := 0
+	if r.sandbox {
+		sandbox = 1
+	}
 	_, err = e.db.ExecContext(ctx, `INSERT INTO tasks
-		(id, parent_id, root_id, depth, state, agent_id, node_id, current_run_id, idempotency_key, task, request, created_at, updated_at, team_id, role)
-		VALUES (?, ?, ?, ?, ?, ?, '', '', ?, ?, ?, ?, ?, ?, ?)`,
-		r.task.Id, r.task.ParentId, r.task.RootId, r.depth, int32(r.task.State), r.task.AgentId, key, tb, rb, now, now, r.task.TeamId, r.task.Role)
+		(id, parent_id, root_id, depth, state, agent_id, node_id, current_run_id, idempotency_key, task, request, created_at, updated_at, team_id, role, sandbox)
+		VALUES (?, ?, ?, ?, ?, ?, '', '', ?, ?, ?, ?, ?, ?, ?, ?)`,
+		r.task.Id, r.task.ParentId, r.task.RootId, r.depth, int32(r.task.State), r.task.AgentId, key, tb, rb, now, now, r.task.TeamId, r.task.Role, sandbox)
+	return err
+}
+
+// saveRequest replaces a task's stored request (e.g. to persist a routed
+// runtime hint in its params).
+func (e *Engine) saveRequest(ctx context.Context, id string, req *nexusv1.CreateTaskRequest) error {
+	rb, err := proto.Marshal(req)
+	if err != nil {
+		return err
+	}
+	_, err = e.db.ExecContext(ctx, `UPDATE tasks SET request = ? WHERE id = ?`, rb, id)
 	return err
 }
 
@@ -400,6 +424,11 @@ func listWhere(req *nexusv1.ListTasksRequest, after string) (string, []any) {
 	if req.GetTeamId() != "" {
 		conds = append(conds, "team_id = ?")
 		args = append(args, req.TeamId)
+	}
+	if req.GetRootId() == "" {
+		// Sandboxed test runs (docs/ARCHITECT.md) are not part of normal
+		// lists; they are reachable by id or through their root.
+		conds = append(conds, "sandbox = 0")
 	}
 	if after != "" {
 		conds = append(conds, "id < ?")

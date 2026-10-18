@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -63,6 +64,20 @@ type taskExt struct {
 	// Candidate is the result under review (summary + result).
 	CandidateSummary string         `json:"candidate_summary,omitempty"`
 	CandidateResult  map[string]any `json:"candidate_result,omitempty"`
+	// StrategyKey identifies a member task created by a hub-driven strategy
+	// step ("drv:pipeline:1"…): a strategy replayed after a hub restart
+	// finds it instead of delegating the step again.
+	StrategyKey string `json:"strategy_key,omitempty"`
+	// Collected lists the sub-tasks whose results team.await already
+	// returned to run CollectedRun of this (orchestrator) task. A new run
+	// (retry after the hub or node restarted) starts with nothing collected.
+	CollectedRun string   `json:"collected_run,omitempty"`
+	Collected    []string `json:"collected,omitempty"`
+	// Sandbox marks an architect sandbox test run (sandbox.go): strict
+	// policy, every gated action is denied and recorded.
+	Sandbox        bool            `json:"sandbox,omitempty"`
+	SandboxBlocked []sandboxAction `json:"sandbox_blocked,omitempty"`
+	SandboxCalls   []string        `json:"sandbox_calls,omitempty"`
 }
 
 func (e *Engine) loadExt(ctx context.Context, taskID string) (*taskExt, error) {
@@ -111,14 +126,17 @@ type treeRec struct {
 	mission  string
 	stopped  string
 	deadline time.Time
+	// parentRoot is the root of the tree this one was delegated from
+	// (nested team runs); "" for top-level trees.
+	parentRoot string
 }
 
 func (e *Engine) loadTree(ctx context.Context, rootID string) (*treeRec, error) {
 	t := &treeRec{rootID: rootID, limits: &nexusv1.TeamLimits{}}
 	var lb, tb []byte
 	var deadline int64
-	err := e.db.QueryRowContext(ctx, `SELECT team_id, limits, team, mission, stopped, deadline FROM task_trees WHERE root_id = ?`, rootID).
-		Scan(&t.teamID, &lb, &tb, &t.mission, &t.stopped, &deadline)
+	err := e.db.QueryRowContext(ctx, `SELECT team_id, limits, team, mission, stopped, deadline, parent_root FROM task_trees WHERE root_id = ?`, rootID).
+		Scan(&t.teamID, &lb, &tb, &t.mission, &t.stopped, &deadline, &t.parentRoot)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -157,10 +175,88 @@ func (e *Engine) insertTree(ctx context.Context, t *treeRec) error {
 	if !t.deadline.IsZero() {
 		deadline = t.deadline.UnixMilli()
 	}
-	_, err = e.db.ExecContext(ctx, `INSERT OR IGNORE INTO task_trees (root_id, team_id, limits, team, mission, stopped, deadline, created_at)
-		VALUES (?, ?, ?, ?, ?, '', ?, ?)`, t.rootID, t.teamID, lb, tb, t.mission, deadline, ms(e.now()))
+	_, err = e.db.ExecContext(ctx, `INSERT OR IGNORE INTO task_trees (root_id, team_id, limits, team, mission, stopped, deadline, created_at, parent_root)
+		VALUES (?, ?, ?, ?, ?, '', ?, ?, ?)`, t.rootID, t.teamID, lb, tb, t.mission, deadline, ms(e.now()), t.parentRoot)
 	return err
 }
+
+// ancestors returns tree and the trees it was delegated from, innermost
+// first (nested team runs). Missing rows end the chain.
+func (e *Engine) ancestors(ctx context.Context, tree *treeRec) ([]*treeRec, error) {
+	var out []*treeRec
+	seen := map[string]bool{}
+	for t := tree; t != nil && !seen[t.rootID]; {
+		seen[t.rootID] = true
+		out = append(out, t)
+		if t.parentRoot == "" {
+			break
+		}
+		p, err := e.loadTree(ctx, t.parentRoot)
+		if err != nil {
+			return nil, err
+		}
+		t = p
+	}
+	return out, nil
+}
+
+// subtreeRoots returns rootID and the roots of every tree nested under it.
+func (e *Engine) subtreeRoots(ctx context.Context, rootID string) ([]string, error) {
+	out := []string{rootID}
+	seen := map[string]bool{rootID: true}
+	for i := 0; i < len(out); i++ {
+		rows, err := e.db.QueryContext(ctx, `SELECT root_id FROM task_trees WHERE parent_root = ? ORDER BY root_id`, out[i])
+		if err != nil {
+			return nil, err
+		}
+		for rows.Next() {
+			var id string
+			if err := rows.Scan(&id); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			if !seen[id] {
+				seen[id] = true
+				out = append(out, id)
+			}
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+// inList returns "?, ?, …" and the args for an IN clause.
+func inList(ids []string) (string, []any) {
+	ph := make([]string, len(ids))
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		ph[i], args[i] = "?", id
+	}
+	return strings.Join(ph, ", "), args
+}
+
+// subtreeTasks returns every task of the tree and of the trees nested in it.
+func (e *Engine) subtreeTasks(ctx context.Context, rootID string) ([]*nexusv1.Task, error) {
+	roots, err := e.subtreeRoots(ctx, rootID)
+	if err != nil {
+		return nil, err
+	}
+	ph, args := inList(roots)
+	return e.queryTasks(ctx, `WHERE root_id IN (`+ph+`) ORDER BY id`, args...)
+}
+
+// memberTasks returns the tasks of a tree plus the roots of the trees
+// delegated directly from it (sub-team runs are members of their parent).
+func (e *Engine) memberTasks(ctx context.Context, rootID string) ([]*nexusv1.Task, error) {
+	return e.queryTasks(ctx, `WHERE root_id = ? OR id IN (SELECT root_id FROM task_trees WHERE parent_root = ?) ORDER BY id`, rootID, rootID)
+}
+
+// isSubRoot reports whether t is the root of a nested tree (a sub-team
+// run delegated from another tree).
+func isSubRoot(t *nexusv1.Task) bool { return t.ParentId != "" && t.RootId == t.Id }
 
 // ensureTree returns the tree row of rootID, creating it for a plain tree
 // from the root agent's tree limits (AgentLimits max_depth, max_parallel,
@@ -198,9 +294,27 @@ func (e *Engine) treeTasks(ctx context.Context, rootID string) ([]*nexusv1.Task,
 	return e.queryTasks(ctx, `WHERE root_id = ? ORDER BY id`, rootID)
 }
 
+// treeRuns counts the runs of a tree and of the trees nested in it.
 func (e *Engine) treeRuns(ctx context.Context, rootID string) (int, error) {
+	roots, err := e.subtreeRoots(ctx, rootID)
+	if err != nil {
+		return 0, err
+	}
+	ph, args := inList(roots)
 	var n int
-	err := e.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM runs r JOIN tasks t ON t.id = r.task_id WHERE t.root_id = ?`, rootID).Scan(&n)
+	err = e.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM runs r JOIN tasks t ON t.id = r.task_id WHERE t.root_id IN (`+ph+`)`, args...).Scan(&n)
+	return n, err
+}
+
+// treeTaskCount counts the tasks of a tree and of the trees nested in it.
+func (e *Engine) treeTaskCount(ctx context.Context, rootID string) (int, error) {
+	roots, err := e.subtreeRoots(ctx, rootID)
+	if err != nil {
+		return 0, err
+	}
+	ph, args := inList(roots)
+	var n int
+	err = e.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM tasks WHERE root_id IN (`+ph+`)`, args...).Scan(&n)
 	return n, err
 }
 
@@ -237,85 +351,121 @@ func limitErr(format string, a ...any) error {
 	return connect.NewError(connect.CodeResourceExhausted, fmt.Errorf(format, a...))
 }
 
-// checkChild enforces the tree's depth / task-count / stop / deadline limits
-// before a sub-task of parent is created.
+// checkChild enforces the depth / task-count / stop / deadline limits of
+// the tree and of every tree it is nested in before a sub-task of parent
+// is created. Depths are global (a nested tree's max_depth is stored
+// relative to the top-level root).
 func (e *Engine) checkChild(ctx context.Context, parent *taskRec, tree *treeRec) error {
+	chain, err := e.ancestors(ctx, tree)
+	if err != nil {
+		return err
+	}
 	maxDepth := e.cfg.MaxDepth
-	if tree != nil && tree.limits.GetMaxDepth() > 0 && int(tree.limits.MaxDepth) < maxDepth {
-		maxDepth = int(tree.limits.MaxDepth)
+	for _, t := range chain {
+		if t.limits.GetMaxDepth() > 0 && int(t.limits.MaxDepth) < maxDepth {
+			maxDepth = int(t.limits.MaxDepth)
+		}
 	}
 	if parent.depth+1 > maxDepth {
 		return limitErr("max sub-task depth %d reached", maxDepth)
 	}
-	if tree == nil {
-		return nil
-	}
-	if tree.stopped != "" {
-		return limitErr("the task tree was stopped: %s", tree.stopped)
-	}
-	if !tree.deadline.IsZero() && e.now().After(tree.deadline) {
-		return limitErr("the team run is past its timeout")
-	}
-	if max := tree.limits.GetMaxTasks(); max > 0 {
-		var n int
-		if err := e.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM tasks WHERE root_id = ?`, tree.rootID).Scan(&n); err != nil {
-			return err
+	for i, t := range chain {
+		what := "this run"
+		if i > 0 {
+			what = "the parent team run " + t.rootID
 		}
-		if n >= int(max) {
-			return limitErr("limit of %d tasks for this run reached", max)
+		if t.stopped != "" {
+			return limitErr("the task tree was stopped: %s", t.stopped)
+		}
+		if !t.deadline.IsZero() && e.now().After(t.deadline) {
+			return limitErr("the team run is past its timeout")
+		}
+		if max := t.limits.GetMaxTasks(); max > 0 {
+			n, err := e.treeTaskCount(ctx, t.rootID)
+			if err != nil {
+				return err
+			}
+			if n >= int(max) {
+				return limitErr("limit of %d tasks for %s reached", max, what)
+			}
 		}
 	}
 	return nil
 }
 
-// checkRun enforces max_runs / max_cost / deadline / stop before a new run
-// of a task of the tree. It returns the remaining tree budget (nil = none).
+// checkRun enforces max_runs / max_cost / deadline / stop of the tree and
+// of every tree it is nested in before a new run of a task of the tree. It
+// returns the smallest remaining budget (nil = none).
 func (e *Engine) checkRun(ctx context.Context, rootID string) (*nexusv1.Money, error) {
 	tree, err := e.loadTree(ctx, rootID)
 	if err != nil || tree == nil {
 		return nil, err
 	}
-	if tree.stopped != "" {
-		return nil, limitErr("the task tree was stopped: %s", tree.stopped)
-	}
-	if !tree.deadline.IsZero() && e.now().After(tree.deadline) {
-		return nil, limitErr("the team run is past its timeout")
-	}
-	if max := tree.limits.GetMaxRuns(); max > 0 {
-		n, err := e.treeRuns(ctx, rootID)
-		if err != nil {
-			return nil, err
-		}
-		if n >= int(max) {
-			return nil, limitErr("limit of %d runs for this task tree reached", max)
-		}
-	}
-	max := tree.limits.GetMaxCost()
-	if max == nil || max.MinorUnits <= 0 {
-		return nil, nil
-	}
-	tasks, err := e.treeTasks(ctx, rootID)
+	chain, err := e.ancestors(ctx, tree)
 	if err != nil {
 		return nil, err
 	}
-	spent := treeCost(tasks)
-	if costOver(spent, max) {
-		return nil, limitErr("budget of %s for this task tree is used up (%s spent)", eur(max), eur(spent.GetAmount()))
-	}
-	left := proto.Clone(max).(*nexusv1.Money)
-	if spent.GetAmount() != nil {
-		left.MinorUnits -= spent.Amount.MinorUnits
+	var left *nexusv1.Money
+	for _, t := range chain {
+		if t.stopped != "" {
+			return nil, limitErr("the task tree was stopped: %s", t.stopped)
+		}
+		if !t.deadline.IsZero() && e.now().After(t.deadline) {
+			return nil, limitErr("the team run is past its timeout")
+		}
+		if max := t.limits.GetMaxRuns(); max > 0 {
+			n, err := e.treeRuns(ctx, t.rootID)
+			if err != nil {
+				return nil, err
+			}
+			if n >= int(max) {
+				return nil, limitErr("limit of %d runs for this task tree reached", max)
+			}
+		}
+		max := t.limits.GetMaxCost()
+		if max == nil || max.MinorUnits <= 0 {
+			continue
+		}
+		tasks, err := e.subtreeTasks(ctx, t.rootID)
+		if err != nil {
+			return nil, err
+		}
+		spent := treeCost(tasks)
+		if costOver(spent, max) {
+			return nil, limitErr("budget of %s for this task tree is used up (%s spent)", eur(max), eur(spent.GetAmount()))
+		}
+		l := proto.Clone(max).(*nexusv1.Money)
+		if spent.GetAmount() != nil {
+			l.MinorUnits -= spent.Amount.MinorUnits
+		}
+		if left == nil || l.MinorUnits < left.MinorUnits {
+			left = l
+		}
 	}
 	return left, nil
 }
 
-// remainingTime is how long the tree may still run (0 = no deadline).
+// remainingTime is how long the tree may still run (0 = no deadline): the
+// earliest deadline of the tree and the trees it is nested in.
 func (e *Engine) remainingTime(ctx context.Context, rootID string) time.Duration {
 	tree, err := e.loadTree(ctx, rootID)
-	if err != nil || tree == nil || tree.deadline.IsZero() {
+	if err != nil || tree == nil {
 		return 0
 	}
-	d := tree.deadline.Sub(e.now())
+	chain, err := e.ancestors(ctx, tree)
+	if err != nil {
+		return 0
+	}
+	var deadline time.Time
+	for _, t := range chain {
+		if !t.deadline.IsZero() && (deadline.IsZero() || t.deadline.Before(deadline)) {
+			deadline = t.deadline
+		}
+	}
+	if deadline.IsZero() {
+		return 0
+	}
+	d := deadline.Sub(e.now())
 	if d < time.Second {
 		d = time.Second
 	}
@@ -341,7 +491,7 @@ func (e *Engine) pump(ctx context.Context, rootID string) {
 		e.slotMu.Unlock()
 		return
 	}
-	tasks, err := e.treeTasks(ctx, rootID)
+	tasks, err := e.memberTasks(ctx, rootID)
 	if err != nil {
 		e.slotMu.Unlock()
 		e.log.Warn("pump: load tree", "root", rootID, "err", err)
@@ -364,7 +514,9 @@ func (e *Engine) pump(ctx context.Context, rootID string) {
 		running := 0
 		perRole := map[string]int{}
 		for _, t := range tasks {
-			if t.Id != rootID && active(t) {
+			// A sub-team run occupies its member slot until it ends, even
+			// while its own strategy runs.
+			if t.Id != rootID && (active(t) || (isSubRoot(t) && !IsTerminal(t.State) && !held(t))) {
 				running++
 				perRole[t.Role]++
 			}
@@ -409,7 +561,8 @@ func (e *Engine) pump(ctx context.Context, rootID string) {
 	}
 }
 
-// startTask assigns a queued task to its agent (or routes it).
+// startTask assigns a queued task to its agent (or routes it). A queued
+// sub-team root starts its team run.
 func (e *Engine) startTask(ctx context.Context, id string) (*nexusv1.Task, error) {
 	r, err := e.loadTask(ctx, id)
 	if err != nil {
@@ -417,6 +570,16 @@ func (e *Engine) startTask(ctx context.Context, id string) (*nexusv1.Task, error
 	}
 	if r.task.State != stQueued {
 		return r.task, nil
+	}
+	if r.task.TeamId != "" && isSubRoot(r.task) {
+		tree, err := e.loadTree(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if tree == nil || tree.team == nil {
+			return e.fail(ctx, id, "sub-team run has no team definition")
+		}
+		return e.launchTeam(ctx, id, tree.team, tree.mission)
 	}
 	if r.task.AgentId != "" {
 		return e.assign(ctx, id, r.task.AgentId, assignOpts{})
@@ -468,6 +631,19 @@ func (e *Engine) onTerminal(ctx context.Context, t *nexusv1.Task) {
 	}
 	// The root ended.
 	e.stopTimer(t.Id)
+	if tree.parentRoot != "" {
+		// A sub-team run is a member of its parent tree.
+		if parent, err := e.loadTree(ctx, tree.parentRoot); err == nil && parent != nil {
+			if parent.team != nil {
+				e.teamEvent(ctx, parent, nexusv1.TeamEventKind_TEAM_EVENT_KIND_MEMBER_FINISHED, t, truncate(t.Summary, 500),
+					map[string]any{"state": stateName(t.State), "team": t.TeamId})
+			}
+			defer func() {
+				e.pump(ctx, parent.rootID)
+				e.refreshTreeCost(ctx, parent.rootID)
+			}()
+		}
+	}
 	if tree.team == nil {
 		return
 	}
@@ -479,9 +655,16 @@ func (e *Engine) onTerminal(ctx context.Context, t *nexusv1.Task) {
 	e.cancelDescendants(ctx, t.Id, "team run ended")
 }
 
-// cancelDescendants cancels every unfinished task of a tree except the root.
+// cancelDescendants cancels every unfinished task of a tree, and of the
+// trees nested in it, except the root.
 func (e *Engine) cancelDescendants(ctx context.Context, rootID, reason string) {
-	ids, err := e.nonTerminalIDs(ctx, "root_id = ? AND id != ?", rootID, rootID)
+	roots, err := e.subtreeRoots(ctx, rootID)
+	if err != nil {
+		e.log.Warn("cancel descendants", "root", rootID, "err", err)
+		return
+	}
+	ph, args := inList(roots)
+	ids, err := e.nonTerminalIDs(ctx, "root_id IN ("+ph+") AND id != ?", append(args, rootID)...)
 	if err != nil {
 		e.log.Warn("cancel descendants", "root", rootID, "err", err)
 		return
@@ -523,14 +706,18 @@ func (e *Engine) cancelRootRun(ctx context.Context, rootID, reason string) {
 	}
 }
 
-// refreshTreeCost updates the root's tree_cost and stops the tree when its
-// budget is used up.
+// refreshTreeCost updates the root's tree_cost (nested trees included)
+// and stops the tree when its budget is used up, then does the same for the
+// tree it is nested in.
 func (e *Engine) refreshTreeCost(ctx context.Context, rootID string) {
 	tree, err := e.loadTree(ctx, rootID)
 	if err != nil || tree == nil {
 		return
 	}
-	tasks, err := e.treeTasks(ctx, rootID)
+	if tree.parentRoot != "" && tree.parentRoot != rootID {
+		defer e.refreshTreeCost(ctx, tree.parentRoot)
+	}
+	tasks, err := e.subtreeTasks(ctx, rootID)
 	if err != nil {
 		return
 	}
@@ -567,7 +754,7 @@ func (e *Engine) startTimer(rootID string, d time.Duration) {
 	}
 	e.timers[rootID] = time.AfterFunc(d, func() {
 		e.stopTimer(rootID)
-		e.stopTree(e.bg, rootID, fmt.Sprintf("team run timed out after %s", d.Round(time.Second)))
+		e.stopTree(e.bg, rootID, "team run timed out (deadline reached)")
 	})
 }
 

@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -50,8 +51,8 @@ func (e *Engine) teamTools() []kernel.Tool {
 		tool("team.delegate_many", "Fan out several tasks to members in parallel (each item like team.delegate). Returns the task ids, or all results with wait: true.",
 			`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"role":{"type":"string"},"agent":{"type":"string"},"task":{"type":"string"},"inputs":{"type":"object"}},"required":["task"]}},`+waitProps+`},"required":["items"]}`,
 			classCompute, e.ttDelegateMany, true),
-		tool("team.await", "Wait until member tasks finish (all, or the first with any: true) and return their state, summary and structured result. Pending tasks are listed when the timeout elapses: call again.",
-			`{"type":"object","properties":{"task_ids":{"type":"array","items":{"type":"string"},"description":"default: all your unfinished sub-tasks"},"any":{"type":"boolean"},"timeout":{"type":"integer","description":"max seconds to wait (default 600)"}}}`,
+		tool("team.await", "Wait until member tasks finish (all, or the first with any: true) and return their state, summary and structured result. Pending tasks are listed when the timeout elapses: call again. Without task_ids it covers every sub-task whose result this run has not received yet (also after a hub restart).",
+			`{"type":"object","properties":{"task_ids":{"type":"array","items":{"type":"string"},"description":"default: your sub-tasks that are unfinished or whose result you have not received yet"},"any":{"type":"boolean"},"timeout":{"type":"integer","description":"max seconds to wait (default 600)"}}}`,
 			classRead, e.ttAwait, true),
 		tool("team.status", "The team run's task tree: every task with role, state, phase, cost and a short summary, plus totals and limits.",
 			`{"type":"object","properties":{}}`, classRead, e.ttStatus, true),
@@ -218,10 +219,18 @@ func (e *Engine) awaitOut(ctx context.Context, tc *teamCall, ids []string, anyDo
 	e.teamEvent(ctx, tc.tree, nexusv1.TeamEventKind_TEAM_EVENT_KIND_AWAITING, tc.caller.task, fmt.Sprintf("waiting for %d task(s)", len(ids)),
 		map[string]any{"task_ids": idsAny, "timeout_seconds": int(timeout / time.Second)})
 	done, pending, err := e.waitTasks(ctx, ids, anyDone, timeout)
-	if err != nil && len(done) == 0 {
-		return nil, err
+	if err != nil {
+		if e.bg.Err() != nil {
+			// The hub is stopping: nothing is marked as received, so the
+			// same call after the restart returns every result.
+			return nil, connect.NewError(connect.CodeUnavailable, errors.New("the hub is restarting; call team.await again (no result is lost)"))
+		}
+		if len(done) == 0 {
+			return nil, err
+		}
 	}
 	sortTasksByID(done)
+	e.markCollected(ctx, tc.caller.task, done)
 	out := map[string]any{"done": waitResults(done), "timed_out": len(pending) > 0 && !anyDone}
 	var p []map[string]any
 	for _, t := range pending {
@@ -248,11 +257,11 @@ func (e *Engine) ttAwait(ctx context.Context, tc *teamCall) (any, error) {
 	ids := in.TaskIDs
 	if len(ids) == 0 {
 		var err error
-		if ids, err = e.nonTerminalIDs(ctx, "parent_id = ?", tc.caller.task.Id); err != nil {
+		if ids, err = e.uncollected(ctx, tc.caller.task); err != nil {
 			return nil, err
 		}
 		if len(ids) == 0 {
-			return map[string]any{"done": []any{}, "note": "you have no unfinished sub-tasks"}, nil
+			return map[string]any{"done": []any{}, "note": "you have no unfinished sub-tasks and every result was already returned to you"}, nil
 		}
 	}
 	for _, id := range ids {
@@ -260,11 +269,64 @@ func (e *Engine) ttAwait(ctx context.Context, tc *teamCall) (any, error) {
 		if err != nil {
 			return nil, err
 		}
-		if t.RootId != tc.tree.rootID {
+		if t.RootId != tc.tree.rootID && !(isSubRoot(t) && t.ParentId == tc.caller.task.Id) {
 			return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("task %s is not part of this team run", id))
 		}
 	}
 	return e.awaitOut(ctx, tc, ids, in.Any, e.waitTimeout(in.Timeout))
+}
+
+// uncollected returns the caller's sub-tasks that are unfinished or whose
+// result the caller's current run has not received from team.await yet.
+// After a hub restart (or when the orchestrator runs again) a plain
+// team.await therefore still returns results that finished meanwhile.
+func (e *Engine) uncollected(ctx context.Context, caller *nexusv1.Task) ([]string, error) {
+	kids, err := e.ChildTasks(ctx, caller.Id)
+	if err != nil {
+		return nil, err
+	}
+	x, err := e.loadExt(ctx, caller.Id)
+	if err != nil {
+		return nil, err
+	}
+	got := map[string]bool{}
+	if x.CollectedRun == caller.CurrentRunId {
+		for _, id := range x.Collected {
+			got[id] = true
+		}
+	}
+	var ids []string
+	for _, k := range kids {
+		if !IsTerminal(k.State) || !got[k.Id] {
+			ids = append(ids, k.Id)
+		}
+	}
+	return ids, nil
+}
+
+// markCollected records that the caller's current run received the results
+// of done.
+func (e *Engine) markCollected(ctx context.Context, caller *nexusv1.Task, done []*nexusv1.Task) {
+	if len(done) == 0 {
+		return
+	}
+	if _, err := e.updateExt(ctx, caller.Id, func(x *taskExt) {
+		if x.CollectedRun != caller.CurrentRunId {
+			x.CollectedRun, x.Collected = caller.CurrentRunId, nil
+		}
+		seen := map[string]bool{}
+		for _, id := range x.Collected {
+			seen[id] = true
+		}
+		for _, t := range done {
+			if !seen[t.Id] {
+				x.Collected = append(x.Collected, t.Id)
+				seen[t.Id] = true
+			}
+		}
+	}); err != nil {
+		e.log.Warn("team.await: record collected results", "task", caller.Id, "err", err)
+	}
 }
 
 func (e *Engine) ttStatus(ctx context.Context, tc *teamCall) (any, error) {
@@ -351,7 +413,11 @@ func (e *Engine) ttRunStrategy(ctx context.Context, tc *teamCall) (any, error) {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("strategy must be parallel, pipeline or debate"))
 	}
 	task := nonEmpty(strings.TrimSpace(in.Task), tc.caller.task.Prompt)
-	res, final, err := e.runStrategy(ctx, tc.caller, tc.tree, s, task, in.Roles, e.waitTimeout(in.Timeout))
+	// Keyed by run and arguments: the same call repeated by the same run
+	// (e.g. after the hub restarted mid-call) reuses the member tasks.
+	h := sha256.Sum256([]byte(strategyName(s) + "\x00" + task + "\x00" + strings.Join(in.Roles, ",")))
+	prefix := fmt.Sprintf("rs:%s:%x:", tc.caller.task.CurrentRunId, h[:6])
+	res, final, err := e.runStrategy(ctx, tc.caller, tc.tree, s, task, in.Roles, e.waitTimeout(in.Timeout), prefix)
 	out := map[string]any{"strategy": strategyName(s), "results": res, "final": truncate(final, 32<<10)}
 	if err != nil {
 		out["error"] = err.Error()

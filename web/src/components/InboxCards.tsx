@@ -31,6 +31,8 @@ import { Input } from "./ui/Input";
 import { AgentIcon } from "./AgentIcon";
 import { ArtifactView } from "./Artifact";
 import { agentName, useAgentMap } from "./agentMeta";
+import { RawDetails, ToolDetail } from "./ToolView";
+import { toolTitle } from "../lib/tools";
 
 function Shell({
   tone,
@@ -163,7 +165,7 @@ export function ApprovalCard({
           <span>· {timeAgo(tsMs(approval.createdAt), now)}</span>
         </>
       }
-      title={approval.title}
+      title={approvalTitle(approval)}
       actions={
         pending ? (
           <>
@@ -197,9 +199,9 @@ export function ApprovalCard({
             >
               Deny
             </Button>
-            {!compact && (
+            {!compact && approval.previews.length > 1 && (
               <Button variant="ghost" size="sm" onClick={() => setShowPayload((v) => !v)}>
-                {showPayload ? "Hide details" : "Details"}
+                {showPayload ? "Fewer previews" : "All previews"}
               </Button>
             )}
           </>
@@ -211,7 +213,7 @@ export function ApprovalCard({
         )
       }
     >
-      {approval.summary && <p className="mt-1 text-[13px] text-fg-2">{approval.summary}</p>}
+      <ApprovalBody approval={approval} />
       {!compact && approval.taskId && (
         <div className="mt-2 text-xs text-muted">
           <TaskLink taskId={approval.taskId} />
@@ -226,11 +228,7 @@ export function ApprovalCard({
           </div>
         </div>
       )}
-      {showPayload && approval.payload && (
-        <pre className="mt-3 max-h-56 overflow-auto rounded-lg border border-border bg-surface-2 p-3 font-mono text-[11.5px] text-fg-2 scrollbar-thin">
-          {JSON.stringify(approval.payload, null, 2)}
-        </pre>
-      )}
+      {approval.payload && <RawDetails value={approval.payload} />}
       {!compact && approval.previews.length > 0 && (
         <div className="mt-3 grid gap-2">
           {approval.previews.slice(0, showPayload ? undefined : 1).map((p) => (
@@ -243,59 +241,151 @@ export function ApprovalCard({
 }
 
 export function QuestionCard({ item, compact }: { item: QuestionItem; compact?: boolean }) {
-  const send = useSendMessage();
-  const [text, setText] = useState("");
   const now = useNow(30_000);
   const q = item.question;
-  const answer = (choice?: string, free?: string) =>
-    send.mutate({ taskId: item.taskId, questionId: q.questionId, choice: choice ?? "", text: free ?? "" });
   return (
     <Shell
       tone="info"
       icon={<MessageCircleQuestion className="size-3" />}
       kind="Question"
       urgent={!item.answered}
-      meta={<span>{timeAgo(item.at, now)}</span>}
-      title={q.text}
-      actions={
-        item.answered ? (
-          <Badge tone="ok">
-            <Check className="size-3" />
-            answered
-          </Badge>
-        ) : (
-          <>
-            {q.choices.map((c) => (
-              <Button key={c} size="sm" variant="secondary" loading={send.isPending && send.variables?.choice === c} onClick={() => answer(c)}>
-                {c}
-              </Button>
-            ))}
-            {q.allowFreeText && (
-              <form
-                className="flex min-w-[220px] flex-1 items-center gap-1.5"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (text.trim()) answer(undefined, text.trim());
-                  setText("");
-                }}
-              >
-                <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Or type a reply…" className="h-8" />
-                <Button type="submit" size="icon" variant="primary" aria-label="Send reply" disabled={!text.trim()}>
-                  <Send className="size-3.5" />
-                </Button>
-              </form>
-            )}
-          </>
-        )
+      testId="question-card"
+      meta={
+        <>
+          {q.header && <span className="rounded-md bg-info-soft px-1.5 py-0.5 text-[11px] font-medium text-info">{q.header}</span>}
+          <span>{timeAgo(item.at, now)}</span>
+        </>
       }
+      title={q.text}
     >
+      <QuestionOptions item={item} />
       {!compact && item.taskId && (
-        <div className="mt-1 text-xs text-muted">
+        <div className="mt-2 text-xs text-muted">
           <TaskLink taskId={item.taskId} />
         </div>
       )}
     </Shell>
   );
+}
+
+/**
+ * The answer UI of a question: option cards (label + description), multi-select with a submit
+ * button, and an "Other…" free-text answer. Used by the Inbox card and inline in the chat bubble.
+ */
+export function QuestionOptions({ item }: { item: QuestionItem }) {
+  const send = useSendMessage();
+  const [text, setText] = useState("");
+  const [picked, setPicked] = useState<string[]>([]);
+  const [other, setOther] = useState(false);
+  const [answer, setAnswer] = useState<string | null>(null);
+  const q = item.question;
+  const options = q.options.length ? q.options.map((o) => ({ label: o.label, description: o.description })) : q.choices.map((c) => ({ label: c, description: "" }));
+  const submit = (choice: string, free: string) => {
+    setAnswer(free || choice);
+    send.mutate({ taskId: item.taskId, questionId: q.questionId, choice, text: free }, { onError: () => setAnswer(null) });
+  };
+  if (item.answered || answer) {
+    return (
+      <div className="mt-2 flex items-center gap-2 text-[13px] text-fg-2">
+        <Badge tone="ok">
+          <Check className="size-3" />
+          answered
+        </Badge>
+        {answer && <span className="min-w-0 truncate">{answer}</span>}
+      </div>
+    );
+  }
+  return (
+    <div className="mt-2.5">
+      <div className="grid gap-1.5" role={q.multiSelect ? "group" : undefined} aria-label={q.text}>
+        {options.map((o) => {
+          const on = picked.includes(o.label);
+          return (
+            <button
+              key={o.label}
+              type="button"
+              aria-pressed={q.multiSelect ? on : undefined}
+              disabled={send.isPending}
+              onClick={() => (q.multiSelect ? setPicked((p) => (on ? p.filter((x) => x !== o.label) : [...p, o.label])) : submit(o.label, ""))}
+              className={cx(
+                "flex min-h-11 w-full items-start gap-2.5 rounded-lg border px-3 py-2 text-left transition-colors focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:outline-none",
+                on ? "border-accent bg-accent-soft" : "border-border bg-surface hover:border-border-strong hover:bg-surface-2",
+              )}
+            >
+              {q.multiSelect && (
+                <span className={cx("mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border", on ? "border-accent bg-accent text-accent-fg" : "border-border-strong")} aria-hidden>
+                  {on && <Check className="size-3" />}
+                </span>
+              )}
+              <span className="min-w-0">
+                <span className="block text-[13.5px] font-medium text-fg">{o.label}</span>
+                {o.description && <span className="mt-0.5 block text-[12.5px] text-fg-2">{o.description}</span>}
+              </span>
+            </button>
+          );
+        })}
+        {q.allowFreeText &&
+          (other ? (
+            <form
+              className="flex items-center gap-1.5"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const t = text.trim();
+                if (t) submit(q.multiSelect ? picked.join(", ") : "", t);
+              }}
+            >
+              <Input autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="Type your answer…" aria-label="Your answer" className="h-9 pointer-coarse:h-11" />
+              <Button type="submit" size="icon" variant="primary" aria-label="Send answer" disabled={!text.trim()} loading={send.isPending}>
+                <Send className="size-3.5" />
+              </Button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setOther(true)}
+              className="flex min-h-11 w-full items-center rounded-lg border border-dashed border-border px-3 py-2 text-left text-[13px] text-fg-2 hover:border-border-strong hover:text-fg focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:outline-none"
+            >
+              Other…
+            </button>
+          ))}
+      </div>
+      {q.multiSelect && (
+        <Button className="mt-2" size="sm" variant="primary" disabled={!picked.length} loading={send.isPending} onClick={() => submit(picked.join(", "), "")}>
+          Submit {picked.length ? `(${picked.length})` : ""}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/** Older approvals say "X wants to use Bash"; give them the readable form. */
+function approvalTitle(a: Approval): string {
+  const m = /^(.*) wants to use (\S+)$/.exec(a.title);
+  const p = a.payload as { tool?: unknown; input?: unknown } | undefined;
+  if (!m || typeof p?.tool !== "string") return a.title;
+  const t = toolTitle(p.tool, (p.input ?? {}) as Record<string, unknown>);
+  if (t.title.startsWith("Used ")) return a.title;
+  return `${m[1]} wants to: ${t.title.charAt(0).toLowerCase()}${t.title.slice(1)}`;
+}
+
+function ApprovalBody({ approval }: { approval: Approval }) {
+  const p = approval.payload as { tool?: unknown; input?: unknown; cwd?: unknown } | undefined;
+  if (p && typeof p.tool === "string") {
+    return (
+      <div className="mt-2">
+        <ToolDetail tool={p.tool} input={(p.input ?? {}) as Record<string, unknown>} cwd={typeof p.cwd === "string" ? p.cwd : undefined} />
+      </div>
+    );
+  }
+  if (p && Object.keys(p).length) {
+    return (
+      <div className="mt-2">
+        {approval.summary && <p className="mb-2 text-[13px] text-fg-2">{approval.summary}</p>}
+        <ToolDetail tool={approval.title} input={p as Record<string, unknown>} />
+      </div>
+    );
+  }
+  return approval.summary ? <p className="mt-1 text-[13px] text-fg-2">{approval.summary}</p> : null;
 }
 
 const noticeIcon: Record<NoticeKind, React.ReactNode> = {
