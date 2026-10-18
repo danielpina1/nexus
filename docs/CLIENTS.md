@@ -28,16 +28,20 @@ opening the web.**
 
 ### Tabs
 
+The tab bar matches the web's phone tab bar (Home, Inbox, Chat, Work, More), and every screen is
+built from the shared design system (`design/MASTER.md`; tokens generated into
+`ios/DesignSystem/Generated` by `make ios-tokens`, components in `ios/DesignSystem/Kit`).
+
 | Tab | Content |
 |---|---|
-| **Home** | Brief card, Inbox, running tasks (compact live rows), machines strip, suggestion cards, favorite workflows as buttons. |
+| **Home** | Greeting, metrics (Running, Needs you, Spent today, Machines), brief card, the top of the inbox ("Needs you"), running tasks as live cards, recent results, machines with live CPU / RAM / disk, favourite agents as buttons. |
+| **Inbox** | Approvals (Face ID class first), questions and notices ranked by urgency, with All / Approvals / Questions / Notices filters. Approve and Deny sit inside each card; "All clear" when empty. |
 | **Chat** | "Nexus" thread (auto-routed) + per-agent threads. Voice mode (push-to-talk and hands-free). Attach photos, files, scans. |
-| **Tasks** | Running / Scheduled / Done. Task tree for multi-agent runs. Replay a run step by step. Retry, escalate, compare. |
-| **Vault** | Search, recent, pinned, daily note, backlinks, local graph of a note, quick capture, offline cache, Facts inbox. |
-| **Machines** | Nodes with status (online, CPU, disk, battery), running agents, file browser, quick terminal (approval-gated), wake-on-LAN, kill switch. |
+| **Work** | Section tabs like the web: **Tasks** (Running / Scheduled / Done, search, task tree, retry, escalate), **Teams** (team list, team detail with "Run team", live team run: member tree, timeline, blackboard, limit meters, inline approvals, team messages), **Agents**, **Architect** (draft creation, review, sandbox tests, refine, publish via approval) and **Spend**. |
+| **More** | **Knowledge** (search, backlinks, quick capture), **Machines** (nodes with live stats, running agents, file browser, wake-on-LAN, kill switch), **Settings**, the connection indicator and the Light / System / Dark control. |
 
-Settings: Hub connection & pairing, devices, notifications, trust levels, budgets, integrations,
-model aliases (read-only), appearance.
+Settings: Hub connection & pairing, appearance (Light / System / Dark, OLED black in dark),
+devices, notifications, trust levels, budgets, integrations, model aliases (read-only).
 
 ### System integrations
 

@@ -3,8 +3,10 @@
 > The single guide for the Nexus web dashboard and, later, the iOS app.
 > **Tokens:** [`design/tokens.json`](tokens.json) is the source of truth for every value below.
 > The web app generates CSS variables from it (`web/scripts/gen-tokens.mjs` → `web/src/styles/tokens.css`,
-> which runs before `dev`, `build` and `typecheck` and fails the build on a contrast regression). The iOS app should
-> generate Swift constants from the same file.
+> which runs before `dev`, `build` and `typecheck` and fails the build on a contrast regression). The iOS app
+> generates Swift from the same file (`make ios-tokens` → `scripts/gen-ios-tokens.mjs` →
+> `ios/DesignSystem/Generated/DesignTokens.swift` and the AccentColor asset); its component kit is in
+> `ios/DesignSystem/Kit`.
 > **Basis:** the UI UX Pro Max skill (`.claude/skills/ui-ux-pro-max`). Its generated output lives in
 > [`design-system/nexus/MASTER.md`](../design-system/nexus/MASTER.md), with page notes in `design-system/nexus/pages/`.
 > This file is the curated version; where they differ, this file wins. The deviations are listed in §12.
@@ -193,16 +195,16 @@ The shared states are:
 
 | Web | iOS |
 |---|---|
-| Inter body / Montserrat headings | **SF Pro Text / SF Pro Display** (system). Keep Montserrat only for large titles if brand consistency matters; prefer the system font for Dynamic Type. |
-| JetBrains Mono | `Font.system(.footnote, design: .monospaced)` (SF Mono) |
-| Type scale (§3) | Dynamic Type styles in the last column of §3; never fixed sizes |
-| `tokens.json` colours | An asset catalog with Any/Dark appearances generated from `color.light` and `color.dark` (`Color("surface")`, …) |
-| `.glass` | `.background(.ultraThinMaterial)` / `.bar` for the tab bar and toolbars; `.regularMaterial` for sheets |
+| Inter body / Montserrat headings | The same fonts, bundled (static OFL TTFs in `ios/DesignSystem/Fonts`, registered with `UIAppFonts` in the app and widget extension): `NXType.title1…3` (Montserrat), `NXType.body`, `bodyLg`, `footnote`, `caption` (Inter) |
+| JetBrains Mono | `NXType.mono` (bundled JetBrains Mono) |
+| Type scale (§3) | `Font.custom(_:size:relativeTo:)` with the Dynamic Type style in the last column of §3, so every role scales with the user's text size |
+| `tokens.json` colours | `NXColor.*` (SwiftUI) / `NXUIColor.*` (UIKit): dynamic colours with the light and OLED dark values, resolved per trait collection, so they follow the system and the in-app Light / System / Dark override (`.preferredColorScheme`) |
+| `.glass` | `.nxGlass()` (`.ultraThinMaterial` plus the `glass` tint) on bars, the composer and toasts; system bars use the same blur via `UINavigationBarAppearance` / `UITabBarAppearance`; `.nxSheetBackground()` for sheets. All fall back to solid `surface` under Reduce Transparency |
 | `overlay` scrim | system sheet and alert presentation |
 | Radius lg 12 / xl 16 | `RoundedRectangle(cornerRadius: 12, style: .continuous)` |
 | Motion tokens | `.animation(.snappy(duration: 0.2))`; respect `accessibilityReduceMotion` |
 | Touch 44 | `.frame(minWidth: 44, minHeight: 44)` / `.contentShape(Rectangle())` |
-| Phone tab bar (Home, Inbox, Chat, Work, More) | `TabView` with the same five tabs; `NavigationStack` per tab (`navigationDestination(for:)`); `NavigationSplitView` on iPad |
+| Phone tab bar (Home, Inbox, Chat, Work, More) | `TabView` with the same five tabs; `NavigationStack` per tab (`navigationDestination(for:)`); Work has the section tabs Tasks · Teams · Agents · Architect · Spend; More holds Knowledge, Machines and Settings |
 | Command palette | `.searchable` plus a "Run" suggestion; Spotlight and App Intents for the same commands |
 | Approval card | the same layout; biometric approvals sign with Face ID (Secure Enclave) |
 | Lucide icons | SF Symbols: house (Home), tray (Inbox), bubble.left (Chat), square.stack (Work), books.vertical (Knowledge), cpu (Machines), gearshape (Settings), checkmark.circle (succeeded), xmark.circle (failed), hand.raised (waiting approval), questionmark.bubble (waiting input), faceid (biometric), arrow.up.circle (try harder), stop.circle (cancel) |

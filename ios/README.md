@@ -27,6 +27,33 @@ Push Notifications capability this project declares and its profiles expire afte
 [docs/SETUP_MAC.md §6](../docs/SETUP_MAC.md#6-build-the-iphone-app-and-pair-it). The manual
 steps are below.
 
+## Design system
+
+The app follows `design/MASTER.md`, the same design system as the web dashboard.
+
+- **Tokens** come from `design/tokens.json`. `make ios-tokens` (also run by `make gen`) runs
+  `scripts/gen-ios-tokens.mjs`, which writes `DesignSystem/Generated/DesignTokens.swift` (`NXColor` /
+  `NXUIColor` with light and OLED dark values, `NXType` roles with Dynamic Type, `NXSpace`, `NXRadius`,
+  `NXSize`, `NXMotion`, `NXShadow`) and `App/Assets.xcassets/AccentColor.colorset`. Never edit them by
+  hand; `node scripts/gen-ios-tokens.mjs --check` fails when they are stale.
+- **Fonts**: Montserrat (headings, numbers), Inter (body, UI) and JetBrains Mono (code, ids) as static
+  TTF instances in `DesignSystem/Fonts`, from the Google Fonts builds published on npm
+  (`@expo-google-fonts/inter`, `/montserrat`, `/jetbrains-mono`). They are licensed under the SIL Open
+  Font License 1.1; the licence texts (`OFL-*.txt`) sit next to them and ship in the bundle. Static
+  faces are used rather than the variable TTFs because `Font.custom(_:size:relativeTo:)` addresses a
+  face by PostScript name, which a variable font registered with `UIAppFonts` does not expose per
+  weight. Every face is listed in `UIAppFonts` in `App/Info.plist` and `Widgets/Info.plist`; the
+  generator checks that.
+- **Kit** (`DesignSystem/Kit`): buttons (primary, secondary, destructive, success, ghost, outline,
+  confirm-twice), badges (task state, approval class), cards, rows, section tabs, stat tiles, meters
+  and limit meters, empty / error / loading states, the approval card with the Face ID approve
+  button, toasts, glass for bars and sheets. Everything honours Reduce Motion and Reduce
+  Transparency, has 44 pt touch targets and VoiceOver labels, and draws the focus ring for keyboard
+  focus. App-specific pieces (agent tiles, task rows, the store-backed approval card) are in
+  `App/Components`.
+- **Appearance** follows the system; Settings → Appearance (or More) overrides it with Light /
+  System / Dark (stored under `nexus.settings.theme`, like the web).
+
 ## Generate and open the project
 
 ```sh
@@ -60,11 +87,12 @@ passed to code through each target's `Info.plist` key `NexusAppGroup`.
 
 | Target | Contents |
 |---|---|
-| `Nexus` | SwiftUI app: onboarding/QR pairing, Home, Chat, Tasks, Vault, Machines, Settings, approval sheet, app lock, push + Live Activity token registration, App Shortcuts |
+| `Nexus` | SwiftUI app: onboarding/QR pairing, Home, Inbox, Chat, Work (Tasks, Teams, Agents, Architect, Spend), More (Knowledge, Machines, Settings), approval sheet, app lock, push + Live Activity token registration, App Shortcuts |
 | `NexusWidgets` | Run + Pulse Live Activities (Lock Screen + Dynamic Island), Home Screen widgets (inbox, machines, favourites), Lock Screen accessories, Control Center controls (kill switch, capture, talk) |
 | `NexusNotificationService` | Decrypts HPKE envelopes (`nexus_envelope`), sets thread per task, downloads Hub-hosted attachments |
 | `NexusNotificationContent` | Long-press UI (cart lines / diff summary / screenshot) |
 | `Intents/` (folder) | App Intents compiled into both the app and the widget extension |
+| `DesignSystem/` (folder) | Generated tokens, the component kit and the bundled fonts, compiled into both the app and the widget extension (see below) |
 | `NexusKit` (local package) | `NexusAPI` (generated) + `NexusCore` (HubClient, keys, signing, pairing, event stream, store, shared models, mock data) |
 
 `NexusKit` unit tests (byte layouts, JCS, envelopes): `cd ios/NexusKit && swift test` won't run on
