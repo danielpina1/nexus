@@ -83,9 +83,9 @@ llm:
     claude: { api: claude-cli, timeout: 90s }   # binary: claude (logged in: `claude` → /login)
     codex:  { api: codex-cli, timeout: 120s }   # binary: codex  (logged in: `codex login`)
   aliases:
-    fast-local: { provider: claude, model: haiku, fallback: [{ provider: codex }] }
-    smart:      { provider: claude, model: sonnet, fallback: [{ provider: codex }] }
-    best:       { provider: claude, model: opus, fallback: [{ provider: codex }] }
+    fast-local: { provider: claude, model: haiku, fallback: [{ provider: codex, model: gpt-5 }] }
+    smart:      { provider: claude, model: sonnet, fallback: [{ provider: codex, model: gpt-5 }] }
+    best:       { provider: claude, model: opus, fallback: [{ provider: codex, model: gpt-5 }] }
   health:
     failure_threshold: 3
     cooldown: 30s
