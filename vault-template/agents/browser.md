@@ -1,7 +1,7 @@
 ---
 type: agent
 id: browser
-name: Web agent
+name: Odysseus · Web agent
 description: Does things on websites that have no API — look something up on a page, fill a form,
   check an account, compare offers. Use when a task needs a real browser.
 icon: globe

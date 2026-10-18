@@ -43,7 +43,7 @@ func TestGrocery(t *testing.T) {
 	a, instr := Parse("agents/grocery-continente.md", templateAgent(t, "grocery-continente.md"))
 	want := &nexusv1.Agent{
 		Id:          "grocery-continente",
-		Name:        "Grocery (Continente)",
+		Name:        "Demeter · Groceries (Continente)",
 		Description: `Buys groceries on continente.pt from a list and guidelines. Use for shopping lists, supermarket orders, "buy the usual".`,
 		Icon:        "cart",
 		Runtime:     "auto",
@@ -57,7 +57,7 @@ func TestGrocery(t *testing.T) {
 			MaxSpend:          &nexusv1.Money{Currency: "EUR", MinorUnits: 15000},
 		},
 		Policy:  map[string]nexusv1.TrustLevel{"spend": nexusv1.TrustLevel_TRUST_LEVEL_BIOMETRIC},
-		Note:    &nexusv1.NoteRef{Id: "grocery-continente", Path: "agents/grocery-continente.md", Title: "Grocery (Continente)"},
+		Note:    &nexusv1.NoteRef{Id: "grocery-continente", Path: "agents/grocery-continente.md", Title: "Demeter · Groceries (Continente)"},
 		Version: 2,
 		Enabled: true,
 		Memory:  &nexusv1.AgentMemory{Reads: []string{"[[Shopping preferences]]", "products/"}, Writes: "episodes/shopping/"},

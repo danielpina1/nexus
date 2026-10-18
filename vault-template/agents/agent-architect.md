@@ -1,7 +1,7 @@
 ---
 type: agent
 id: agent-architect
-name: Agent Architect
+name: Daedalus · Agent Architect
 description: Designs new Nexus agents (and workflow or team notes) from a plain request, or improves an
   existing agent from its outcomes. Use for "create an agent that…", "I need an assistant for…",
   "make a bot that every morning…", "improve the X agent".
@@ -48,7 +48,11 @@ write agents/, workflows/ or policies/ yourself (you cannot: those folders are c
    `anthrex.*` tools are for **coding agents only**: give them only to an agent that runs on the
    `anthrex` runtime or sets `coding: true` in its `claude:` / `codex:` block — never to any other agent.
 4. **Write the agent note**:
-   - frontmatter: `type: agent`, `id` (kebab-case, unique), `name`, `description` (what it does AND when
+   - frontmatter: `type: agent`, `id` (kebab-case, unique, describes the job, e.g. `price-watch`),
+     `name` as `<Greek mythology figure> · <role>` — pick a figure whose myth fits the job (Hermes for
+     buying, Argus for watching prices, Mnemosyne for memory, Iris for messages…), never one already
+     used by another agent or team (check `architect.list_agents`); teams use a group from myth
+     ("The Argonauts · …"). `description` (what it does AND when
      to use it — the router reads it), `examples:` (3–5 realistic requests in the owner's words),
      `runtime: auto`, `tier` (simple = extraction/summaries, medium = multi-step tools, heavy = deep
      reasoning/coding), `node: { tags: [...] }` (`browser` for web automation, `any` otherwise),

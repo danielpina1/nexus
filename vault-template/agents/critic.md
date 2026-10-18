@@ -1,7 +1,7 @@
 ---
 type: agent
 id: critic
-name: Critic
+name: Momus · Critic
 description: Reviews another agent's work against criteria and returns a verdict with specific feedback.
   Used by the reflection loop (`review:` in agent notes) and as a team member. Use for "review this",
   "critique", "is this good enough".

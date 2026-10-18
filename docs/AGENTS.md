@@ -321,3 +321,29 @@ Levels: **auto** (just do it) → **notify** (do it, tell me) → **approve** (w
 
 **Earned autonomy:** after N approvals of the same agent+action pattern with no denials/corrections,
 Nexus suggests lowering the level for that pattern. You always confirm the change.
+
+## Agent names
+
+Starter agents and teams carry a Greek-mythology name plus their role (`name: Hermes · Shopper`);
+the `id` stays functional (`shop`), so routing, `@mentions`, teams and workflows refer to ids and
+are unaffected by renames. The Agent Architect names new agents the same way, choosing a figure
+whose myth fits the job and that no other agent uses.
+
+| Agent (id) | Name | | Agent (id) | Name |
+|---|---|---|---|---|
+| assistant | Athena · Assistant | | judge | Themis · Judge |
+| agent-architect | Daedalus · Agent Architect | | librarian | Mnemosyne · Librarian |
+| architect | Metis · Architect | | news-briefer | Pheme · News briefer |
+| code-fixer | Hephaestus · Code fixer | | ops | Atlas · Ops |
+| analyst | Coeus · Analyst | | product-researcher | Argus · Product researcher |
+| anthrex-dev | Talos · Anthrex developer | | report-writer | Calliope · Report writer |
+| anthrex-design | Prometheus · Anthrex designer-developer | | research-lead | Apollo · Research lead |
+| browser | Odysseus · Web agent | | researcher | Ariadne · Researcher |
+| critic | Momus · Critic | | reviewer | Nemesis · Code reviewer |
+| echo | Echo · Test | | shell | Hestia · Shell |
+| fact-checker | Aletheia · Fact checker | | shop | Hermes · Shopper |
+| grocery-continente | Demeter · Groceries (Continente) | | tester | Sisyphus · Tester |
+
+Teams: The Muses (research-squad), The Cyclopes (dev-crew), The Argonauts (product-buyer),
+The Areopagus (debate-panel). An existing vault picks the names up with
+`scripts/mac/sync-agent-names.sh` (only the `name:` lines change).

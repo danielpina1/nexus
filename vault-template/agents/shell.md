@@ -1,7 +1,7 @@
 ---
 type: agent
 id: shell
-name: Shell
+name: Hestia · Shell
 description: Runs a shell command on a machine and streams its output. Use for "run …",
   "check disk", "list files".
 icon: terminal

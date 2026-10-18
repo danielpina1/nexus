@@ -1,7 +1,7 @@
 ---
 type: agent
 id: grocery-continente
-name: Grocery (Continente)
+name: Demeter · Groceries (Continente)
 description: Buys groceries on continente.pt from a list and guidelines. Use for shopping lists,
   supermarket orders, "buy the usual".
 icon: cart

@@ -1,7 +1,7 @@
 ---
 type: team
 id: dev-crew
-name: Dev crew
+name: The Cyclopes · Dev crew
 description: An architect plans a code change, two coders implement the steps (Claude Code / Codex), a
   tester verifies and a reviewer checks the diff before anything is pushed. Use for "implement this
   feature", "dev crew", "fix and review", "refactor with tests".

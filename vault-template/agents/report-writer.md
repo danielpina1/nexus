@@ -1,7 +1,7 @@
 ---
 type: agent
 id: report-writer
-name: Report writer
+name: Calliope · Report writer
 description: Turns notes, findings or data into a well-structured report, checked by a critic before
   it is delivered. Use for "write a report", "summarise these findings", "turn this into a brief".
 icon: doc.richtext

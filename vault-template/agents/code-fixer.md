@@ -1,7 +1,7 @@
 ---
 type: agent
 id: code-fixer
-name: Code fixer
+name: Hephaestus · Code fixer
 description: Changes code in a repository on a machine — fix bugs, failing tests, small features,
   refactors. Opens a branch and asks before pushing.
 icon: hammer

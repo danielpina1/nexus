@@ -1,7 +1,7 @@
 ---
 type: team
 id: product-buyer
-name: Product buyer
+name: The Argonauts · Product buyer
 description: Finds the best product for a need and buys it — two researchers compare options across
   stores, a sceptic double-checks the pick, and the shopper checks out after the user's Face ID
   approval. Use for "find and buy", "get me the best X under €Y", "compra o melhor".

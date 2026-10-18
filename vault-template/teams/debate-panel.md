@@ -1,7 +1,7 @@
 ---
 type: team
 id: debate-panel
-name: Debate panel
+name: The Areopagus · Debate panel
 description: Three analysts with different perspectives argue a decision over two rounds and a judge
   gives a reasoned verdict. Use for hard decisions and contested questions — "should I", "debate",
   "pros and cons of", "devo ou não".

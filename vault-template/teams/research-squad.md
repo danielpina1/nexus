@@ -1,7 +1,7 @@
 ---
 type: team
 id: research-squad
-name: Research squad
+name: The Muses · Research squad
 description: A research lead with three researchers and a fact-checker for big, multi-part questions —
   investigates sub-questions in parallel, fact-checks the draft and delivers one cited report. Use for
   "deep dive", "full report on", "research squad", "estudo aprofundado".

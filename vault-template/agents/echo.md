@@ -1,7 +1,7 @@
 ---
 type: agent
 id: echo
-name: Echo (test)
+name: Echo · Test
 description: Diagnostic agent that streams the prompt back. Add "?ask" to test questions and
   "?approve" to test approvals end to end. Use to check that machines and the phone are wired up.
 icon: waveform

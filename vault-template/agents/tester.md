@@ -1,7 +1,7 @@
 ---
 type: agent
 id: tester
-name: Tester
+name: Sisyphus · Tester
 description: Runs a project's tests and linters for a change, reproduces bugs, and writes missing
   tests when asked; reports exactly what passed and failed. Use for "run the tests", "verify this
   fix", "write a test for".
