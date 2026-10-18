@@ -239,6 +239,11 @@ public nonisolated struct Nexus_V1_HubWelcome: Sendable {
 
   public var resumeSeq: Int64 = 0
 
+  /// When > 0 the hub sends a keepalive (an Ack of the last node seq) at
+  /// least this often, so the node can treat a longer silence as a hung link
+  /// and reconnect. 0 = old hub without keepalives.
+  public var keepaliveMs: Int32 = 0
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
@@ -887,7 +892,7 @@ nonisolated extension Nexus_V1_NodeHello: SwiftProtobuf.Message, SwiftProtobuf._
 
 nonisolated extension Nexus_V1_HubWelcome: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".HubWelcome"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}resume_seq\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}resume_seq\0\u{3}keepalive_ms\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -896,6 +901,7 @@ nonisolated extension Nexus_V1_HubWelcome: SwiftProtobuf.Message, SwiftProtobuf.
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularInt64Field(value: &self.resumeSeq) }()
+      case 2: try { try decoder.decodeSingularInt32Field(value: &self.keepaliveMs) }()
       default: break
       }
     }
@@ -905,11 +911,15 @@ nonisolated extension Nexus_V1_HubWelcome: SwiftProtobuf.Message, SwiftProtobuf.
     if self.resumeSeq != 0 {
       try visitor.visitSingularInt64Field(value: self.resumeSeq, fieldNumber: 1)
     }
+    if self.keepaliveMs != 0 {
+      try visitor.visitSingularInt32Field(value: self.keepaliveMs, fieldNumber: 2)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   public static func ==(lhs: Nexus_V1_HubWelcome, rhs: Nexus_V1_HubWelcome) -> Bool {
     if lhs.resumeSeq != rhs.resumeSeq {return false}
+    if lhs.keepaliveMs != rhs.keepaliveMs {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

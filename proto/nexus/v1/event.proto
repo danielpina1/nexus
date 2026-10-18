@@ -147,5 +147,11 @@ message SubscribeRequest {
 }
 
 message SubscribeResponse {
+  // Unset on keepalives.
   Event event = 1;
+  // Keepalive: sent about every 20s while no events flow, with event unset,
+  // so clients can tell an idle stream from a hung one. Clients skip it (and
+  // may treat it as "the stream is alive"). Headers are flushed as soon as
+  // the stream opens, before the first event or keepalive.
+  bool heartbeat = 2;
 }

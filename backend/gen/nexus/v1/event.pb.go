@@ -1164,8 +1164,14 @@ func (x *SubscribeRequest) GetRootTaskIds() []string {
 }
 
 type SubscribeResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Event         *Event                 `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Unset on keepalives.
+	Event *Event `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
+	// Keepalive: sent about every 20s while no events flow, with event unset,
+	// so clients can tell an idle stream from a hung one. Clients skip it (and
+	// may treat it as "the stream is alive"). Headers are flushed as soon as
+	// the stream opens, before the first event or keepalive.
+	Heartbeat     bool `protobuf:"varint,2,opt,name=heartbeat,proto3" json:"heartbeat,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1205,6 +1211,13 @@ func (x *SubscribeResponse) GetEvent() *Event {
 		return x.Event
 	}
 	return nil
+}
+
+func (x *SubscribeResponse) GetHeartbeat() bool {
+	if x != nil {
+		return x.Heartbeat
+	}
+	return false
 }
 
 var File_nexus_v1_event_proto protoreflect.FileDescriptor
@@ -1292,9 +1305,10 @@ const file_nexus_v1_event_proto_rawDesc = "" +
 	"\btask_ids\x18\x02 \x03(\tR\ataskIds\x12\x1d\n" +
 	"\n" +
 	"inbox_only\x18\x03 \x01(\bR\tinboxOnly\x12\"\n" +
-	"\rroot_task_ids\x18\x04 \x03(\tR\vrootTaskIds\":\n" +
+	"\rroot_task_ids\x18\x04 \x03(\tR\vrootTaskIds\"X\n" +
 	"\x11SubscribeResponse\x12%\n" +
-	"\x05event\x18\x01 \x01(\v2\x0f.nexus.v1.EventR\x05event*\xda\x03\n" +
+	"\x05event\x18\x01 \x01(\v2\x0f.nexus.v1.EventR\x05event\x12\x1c\n" +
+	"\theartbeat\x18\x02 \x01(\bR\theartbeat*\xda\x03\n" +
 	"\rTeamEventKind\x12\x1f\n" +
 	"\x1bTEAM_EVENT_KIND_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17TEAM_EVENT_KIND_STARTED\x10\x01\x12\x1d\n" +

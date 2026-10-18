@@ -18,6 +18,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"connectrpc.com/connect"
@@ -292,13 +293,53 @@ func (d *Daemon) session(ctx context.Context) (welcomed bool, err error) {
 	go d.statusLoop(sctx)
 	go d.fetchHubTools(sctx)
 
+	// A hub that advertises keepalives writes at least every keepalive_ms;
+	// a longer silence means a hung link (half-open TCP, stuck proxy), so
+	// the session is dropped and the node reconnects.
+	var lastRecv atomic.Int64
+	lastRecv.Store(time.Now().UnixNano())
+	var silent atomic.Bool
+	limit := HubSilenceLimit(time.Duration(welcome.KeepaliveMs) * time.Millisecond)
+	if limit > 0 {
+		go func() {
+			t := time.NewTicker(limit / 4)
+			defer t.Stop()
+			for {
+				select {
+				case <-sctx.Done():
+					return
+				case <-t.C:
+					if time.Since(time.Unix(0, lastRecv.Load())) > limit {
+						silent.Store(true)
+						cancel()
+						return
+					}
+				}
+			}
+		}()
+	}
+
 	for {
 		msg, err := stream.Receive()
 		if err != nil {
+			if silent.Load() {
+				return true, fmt.Errorf("hub silent for more than %s (keepalive %dms): %w", limit, welcome.KeepaliveMs, err)
+			}
 			return true, err
 		}
+		lastRecv.Store(time.Now().UnixNano())
 		d.handle(sctx, msg)
 	}
+}
+
+// HubSilenceLimit is how long a node waits without any hub message before
+// it drops the link: three keepalive intervals (0 when the hub sends no
+// keepalives).
+func HubSilenceLimit(keepalive time.Duration) time.Duration {
+	if keepalive <= 0 {
+		return 0
+	}
+	return 3 * keepalive
 }
 
 // send writes a message on the current stream (caller holds d.mu).
