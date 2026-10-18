@@ -2,7 +2,12 @@
 # Build the Nexus iPhone app on this Mac (docs/SETUP_MAC.md §6, ios/README.md).
 #
 #   scripts/mac/ios-build.sh [--team ABCDE12345] [--bundle-prefix com.yourname]
-#                            [--reconfigure] [--skip-tests] [--no-open] [--dry-run] [--yes]
+#                            [--free-team] [--reconfigure] [--skip-tests] [--no-open] [--dry-run] [--yes]
+#
+#   --free-team  sign with a free Apple ID (Personal Team): removes the push
+#                notification entitlements locally (no lock-screen approvals
+#                or Live Activity push; reinstall every 7 days). Undo with
+#                git checkout -- 'ios/*.entitlements' 'ios/*/*.entitlements'
 #
 # 1. checks Xcode 16.3+ and XcodeGen
 # 2. writes ios/Config/Local.xcconfig (git-ignored): your Team ID, bundle id and
@@ -20,6 +25,7 @@ PREFIX=""
 RECONFIGURE=0
 SKIP_TESTS=0
 NO_OPEN=0
+FREE_TEAM=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --team) TEAM="$2"; shift 2 ;;
@@ -27,15 +33,32 @@ while [[ $# -gt 0 ]]; do
     --reconfigure) RECONFIGURE=1; shift ;;
     --skip-tests) SKIP_TESTS=1; shift ;;
     --no-open) NO_OPEN=1; shift ;;
+    --free-team) FREE_TEAM=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     --yes|-y) ASSUME_YES=1; shift ;;
-    -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) die "unknown argument $1 (see --help)" ;;
   esac
 done
 
 IOS="$REPO_ROOT/ios"
 LOCAL_XC="$IOS/Config/Local.xcconfig"
+
+# strip_push_entitlements — a free Personal Team cannot sign push or
+# time-sensitive / communication notification entitlements.
+strip_push_entitlements() {
+  local f k
+  for f in "$IOS"/*/*.entitlements; do
+    for k in aps-environment com.apple.developer.usernotifications.time-sensitive com.apple.developer.usernotifications.communication; do
+      if [[ "$DRY_RUN" == 1 ]]; then
+        say "  + PlistBuddy -c 'Delete :$k' ${f#"$REPO_ROOT"/}"
+      else
+        /usr/libexec/PlistBuddy -c "Delete :$k" "$f" >/dev/null 2>&1 || true
+      fi
+    done
+  done
+  ok "push entitlements removed for a free Personal Team (local change; see --help to undo)"
+}
 
 # -----------------------------------------------------------------------------
 step "Xcode and XcodeGen"
@@ -142,6 +165,7 @@ fi
 
 # -----------------------------------------------------------------------------
 step "Generate and open the Xcode project"
+[[ "$FREE_TEAM" == 1 ]] && strip_push_entitlements
 run_in "$IOS" xcodegen generate
 if [[ "$NO_OPEN" == 0 ]]; then run open "$IOS/Nexus.xcodeproj"; fi
 cat <<EOF
