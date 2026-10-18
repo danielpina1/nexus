@@ -275,13 +275,14 @@ func (b *Bridge) permission(ctx context.Context, args json.RawMessage) (*CallRes
 		input = json.RawMessage("{}")
 	}
 	class := nexusv1.ActionClass_ACTION_CLASS_UNSPECIFIED
+	var minLevel nexusv1.TrustLevel
 	summary := ""
 	toolName := in.ToolName
 	var nexusTool kernel.Tool
 	if prefix := ClaudeToolName(b.cfg.ServerName, ""); strings.HasPrefix(in.ToolName, prefix) {
 		if t, ok := b.byMCP[strings.TrimPrefix(in.ToolName, prefix)]; ok {
 			nexusTool = t
-			class, toolName = t.Spec().ActionClass, t.Spec().Name
+			class, minLevel, toolName = t.Spec().ActionClass, t.Spec().MinLevel, t.Spec().Name
 			if approvalgate.HumanInTheLoopTools[toolName] {
 				return decisionResult(PermissionDecision{Behavior: "allow", UpdatedInput: input}), nil
 			}
@@ -295,10 +296,11 @@ func (b *Bridge) permission(ctx context.Context, args json.RawMessage) (*CallRes
 		summary = truncate(string(input), 500)
 	}
 	msg := b.gateMessage(ctx, approvalgate.Request{
-		Class:   class,
-		Title:   fmt.Sprintf("%s wants to use %s", b.cfg.Who, toolName),
-		Summary: summary,
-		Payload: map[string]any{"tool": toolName, "input": decodeInput(input)},
+		Class:    class,
+		MinLevel: minLevel,
+		Title:    fmt.Sprintf("%s wants to use %s", b.cfg.Who, toolName),
+		Summary:  summary,
+		Payload:  map[string]any{"tool": toolName, "input": decodeInput(input)},
 	})
 	if msg != "" {
 		return decisionResult(PermissionDecision{Behavior: "deny", Message: msg}), nil

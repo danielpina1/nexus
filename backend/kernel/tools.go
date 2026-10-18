@@ -18,6 +18,12 @@ type ToolSpec struct {
 	InputSchema json.RawMessage `json:"input_schema"` // JSON Schema object
 	// ActionClass drives policy (auto / notify / approve / biometric).
 	ActionClass nexusv1.ActionClass `json:"-"`
+	// MinLevel is an explicit minimum trust level for a tool that is riskier
+	// than its class alone says (vault.rename and vault.restore are internal
+	// writes that rewrite many notes or roll content back, so they are
+	// WRITE_INTERNAL with MinLevel APPROVE). Approval gates use the stricter
+	// of this and the class level; unspecified = the class level only.
+	MinLevel nexusv1.TrustLevel `json:"-"`
 }
 
 // ToolCall is one invocation.

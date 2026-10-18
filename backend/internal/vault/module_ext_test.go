@@ -16,6 +16,7 @@ import (
 
 	nexusv1 "github.com/danielpina1/nexus/backend/gen/nexus/v1"
 	"github.com/danielpina1/nexus/backend/gen/nexus/v1/nexusv1connect"
+	"github.com/danielpina1/nexus/backend/internal/runtime/approvalgate"
 	"github.com/danielpina1/nexus/backend/kernel"
 	"github.com/danielpina1/nexus/backend/kernel/kerneltest"
 )
@@ -306,13 +307,25 @@ func TestExtendedAgentTools(t *testing.T) {
 	}
 	for name, class := range map[string]nexusv1.ActionClass{
 		"vault.query": nexusv1.ActionClass_ACTION_CLASS_READ, "vault.history": nexusv1.ActionClass_ACTION_CLASS_READ,
-		"vault.restore": nexusv1.ActionClass_ACTION_CLASS_UNSPECIFIED, "vault.rename": nexusv1.ActionClass_ACTION_CLASS_UNSPECIFIED,
+		"vault.restore": nexusv1.ActionClass_ACTION_CLASS_WRITE_INTERNAL, "vault.rename": nexusv1.ActionClass_ACTION_CLASS_WRITE_INTERNAL,
 		"vault.tasks": nexusv1.ActionClass_ACTION_CLASS_READ, "vault.related": nexusv1.ActionClass_ACTION_CLASS_READ,
 		"vault.complete_task": nexusv1.ActionClass_ACTION_CLASS_WRITE_INTERNAL,
 	} {
 		tool, _ := h.Tools().Get(name)
 		if tool.Spec().ActionClass != class {
 			t.Errorf("%s class = %v", name, tool.Spec().ActionClass)
+		}
+		// restore/rename need one-tap approval: an explicit minimum level,
+		// not an accident of an unspecified class.
+		want := nexusv1.TrustLevel_TRUST_LEVEL_UNSPECIFIED
+		if name == "vault.restore" || name == "vault.rename" {
+			want = nexusv1.TrustLevel_TRUST_LEVEL_APPROVE
+		}
+		if tool.Spec().MinLevel != want {
+			t.Errorf("%s min level = %v", name, tool.Spec().MinLevel)
+		}
+		if got := approvalgate.WithMin(approvalgate.Level(nil, tool.Spec().ActionClass, nil), tool.Spec().MinLevel); want != 0 && got != want {
+			t.Errorf("%s gate level = %v, want %v", name, got, want)
 		}
 	}
 	m.V.Write(ctx, "projects/Apollo.md", "---\ntype: project\nstatus: active\n---\n# Apollo\n- [ ] launch 📅 2026-11-01\n", "")

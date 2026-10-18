@@ -100,6 +100,15 @@ func Level(agent *nexusv1.Agent, class nexusv1.ActionClass, levels map[nexusv1.A
 	return level
 }
 
+// WithMin applies a tool's explicit minimum level (kernel.ToolSpec.MinLevel)
+// to a class level: the stricter one wins. Unknown values are ignored.
+func WithMin(level, min nexusv1.TrustLevel) nexusv1.TrustLevel {
+	if min > level && min <= nexusv1.TrustLevel_TRUST_LEVEL_BIOMETRIC {
+		return min
+	}
+	return level
+}
+
 // ParseActionClass accepts "spend", "SPEND", "write-external" or
 // "ACTION_CLASS_SPEND" (same rules as internal/policy).
 func ParseActionClass(s string) (nexusv1.ActionClass, bool) {
@@ -140,9 +149,13 @@ type Config struct {
 
 // Request describes one action to gate.
 type Request struct {
-	Class   nexusv1.ActionClass
-	Title   string
-	Summary string
+	Class nexusv1.ActionClass
+	// MinLevel (optional) is the tool's explicit minimum level
+	// (kernel.ToolSpec.MinLevel): the stricter of it and the class level
+	// applies.
+	MinLevel nexusv1.TrustLevel
+	Title    string
+	Summary  string
 	// Payload is the exact action preview; it is hashed (RFC 8785) and the
 	// hash is what a device signs. Values must be JSON-compatible.
 	Payload map[string]any
@@ -221,7 +234,7 @@ func (g *Gate) Resume() { g.state(nexusv1.TaskState_TASK_STATE_RUNNING) }
 
 // Check gates one action; see the package doc.
 func (g *Gate) Check(ctx context.Context, req Request) (Outcome, error) {
-	level := g.Level(req.Class)
+	level := WithMin(g.Level(req.Class), req.MinLevel)
 	out := Outcome{Level: level, Approved: true}
 	g.mu.Lock()
 	closed := g.closed
