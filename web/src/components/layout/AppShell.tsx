@@ -1,29 +1,31 @@
-import { Suspense, useEffect } from "react";
-import { Link, Outlet, useLocation } from "react-router";
-import { Inbox, Menu, Search, X } from "lucide-react";
-import { Sidebar, Logo } from "./Sidebar";
+import { lazy, Suspense, useEffect } from "react";
+import { Outlet, useLocation } from "react-router";
+import { Search } from "lucide-react";
+import { Sidebar } from "./Sidebar";
+import { MobileTabBar } from "./MobileTabBar";
+import { SectionTabs } from "./SectionTabs";
+import { Logo } from "./Logo";
 import { CommandPalette } from "../CommandPalette";
 import { Toaster } from "../Toaster";
 import { ShortcutsDialog } from "../Shortcuts";
 import { useGlobalShortcuts } from "../useGlobalShortcuts";
 import { useUI } from "../../lib/ui";
 import { useAgents, useNodes, usePendingApprovalsSeed, useTaskList } from "../../lib/queries";
-import { useInboxCount } from "../../lib/selectors";
 import { ConnectionIndicator } from "./ConnectionIndicator";
 import { OfflineBanner } from "./OfflineBanner";
 import { cx } from "../../lib/format";
 import { Skeleton } from "../ui/Skeleton";
+import { isFullBleed, prefetchPath, SECTIONS } from "../../app/registry";
+
+const PerfHUD = lazy(() => import("../PerfHUD"));
 
 function PageFallback() {
   return (
-    <div className="space-y-4">
-      <Skeleton className="h-8 w-48" />
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Skeleton className="h-32" />
-        <Skeleton className="h-32" />
-        <Skeleton className="h-32" />
-      </div>
-      <Skeleton className="h-64" />
+    <div className="space-y-4" aria-busy="true" aria-label="Loading">
+      <Skeleton className="h-7 w-44" />
+      <Skeleton className="h-4 w-72" />
+      <Skeleton className="mt-6 h-40" />
+      <Skeleton className="h-24" />
     </div>
   );
 }
@@ -36,59 +38,69 @@ export function AppShell() {
   useTaskList({});
   useAgents();
 
-  const navOpen = useUI((s) => s.navOpen);
   const set = useUI((s) => s.set);
-  const inbox = useInboxCount();
+  const openPalette = useUI((s) => s.openPalette);
+  const perfOpen = useUI((s) => s.perfOpen);
   const loc = useLocation();
   useEffect(() => set({ navOpen: false }), [loc.pathname, set]);
-  const fullBleed = loc.pathname.startsWith("/chat");
+  const fullBleed = isFullBleed(loc.pathname);
+
+  // Warm the primary sections' chunks once the app is idle.
+  useEffect(() => {
+    const idle = (window as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 1500));
+    idle(() => {
+      for (const s of SECTIONS) prefetchPath(s.to);
+    });
+  }, []);
 
   return (
     <div className="flex h-dvh overflow-hidden bg-bg">
-      <aside className="hidden w-60 shrink-0 border-r border-border bg-bg lg:block">
+      <aside className="hidden w-[232px] shrink-0 border-r border-border bg-bg lg:block">
         <Sidebar />
       </aside>
 
-      {/* mobile drawer */}
-      <div className={cx("fixed inset-0 z-40 lg:hidden", navOpen ? "" : "pointer-events-none")}>
-        <div className={cx("absolute inset-0 bg-black/40 transition-opacity", navOpen ? "opacity-100" : "opacity-0")} onClick={() => set({ navOpen: false })} />
-        <div className={cx("absolute inset-y-0 left-0 w-72 border-r border-border bg-bg shadow-pop transition-transform", navOpen ? "translate-x-0" : "-translate-x-full")}>
-          <button className="absolute top-4 right-3 rounded-md p-1 text-muted hover:text-fg" onClick={() => set({ navOpen: false })} aria-label="Close menu">
-            <X className="size-5" />
-          </button>
-          <Sidebar onNavigate={() => set({ navOpen: false })} />
-        </div>
-      </div>
-
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-bg/90 px-3 backdrop-blur lg:hidden">
-          <button className="rounded-lg p-2 text-fg-2 hover:bg-surface-2" onClick={() => set({ navOpen: true })} aria-label="Open menu">
-            <Menu className="size-5" />
-          </button>
+        <header className="flex h-12 shrink-0 items-center gap-1 border-b border-border bg-bg/90 px-3 pt-[env(safe-area-inset-top)] backdrop-blur lg:hidden">
           <Logo />
           <div className="flex-1" />
           <ConnectionIndicator compact />
-          <button className="rounded-lg p-2 text-fg-2 hover:bg-surface-2" onClick={() => set({ paletteOpen: true })} aria-label="Search">
+          <button className="flex size-11 items-center justify-center rounded-lg text-fg-2 hover:bg-surface-2" onClick={() => openPalette()} aria-label="Search or run a command">
             <Search className="size-5" />
           </button>
-          <Link to="/inbox" className="relative rounded-lg p-2 text-fg-2 hover:bg-surface-2" aria-label="Inbox">
-            <Inbox className="size-5" />
-            {inbox > 0 && <span className="absolute top-1 right-1 min-w-4 rounded-full bg-danger px-1 text-center text-[10px] leading-4 font-semibold text-white">{inbox}</span>}
-          </Link>
         </header>
         <OfflineBanner />
-        <main className={cx("min-h-0 flex-1", fullBleed ? "overflow-hidden" : "overflow-y-auto scrollbar-thin")}>
-          <div className={cx("mx-auto w-full", fullBleed ? "h-full" : "max-w-7xl px-4 py-5 sm:px-6 lg:px-8 lg:py-7")}>
-            <Suspense fallback={<div className="p-6"><PageFallback /></div>}>
-              <Outlet />
+        <main
+          id="main"
+          className={cx(
+            "min-h-0 flex-1",
+            fullBleed ? "overflow-hidden pb-[calc(56px+env(safe-area-inset-bottom))] lg:pb-0" : "overflow-y-auto scrollbar-thin",
+          )}
+        >
+          <div
+            className={cx(
+              "mx-auto w-full",
+              fullBleed ? "h-full" : "max-w-[1200px] px-4 pt-5 pb-[calc(80px+env(safe-area-inset-bottom))] sm:px-6 lg:px-10 lg:pt-8 lg:pb-12",
+            )}
+          >
+            {!fullBleed && <SectionTabs />}
+            <Suspense fallback={<PageFallback />}>
+              <div key={loc.pathname} className={fullBleed ? "h-full" : "animate-fade-up"}>
+                <Outlet />
+              </div>
             </Suspense>
           </div>
         </main>
       </div>
 
+      <MobileTabBar />
       <CommandPalette />
       <ShortcutsDialog />
       <Toaster />
+      {perfOpen && (
+        <Suspense fallback={null}>
+          <PerfHUD />
+        </Suspense>
+      )}
     </div>
   );
 }

@@ -403,27 +403,30 @@ public nonisolated struct Nexus_V1_RunCancel: Sendable {
 }
 
 /// RunEvent wraps an event produced by a runtime on the node.
-public nonisolated struct Nexus_V1_RunEvent: Sendable {
+public nonisolated struct Nexus_V1_RunEvent: @unchecked Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  public var nodeSeq: Int64 = 0
+  public var nodeSeq: Int64 {
+    get {_storage._nodeSeq}
+    set {_uniqueStorage()._nodeSeq = newValue}
+  }
 
   public var event: Nexus_V1_Event {
-    get {_event ?? Nexus_V1_Event()}
-    set {_event = newValue}
+    get {_storage._event ?? Nexus_V1_Event()}
+    set {_uniqueStorage()._event = newValue}
   }
   /// Returns true if `event` has been explicitly set.
-  public var hasEvent: Bool {self._event != nil}
+  public var hasEvent: Bool {_storage._event != nil}
   /// Clears the value of `event`. Subsequent reads from it will return its default value.
-  public mutating func clearEvent() {self._event = nil}
+  public mutating func clearEvent() {_uniqueStorage()._event = nil}
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
 
-  fileprivate var _event: Nexus_V1_Event? = nil
+  fileprivate var _storage = _StorageClass.defaultInstance
 }
 
 public nonisolated struct Nexus_V1_ToolRequest: Sendable {
@@ -1206,36 +1209,74 @@ nonisolated extension Nexus_V1_RunEvent: SwiftProtobuf.Message, SwiftProtobuf._M
   public static let protoMessageName: String = _protobuf_package + ".RunEvent"
   public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}node_seq\0\u{1}event\0")
 
+  fileprivate class _StorageClass {
+    var _nodeSeq: Int64 = 0
+    var _event: Nexus_V1_Event? = nil
+
+      // This property is used as the initial default value for new instances of the type.
+      // The type itself is protecting the reference to its storage via CoW semantics.
+      // This will force a copy to be made of this reference when the first mutation occurs;
+      // hence, it is safe to mark this as `nonisolated(unsafe)`.
+      static nonisolated(unsafe) let defaultInstance = _StorageClass()
+
+    private init() {}
+
+    init(copying source: _StorageClass) {
+      _nodeSeq = source._nodeSeq
+      _event = source._event
+    }
+  }
+
+  fileprivate mutating func _uniqueStorage() -> _StorageClass {
+    if !isKnownUniquelyReferenced(&_storage) {
+      _storage = _StorageClass(copying: _storage)
+    }
+    return _storage
+  }
+
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let fieldNumber = try decoder.nextFieldNumber() {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch fieldNumber {
-      case 1: try { try decoder.decodeSingularInt64Field(value: &self.nodeSeq) }()
-      case 2: try { try decoder.decodeSingularMessageField(value: &self._event) }()
-      default: break
+    _ = _uniqueStorage()
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      while let fieldNumber = try decoder.nextFieldNumber() {
+        // The use of inline closures is to circumvent an issue where the compiler
+        // allocates stack space for every case branch when no optimizations are
+        // enabled. https://github.com/apple/swift-protobuf/issues/1034
+        switch fieldNumber {
+        case 1: try { try decoder.decodeSingularInt64Field(value: &_storage._nodeSeq) }()
+        case 2: try { try decoder.decodeSingularMessageField(value: &_storage._event) }()
+        default: break
+        }
       }
     }
   }
 
   public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    // The use of inline closures is to circumvent an issue where the compiler
-    // allocates stack space for every if/case branch local when no optimizations
-    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
-    // https://github.com/apple/swift-protobuf/issues/1182
-    if self.nodeSeq != 0 {
-      try visitor.visitSingularInt64Field(value: self.nodeSeq, fieldNumber: 1)
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every if/case branch local when no optimizations
+      // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+      // https://github.com/apple/swift-protobuf/issues/1182
+      if _storage._nodeSeq != 0 {
+        try visitor.visitSingularInt64Field(value: _storage._nodeSeq, fieldNumber: 1)
+      }
+      try { if let v = _storage._event {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
+      } }()
     }
-    try { if let v = self._event {
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
-    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
   public static func ==(lhs: Nexus_V1_RunEvent, rhs: Nexus_V1_RunEvent) -> Bool {
-    if lhs.nodeSeq != rhs.nodeSeq {return false}
-    if lhs._event != rhs._event {return false}
+    if lhs._storage !== rhs._storage {
+      let storagesAreEqual: Bool = withExtendedLifetime((lhs._storage, rhs._storage)) { (_args: (_StorageClass, _StorageClass)) in
+        let _storage = _args.0
+        let rhs_storage = _args.1
+        if _storage._nodeSeq != rhs_storage._nodeSeq {return false}
+        if _storage._event != rhs_storage._event {return false}
+        return true
+      }
+      if !storagesAreEqual {return false}
+    }
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

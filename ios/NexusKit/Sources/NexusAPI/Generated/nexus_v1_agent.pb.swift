@@ -113,6 +113,62 @@ public nonisolated struct Nexus_V1_Agent: @unchecked Sendable {
     set {_uniqueStorage()._errors = newValue}
   }
 
+  /// Skill ids (vault skills/<id>.md). Their instructions are appended to the
+  /// agent's and their tools merged into its allow-list at assignment time.
+  public var skills: [String] {
+    get {_storage._skills}
+    set {_uniqueStorage()._skills = newValue}
+  }
+
+  /// JSON Schema of the structured input params (CreateTaskRequest.params /
+  /// team.delegate inputs). Tasks whose params do not match fail.
+  public var inputSchema: SwiftProtobuf.Google_Protobuf_Struct {
+    get {_storage._inputSchema ?? SwiftProtobuf.Google_Protobuf_Struct()}
+    set {_uniqueStorage()._inputSchema = newValue}
+  }
+  /// Returns true if `inputSchema` has been explicitly set.
+  public var hasInputSchema: Bool {_storage._inputSchema != nil}
+  /// Clears the value of `inputSchema`. Subsequent reads from it will return its default value.
+  public mutating func clearInputSchema() {_uniqueStorage()._inputSchema = nil}
+
+  /// JSON Schema of the structured result. The runtime is told to answer with
+  /// matching JSON; the hub validates it (one automatic repair run), and
+  /// stores it in Task.result.
+  public var outputSchema: SwiftProtobuf.Google_Protobuf_Struct {
+    get {_storage._outputSchema ?? SwiftProtobuf.Google_Protobuf_Struct()}
+    set {_uniqueStorage()._outputSchema = newValue}
+  }
+  /// Returns true if `outputSchema` has been explicitly set.
+  public var hasOutputSchema: Bool {_storage._outputSchema != nil}
+  /// Clears the value of `outputSchema`. Subsequent reads from it will return its default value.
+  public mutating func clearOutputSchema() {_uniqueStorage()._outputSchema = nil}
+
+  /// Reflection loop: a critic agent reviews the result before it is final.
+  public var review: Nexus_V1_AgentReview {
+    get {_storage._review ?? Nexus_V1_AgentReview()}
+    set {_uniqueStorage()._review = newValue}
+  }
+  /// Returns true if `review` has been explicitly set.
+  public var hasReview: Bool {_storage._review != nil}
+  /// Clears the value of `review`. Subsequent reads from it will return its default value.
+  public mutating func clearReview() {_uniqueStorage()._review = nil}
+
+  /// Context injected into every run (vault notes / folders / searches).
+  public var memory: Nexus_V1_AgentMemory {
+    get {_storage._memory ?? Nexus_V1_AgentMemory()}
+    set {_uniqueStorage()._memory = newValue}
+  }
+  /// Returns true if `memory` has been explicitly set.
+  public var hasMemory: Bool {_storage._memory != nil}
+  /// Clears the value of `memory`. Subsequent reads from it will return its default value.
+  public mutating func clearMemory() {_uniqueStorage()._memory = nil}
+
+  /// Non-fatal problems (e.g. an unknown skill or critic); the agent stays enabled.
+  public var warnings: [String] {
+    get {_storage._warnings}
+    set {_uniqueStorage()._warnings = newValue}
+  }
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
@@ -120,7 +176,84 @@ public nonisolated struct Nexus_V1_Agent: @unchecked Sendable {
   fileprivate var _storage = _StorageClass.defaultInstance
 }
 
-/// AgentLimits bounds a single run.
+/// AgentReview configures the reflection loop (docs/SWARMS.md).
+public nonisolated struct Nexus_V1_AgentReview: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// critic agent id
+  public var critic: String = String()
+
+  /// max review rounds (default 1)
+  public var rounds: Int32 = 0
+
+  /// what the critic checks
+  public var criteria: String = String()
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// AgentMemory is the agent note's `memory:` block.
+public nonisolated struct Nexus_V1_AgentMemory: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// "[[Note title]]", "folder/", "search: query" or a note path / id.
+  public var reads: [String] = []
+
+  public var writes: String = String()
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// Skill is a reusable capability note (vault skills/<id>.md).
+public nonisolated struct Nexus_V1_Skill: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var id: String = String()
+
+  public var name: String = String()
+
+  public var description_p: String = String()
+
+  /// Tools the skill needs; merged into the agent's allow-list.
+  public var tools: [String] = []
+
+  /// The note body: appended to the agent's instructions.
+  public var instructions: String = String()
+
+  public var note: Nexus_V1_NoteRef {
+    get {_note ?? Nexus_V1_NoteRef()}
+    set {_note = newValue}
+  }
+  /// Returns true if `note` has been explicitly set.
+  public var hasNote: Bool {self._note != nil}
+  /// Clears the value of `note`. Subsequent reads from it will return its default value.
+  public mutating func clearNote() {self._note = nil}
+
+  public var enabled: Bool = false
+
+  public var errors: [String] = []
+
+  public var version: Int32 = 0
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+
+  fileprivate var _note: Nexus_V1_NoteRef? = nil
+}
+
+/// AgentLimits bounds a single run (1-4) and, when the agent's task is the
+/// root of a task tree, the whole tree (5-9; enforced by the hub).
 public nonisolated struct Nexus_V1_AgentLimits: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -128,6 +261,7 @@ public nonisolated struct Nexus_V1_AgentLimits: Sendable {
 
   public var maxRuntimeSeconds: Int64 = 0
 
+  /// LLM spend per run
   public var maxCost: Nexus_V1_Money {
     get {_maxCost ?? Nexus_V1_Money()}
     set {_maxCost = newValue}
@@ -137,6 +271,7 @@ public nonisolated struct Nexus_V1_AgentLimits: Sendable {
   /// Clears the value of `maxCost`. Subsequent reads from it will return its default value.
   public mutating func clearMaxCost() {self._maxCost = nil}
 
+  /// real-world money per run
   public var maxSpend: Nexus_V1_Money {
     get {_maxSpend ?? Nexus_V1_Money()}
     set {_maxSpend = newValue}
@@ -146,7 +281,30 @@ public nonisolated struct Nexus_V1_AgentLimits: Sendable {
   /// Clears the value of `maxSpend`. Subsequent reads from it will return its default value.
   public mutating func clearMaxSpend() {self._maxSpend = nil}
 
+  /// direct sub-tasks per task
   public var maxSubtasks: Int32 = 0
+
+  /// max sub-task depth of the tree
+  public var maxDepth: Int32 = 0
+
+  /// max sub-tasks active at once (others wait queued)
+  public var maxParallel: Int32 = 0
+
+  /// max tasks in the tree (root included)
+  public var maxTasks: Int32 = 0
+
+  /// LLM spend of the whole tree
+  public var maxTreeCost: Nexus_V1_Money {
+    get {_maxTreeCost ?? Nexus_V1_Money()}
+    set {_maxTreeCost = newValue}
+  }
+  /// Returns true if `maxTreeCost` has been explicitly set.
+  public var hasMaxTreeCost: Bool {self._maxTreeCost != nil}
+  /// Clears the value of `maxTreeCost`. Subsequent reads from it will return its default value.
+  public mutating func clearMaxTreeCost() {self._maxTreeCost = nil}
+
+  /// max runs in the tree (retries, repairs, reviews included)
+  public var maxRuns: Int32 = 0
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -154,6 +312,7 @@ public nonisolated struct Nexus_V1_AgentLimits: Sendable {
 
   fileprivate var _maxCost: Nexus_V1_Money? = nil
   fileprivate var _maxSpend: Nexus_V1_Money? = nil
+  fileprivate var _maxTreeCost: Nexus_V1_Money? = nil
 }
 
 public nonisolated struct Nexus_V1_ListAgentsRequest: Sendable {
@@ -250,13 +409,107 @@ public nonisolated struct Nexus_V1_UpsertAgentResponse: Sendable {
   fileprivate var _agent: Nexus_V1_Agent? = nil
 }
 
+public nonisolated struct Nexus_V1_ListSkillsRequest: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var includeDisabled: Bool = false
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+public nonisolated struct Nexus_V1_ListSkillsResponse: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var skills: [Nexus_V1_Skill] = []
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+public nonisolated struct Nexus_V1_GetSkillRequest: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var id: String = String()
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+public nonisolated struct Nexus_V1_GetSkillResponse: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var skill: Nexus_V1_Skill {
+    get {_skill ?? Nexus_V1_Skill()}
+    set {_skill = newValue}
+  }
+  /// Returns true if `skill` has been explicitly set.
+  public var hasSkill: Bool {self._skill != nil}
+  /// Clears the value of `skill`. Subsequent reads from it will return its default value.
+  public mutating func clearSkill() {self._skill = nil}
+
+  public var markdown: String = String()
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+
+  fileprivate var _skill: Nexus_V1_Skill? = nil
+}
+
+public nonisolated struct Nexus_V1_UpsertSkillRequest: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var markdown: String = String()
+
+  public var commitMessage: String = String()
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+public nonisolated struct Nexus_V1_UpsertSkillResponse: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var skill: Nexus_V1_Skill {
+    get {_skill ?? Nexus_V1_Skill()}
+    set {_skill = newValue}
+  }
+  /// Returns true if `skill` has been explicitly set.
+  public var hasSkill: Bool {self._skill != nil}
+  /// Clears the value of `skill`. Subsequent reads from it will return its default value.
+  public mutating func clearSkill() {self._skill = nil}
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+
+  fileprivate var _skill: Nexus_V1_Skill? = nil
+}
+
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 fileprivate nonisolated let _protobuf_package = "nexus.v1"
 
 nonisolated extension Nexus_V1_Agent: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Agent"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{1}name\0\u{1}description\0\u{1}icon\0\u{1}runtime\0\u{1}model\0\u{1}tier\0\u{3}node_tags\0\u{1}tools\0\u{1}limits\0\u{1}policy\0\u{1}note\0\u{1}version\0\u{1}enabled\0\u{1}errors\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{1}name\0\u{1}description\0\u{1}icon\0\u{1}runtime\0\u{1}model\0\u{1}tier\0\u{3}node_tags\0\u{1}tools\0\u{1}limits\0\u{1}policy\0\u{1}note\0\u{1}version\0\u{1}enabled\0\u{1}errors\0\u{1}skills\0\u{3}input_schema\0\u{3}output_schema\0\u{1}review\0\u{1}memory\0\u{1}warnings\0")
 
   fileprivate class _StorageClass {
     var _id: String = String()
@@ -274,6 +527,12 @@ nonisolated extension Nexus_V1_Agent: SwiftProtobuf.Message, SwiftProtobuf._Mess
     var _version: Int32 = 0
     var _enabled: Bool = false
     var _errors: [String] = []
+    var _skills: [String] = []
+    var _inputSchema: SwiftProtobuf.Google_Protobuf_Struct? = nil
+    var _outputSchema: SwiftProtobuf.Google_Protobuf_Struct? = nil
+    var _review: Nexus_V1_AgentReview? = nil
+    var _memory: Nexus_V1_AgentMemory? = nil
+    var _warnings: [String] = []
 
       // This property is used as the initial default value for new instances of the type.
       // The type itself is protecting the reference to its storage via CoW semantics.
@@ -299,6 +558,12 @@ nonisolated extension Nexus_V1_Agent: SwiftProtobuf.Message, SwiftProtobuf._Mess
       _version = source._version
       _enabled = source._enabled
       _errors = source._errors
+      _skills = source._skills
+      _inputSchema = source._inputSchema
+      _outputSchema = source._outputSchema
+      _review = source._review
+      _memory = source._memory
+      _warnings = source._warnings
     }
   }
 
@@ -332,6 +597,12 @@ nonisolated extension Nexus_V1_Agent: SwiftProtobuf.Message, SwiftProtobuf._Mess
         case 13: try { try decoder.decodeSingularInt32Field(value: &_storage._version) }()
         case 14: try { try decoder.decodeSingularBoolField(value: &_storage._enabled) }()
         case 15: try { try decoder.decodeRepeatedStringField(value: &_storage._errors) }()
+        case 16: try { try decoder.decodeRepeatedStringField(value: &_storage._skills) }()
+        case 17: try { try decoder.decodeSingularMessageField(value: &_storage._inputSchema) }()
+        case 18: try { try decoder.decodeSingularMessageField(value: &_storage._outputSchema) }()
+        case 19: try { try decoder.decodeSingularMessageField(value: &_storage._review) }()
+        case 20: try { try decoder.decodeSingularMessageField(value: &_storage._memory) }()
+        case 21: try { try decoder.decodeRepeatedStringField(value: &_storage._warnings) }()
         default: break
         }
       }
@@ -389,6 +660,24 @@ nonisolated extension Nexus_V1_Agent: SwiftProtobuf.Message, SwiftProtobuf._Mess
       if !_storage._errors.isEmpty {
         try visitor.visitRepeatedStringField(value: _storage._errors, fieldNumber: 15)
       }
+      if !_storage._skills.isEmpty {
+        try visitor.visitRepeatedStringField(value: _storage._skills, fieldNumber: 16)
+      }
+      try { if let v = _storage._inputSchema {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 17)
+      } }()
+      try { if let v = _storage._outputSchema {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 18)
+      } }()
+      try { if let v = _storage._review {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 19)
+      } }()
+      try { if let v = _storage._memory {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 20)
+      } }()
+      if !_storage._warnings.isEmpty {
+        try visitor.visitRepeatedStringField(value: _storage._warnings, fieldNumber: 21)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -413,6 +702,12 @@ nonisolated extension Nexus_V1_Agent: SwiftProtobuf.Message, SwiftProtobuf._Mess
         if _storage._version != rhs_storage._version {return false}
         if _storage._enabled != rhs_storage._enabled {return false}
         if _storage._errors != rhs_storage._errors {return false}
+        if _storage._skills != rhs_storage._skills {return false}
+        if _storage._inputSchema != rhs_storage._inputSchema {return false}
+        if _storage._outputSchema != rhs_storage._outputSchema {return false}
+        if _storage._review != rhs_storage._review {return false}
+        if _storage._memory != rhs_storage._memory {return false}
+        if _storage._warnings != rhs_storage._warnings {return false}
         return true
       }
       if !storagesAreEqual {return false}
@@ -422,9 +717,158 @@ nonisolated extension Nexus_V1_Agent: SwiftProtobuf.Message, SwiftProtobuf._Mess
   }
 }
 
+nonisolated extension Nexus_V1_AgentReview: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".AgentReview"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}critic\0\u{1}rounds\0\u{1}criteria\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.critic) }()
+      case 2: try { try decoder.decodeSingularInt32Field(value: &self.rounds) }()
+      case 3: try { try decoder.decodeSingularStringField(value: &self.criteria) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.critic.isEmpty {
+      try visitor.visitSingularStringField(value: self.critic, fieldNumber: 1)
+    }
+    if self.rounds != 0 {
+      try visitor.visitSingularInt32Field(value: self.rounds, fieldNumber: 2)
+    }
+    if !self.criteria.isEmpty {
+      try visitor.visitSingularStringField(value: self.criteria, fieldNumber: 3)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Nexus_V1_AgentReview, rhs: Nexus_V1_AgentReview) -> Bool {
+    if lhs.critic != rhs.critic {return false}
+    if lhs.rounds != rhs.rounds {return false}
+    if lhs.criteria != rhs.criteria {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Nexus_V1_AgentMemory: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".AgentMemory"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}reads\0\u{1}writes\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeRepeatedStringField(value: &self.reads) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.writes) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.reads.isEmpty {
+      try visitor.visitRepeatedStringField(value: self.reads, fieldNumber: 1)
+    }
+    if !self.writes.isEmpty {
+      try visitor.visitSingularStringField(value: self.writes, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Nexus_V1_AgentMemory, rhs: Nexus_V1_AgentMemory) -> Bool {
+    if lhs.reads != rhs.reads {return false}
+    if lhs.writes != rhs.writes {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Nexus_V1_Skill: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".Skill"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{1}name\0\u{1}description\0\u{1}tools\0\u{1}instructions\0\u{1}note\0\u{1}enabled\0\u{1}errors\0\u{1}version\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.id) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.name) }()
+      case 3: try { try decoder.decodeSingularStringField(value: &self.description_p) }()
+      case 4: try { try decoder.decodeRepeatedStringField(value: &self.tools) }()
+      case 5: try { try decoder.decodeSingularStringField(value: &self.instructions) }()
+      case 6: try { try decoder.decodeSingularMessageField(value: &self._note) }()
+      case 7: try { try decoder.decodeSingularBoolField(value: &self.enabled) }()
+      case 8: try { try decoder.decodeRepeatedStringField(value: &self.errors) }()
+      case 9: try { try decoder.decodeSingularInt32Field(value: &self.version) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    if !self.id.isEmpty {
+      try visitor.visitSingularStringField(value: self.id, fieldNumber: 1)
+    }
+    if !self.name.isEmpty {
+      try visitor.visitSingularStringField(value: self.name, fieldNumber: 2)
+    }
+    if !self.description_p.isEmpty {
+      try visitor.visitSingularStringField(value: self.description_p, fieldNumber: 3)
+    }
+    if !self.tools.isEmpty {
+      try visitor.visitRepeatedStringField(value: self.tools, fieldNumber: 4)
+    }
+    if !self.instructions.isEmpty {
+      try visitor.visitSingularStringField(value: self.instructions, fieldNumber: 5)
+    }
+    try { if let v = self._note {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
+    } }()
+    if self.enabled != false {
+      try visitor.visitSingularBoolField(value: self.enabled, fieldNumber: 7)
+    }
+    if !self.errors.isEmpty {
+      try visitor.visitRepeatedStringField(value: self.errors, fieldNumber: 8)
+    }
+    if self.version != 0 {
+      try visitor.visitSingularInt32Field(value: self.version, fieldNumber: 9)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Nexus_V1_Skill, rhs: Nexus_V1_Skill) -> Bool {
+    if lhs.id != rhs.id {return false}
+    if lhs.name != rhs.name {return false}
+    if lhs.description_p != rhs.description_p {return false}
+    if lhs.tools != rhs.tools {return false}
+    if lhs.instructions != rhs.instructions {return false}
+    if lhs._note != rhs._note {return false}
+    if lhs.enabled != rhs.enabled {return false}
+    if lhs.errors != rhs.errors {return false}
+    if lhs.version != rhs.version {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
 nonisolated extension Nexus_V1_AgentLimits: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".AgentLimits"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}max_runtime_seconds\0\u{3}max_cost\0\u{3}max_spend\0\u{3}max_subtasks\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}max_runtime_seconds\0\u{3}max_cost\0\u{3}max_spend\0\u{3}max_subtasks\0\u{3}max_depth\0\u{3}max_parallel\0\u{3}max_tasks\0\u{3}max_tree_cost\0\u{3}max_runs\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -436,6 +880,11 @@ nonisolated extension Nexus_V1_AgentLimits: SwiftProtobuf.Message, SwiftProtobuf
       case 2: try { try decoder.decodeSingularMessageField(value: &self._maxCost) }()
       case 3: try { try decoder.decodeSingularMessageField(value: &self._maxSpend) }()
       case 4: try { try decoder.decodeSingularInt32Field(value: &self.maxSubtasks) }()
+      case 5: try { try decoder.decodeSingularInt32Field(value: &self.maxDepth) }()
+      case 6: try { try decoder.decodeSingularInt32Field(value: &self.maxParallel) }()
+      case 7: try { try decoder.decodeSingularInt32Field(value: &self.maxTasks) }()
+      case 8: try { try decoder.decodeSingularMessageField(value: &self._maxTreeCost) }()
+      case 9: try { try decoder.decodeSingularInt32Field(value: &self.maxRuns) }()
       default: break
       }
     }
@@ -458,6 +907,21 @@ nonisolated extension Nexus_V1_AgentLimits: SwiftProtobuf.Message, SwiftProtobuf
     if self.maxSubtasks != 0 {
       try visitor.visitSingularInt32Field(value: self.maxSubtasks, fieldNumber: 4)
     }
+    if self.maxDepth != 0 {
+      try visitor.visitSingularInt32Field(value: self.maxDepth, fieldNumber: 5)
+    }
+    if self.maxParallel != 0 {
+      try visitor.visitSingularInt32Field(value: self.maxParallel, fieldNumber: 6)
+    }
+    if self.maxTasks != 0 {
+      try visitor.visitSingularInt32Field(value: self.maxTasks, fieldNumber: 7)
+    }
+    try { if let v = self._maxTreeCost {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
+    } }()
+    if self.maxRuns != 0 {
+      try visitor.visitSingularInt32Field(value: self.maxRuns, fieldNumber: 9)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -466,6 +930,11 @@ nonisolated extension Nexus_V1_AgentLimits: SwiftProtobuf.Message, SwiftProtobuf
     if lhs._maxCost != rhs._maxCost {return false}
     if lhs._maxSpend != rhs._maxSpend {return false}
     if lhs.maxSubtasks != rhs.maxSubtasks {return false}
+    if lhs.maxDepth != rhs.maxDepth {return false}
+    if lhs.maxParallel != rhs.maxParallel {return false}
+    if lhs.maxTasks != rhs.maxTasks {return false}
+    if lhs._maxTreeCost != rhs._maxTreeCost {return false}
+    if lhs.maxRuns != rhs.maxRuns {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -664,6 +1133,204 @@ nonisolated extension Nexus_V1_UpsertAgentResponse: SwiftProtobuf.Message, Swift
 
   public static func ==(lhs: Nexus_V1_UpsertAgentResponse, rhs: Nexus_V1_UpsertAgentResponse) -> Bool {
     if lhs._agent != rhs._agent {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Nexus_V1_ListSkillsRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".ListSkillsRequest"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}include_disabled\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularBoolField(value: &self.includeDisabled) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.includeDisabled != false {
+      try visitor.visitSingularBoolField(value: self.includeDisabled, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Nexus_V1_ListSkillsRequest, rhs: Nexus_V1_ListSkillsRequest) -> Bool {
+    if lhs.includeDisabled != rhs.includeDisabled {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Nexus_V1_ListSkillsResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".ListSkillsResponse"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}skills\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeRepeatedMessageField(value: &self.skills) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.skills.isEmpty {
+      try visitor.visitRepeatedMessageField(value: self.skills, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Nexus_V1_ListSkillsResponse, rhs: Nexus_V1_ListSkillsResponse) -> Bool {
+    if lhs.skills != rhs.skills {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Nexus_V1_GetSkillRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".GetSkillRequest"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.id) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.id.isEmpty {
+      try visitor.visitSingularStringField(value: self.id, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Nexus_V1_GetSkillRequest, rhs: Nexus_V1_GetSkillRequest) -> Bool {
+    if lhs.id != rhs.id {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Nexus_V1_GetSkillResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".GetSkillResponse"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}skill\0\u{1}markdown\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularMessageField(value: &self._skill) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.markdown) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._skill {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
+    } }()
+    if !self.markdown.isEmpty {
+      try visitor.visitSingularStringField(value: self.markdown, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Nexus_V1_GetSkillResponse, rhs: Nexus_V1_GetSkillResponse) -> Bool {
+    if lhs._skill != rhs._skill {return false}
+    if lhs.markdown != rhs.markdown {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Nexus_V1_UpsertSkillRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".UpsertSkillRequest"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}markdown\0\u{3}commit_message\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.markdown) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.commitMessage) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.markdown.isEmpty {
+      try visitor.visitSingularStringField(value: self.markdown, fieldNumber: 1)
+    }
+    if !self.commitMessage.isEmpty {
+      try visitor.visitSingularStringField(value: self.commitMessage, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Nexus_V1_UpsertSkillRequest, rhs: Nexus_V1_UpsertSkillRequest) -> Bool {
+    if lhs.markdown != rhs.markdown {return false}
+    if lhs.commitMessage != rhs.commitMessage {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Nexus_V1_UpsertSkillResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".UpsertSkillResponse"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}skill\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularMessageField(value: &self._skill) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._skill {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Nexus_V1_UpsertSkillResponse, rhs: Nexus_V1_UpsertSkillResponse) -> Bool {
+    if lhs._skill != rhs._skill {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

@@ -24,6 +24,8 @@ const AgentsDir = "agents"
 // kernel.AgentCatalog and reloads itself when agent notes change.
 type Catalog struct {
 	v *Vault
+	// Skills, when set, is used to warn about unknown skill ids.
+	Skills *SkillCatalog
 
 	mu     sync.RWMutex
 	byID   map[string]*agentEntry
@@ -99,10 +101,32 @@ func (c *Catalog) Reload(ctx context.Context) error {
 		}
 	}
 	sort.SliceStable(list, func(i, j int) bool { return list[i].agent.Id < list[j].agent.Id })
+	for _, e := range list {
+		c.crossCheck(ctx, e.agent, byID)
+	}
 	c.mu.Lock()
 	c.byID, c.sorted = byID, list
 	c.mu.Unlock()
 	return nil
+}
+
+// crossCheck adds warnings for references the agent note cannot resolve
+// (skills, critic). They do not disable the agent.
+func (c *Catalog) crossCheck(ctx context.Context, a *nexusv1.Agent, byID map[string]*agentEntry) {
+	if c.Skills != nil {
+		for _, id := range a.Skills {
+			if sk, _, err := c.Skills.GetSkill(ctx, id); err != nil {
+				a.Warnings = append(a.Warnings, fmt.Sprintf("unknown skill %q (skills/%s.md)", id, id))
+			} else if !sk.Enabled {
+				a.Warnings = append(a.Warnings, fmt.Sprintf("skill %q is disabled", id))
+			}
+		}
+	}
+	if cr := a.GetReview().GetCritic(); cr != "" {
+		if _, ok := byID[cr]; !ok {
+			a.Warnings = append(a.Warnings, fmt.Sprintf("unknown review critic %q (the review is skipped)", cr))
+		}
+	}
 }
 
 // ListAgents returns enabled, valid agents (all of them with includeDisabled).
@@ -134,7 +158,7 @@ func (c *Catalog) GetAgent(_ context.Context, id string) (*nexusv1.Agent, string
 type ValidationError struct{ Problems []string }
 
 func (e *ValidationError) Error() string {
-	return "invalid agent note: " + strings.Join(e.Problems, "; ")
+	return "invalid note: " + strings.Join(e.Problems, "; ")
 }
 
 func (e *ValidationError) Unwrap() error { return ErrInvalid }

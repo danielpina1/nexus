@@ -1,0 +1,182 @@
+syntax = "proto3";
+
+package nexus.v1;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "nexus/v1/common.proto";
+import "nexus/v1/task.proto";
+
+// TeamStrategy is how a team works (docs/SWARMS.md §4).
+enum TeamStrategy {
+  TEAM_STRATEGY_UNSPECIFIED = 0; // = hierarchical
+  // The orchestrator plans, delegates, awaits and synthesises with team tools.
+  TEAM_STRATEGY_HIERARCHICAL = 1;
+  // The hub gives the task to every member (pools expanded) in parallel, then
+  // the orchestrator (if any) merges the results.
+  TEAM_STRATEGY_PARALLEL = 2;
+  // The hub runs the members in order, each consuming the previous output;
+  // the orchestrator (if any) finalises.
+  TEAM_STRATEGY_PIPELINE = 3;
+  // Members argue for debate_rounds rounds seeing each other's positions;
+  // a member with role "judge", else the orchestrator, decides.
+  TEAM_STRATEGY_DEBATE = 4;
+  // The orchestrator chooses (it can call team.run_strategy or delegate itself).
+  TEAM_STRATEGY_AUTO = 5;
+}
+
+// Team is the parsed form of a team note (vault teams/<id>.md).
+message Team {
+  string id = 1;
+  string name = 2;
+  string description = 3; // used by the router
+  string icon = 4;
+  // Orchestrator agent id; empty when the orchestrator is inline (`orchestrator: {instructions: …}`)
+  // or absent (allowed for parallel / pipeline / debate).
+  string orchestrator_agent_id = 5;
+  TeamOrchestrator inline_orchestrator = 6;
+  repeated TeamMember members = 7;
+  TeamStrategy strategy = 8;
+  bool blackboard = 9; // shared.blackboard (default true)
+  TeamLimits limits = 10;
+  bool bundle_approvals = 11; // approvals.bundle
+  google.protobuf.Struct output_schema = 12; // JSON Schema of the team's final result
+  int32 debate_rounds = 13; // debate: rounds before judging (default 2)
+  NoteRef note = 14;
+  int32 version = 15;
+  bool enabled = 16;
+  repeated string errors = 17; // the team is disabled while set
+  repeated string warnings = 18;
+  repeated string triggers = 19; // router phrases
+}
+
+// TeamOrchestrator is an inline orchestrator (an ephemeral agent).
+message TeamOrchestrator {
+  string instructions = 1;
+  string runtime = 2; // default auto
+  string model = 3;
+  Tier tier = 4;
+  repeated string tools = 5;
+  repeated string node_tags = 6;
+}
+
+// TeamMember is one entry of `members:`.
+message TeamMember {
+  string agent_id = 1;
+  string role = 2; // default: the agent id; unique in the team
+  int32 count = 3; // worker pool size: max instances active at once (default 1)
+  string when = 4; // when the orchestrator should use this member
+}
+
+// TeamLimits bound a whole team run (the task tree). Enforced by the hub.
+message TeamLimits {
+  int32 max_parallel = 1; // member tasks active at once (others wait queued)
+  int32 max_tasks = 2; // tasks in the tree, root included
+  int32 max_depth = 3; // tree depth (members = 1)
+  Money max_cost = 4; // LLM spend of the whole tree (max_cost_eur)
+  int64 timeout_seconds = 5; // wall clock for the whole run
+  int32 max_runs = 6; // runs in the tree (retries, repairs, reviews included)
+}
+
+// TeamService defines teams and inspects team runs. A run is started with
+// TaskService.CreateTask{team_id} and listed with ListTasks{team_id, roots_only}.
+service TeamService {
+  rpc ListTeams(ListTeamsRequest) returns (ListTeamsResponse);
+  rpc GetTeam(GetTeamRequest) returns (GetTeamResponse);
+  // UpsertTeam validates the Markdown and writes teams/<id>.md
+  // (validate_only: only parse and validate).
+  rpc UpsertTeam(UpsertTeamRequest) returns (UpsertTeamResponse);
+  // GetTeamRun returns the task tree of a run (works for any task tree:
+  // root_task_id may be the root of a plain spawn_agent tree too).
+  rpc GetTeamRun(GetTeamRunRequest) returns (GetTeamRunResponse);
+  // SendTeamMessage lets the user talk to the team (like team.message).
+  rpc SendTeamMessage(SendTeamMessageRequest) returns (SendTeamMessageResponse);
+}
+
+message ListTeamsRequest {
+  bool include_disabled = 1;
+}
+
+message ListTeamsResponse {
+  repeated Team teams = 1;
+}
+
+message GetTeamRequest {
+  string id = 1;
+}
+
+message GetTeamResponse {
+  Team team = 1;
+  string markdown = 2;
+}
+
+message UpsertTeamRequest {
+  string markdown = 1;
+  string commit_message = 2;
+  bool validate_only = 3;
+}
+
+message UpsertTeamResponse {
+  Team team = 1; // with errors/warnings when validate_only
+}
+
+message GetTeamRunRequest {
+  string root_task_id = 1;
+}
+
+message GetTeamRunResponse {
+  TeamRun run = 1;
+}
+
+// TeamRun is the live picture of a team run / task tree.
+message TeamRun {
+  Task root = 1;
+  Team team = 2; // definition snapshot taken when the run started (unset for plain trees)
+  repeated TeamRunTask tasks = 3; // all tasks of the tree (root included), by creation
+  repeated BlackboardEntry blackboard = 4;
+  repeated TeamMessage messages = 5;
+  Cost total_cost = 6;
+  int32 total_tasks = 7;
+  int32 total_runs = 8;
+  int32 active_tasks = 9; // non-root tasks currently assigned/running/waiting
+  int32 queued_tasks = 10; // waiting for a free slot (max_parallel / member pool)
+  TeamLimits limits = 11; // effective tree limits
+  string stopped_reason = 12; // set when a limit / timeout / kill stopped the tree
+  google.protobuf.Timestamp deadline = 13;
+}
+
+message TeamRunTask {
+  Task task = 1; // carries parent_id, role, depth, phase, state, cost
+  int32 runs = 2;
+  bool ephemeral = 3; // spawned specialist (no agent note)
+  string member_role = 4; // the team member entry it counts against ("" = none)
+}
+
+message BlackboardEntry {
+  string key = 1;
+  google.protobuf.Value value = 2;
+  string author_task_id = 3;
+  string author_role = 4;
+  int32 version = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message TeamMessage {
+  string id = 1;
+  string from_task_id = 2; // empty when sent by the user
+  string from_role = 3; // "user" for SendTeamMessage
+  string to = 4; // role | task id | "orchestrator" | "all"
+  string text = 5;
+  repeated string delivered_to = 6; // task ids that received it live
+  google.protobuf.Timestamp at = 7;
+}
+
+message SendTeamMessageRequest {
+  string root_task_id = 1;
+  string to = 2; // role | task id | "orchestrator" | "all" (default "orchestrator")
+  string text = 3;
+}
+
+message SendTeamMessageResponse {
+  TeamMessage message = 1;
+}

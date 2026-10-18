@@ -40,6 +40,13 @@ const (
 	// AgentServiceUpsertAgentProcedure is the fully-qualified name of the AgentService's UpsertAgent
 	// RPC.
 	AgentServiceUpsertAgentProcedure = "/nexus.v1.AgentService/UpsertAgent"
+	// AgentServiceListSkillsProcedure is the fully-qualified name of the AgentService's ListSkills RPC.
+	AgentServiceListSkillsProcedure = "/nexus.v1.AgentService/ListSkills"
+	// AgentServiceGetSkillProcedure is the fully-qualified name of the AgentService's GetSkill RPC.
+	AgentServiceGetSkillProcedure = "/nexus.v1.AgentService/GetSkill"
+	// AgentServiceUpsertSkillProcedure is the fully-qualified name of the AgentService's UpsertSkill
+	// RPC.
+	AgentServiceUpsertSkillProcedure = "/nexus.v1.AgentService/UpsertSkill"
 )
 
 // AgentServiceClient is a client for the nexus.v1.AgentService service.
@@ -48,6 +55,10 @@ type AgentServiceClient interface {
 	GetAgent(context.Context, *connect.Request[v1.GetAgentRequest]) (*connect.Response[v1.GetAgentResponse], error)
 	// UpsertAgent writes the agent note (raw Markdown) and returns the parsed agent.
 	UpsertAgent(context.Context, *connect.Request[v1.UpsertAgentRequest]) (*connect.Response[v1.UpsertAgentResponse], error)
+	// Skills (vault skills/*.md).
+	ListSkills(context.Context, *connect.Request[v1.ListSkillsRequest]) (*connect.Response[v1.ListSkillsResponse], error)
+	GetSkill(context.Context, *connect.Request[v1.GetSkillRequest]) (*connect.Response[v1.GetSkillResponse], error)
+	UpsertSkill(context.Context, *connect.Request[v1.UpsertSkillRequest]) (*connect.Response[v1.UpsertSkillResponse], error)
 }
 
 // NewAgentServiceClient constructs a client for the nexus.v1.AgentService service. By default, it
@@ -79,6 +90,24 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(agentServiceMethods.ByName("UpsertAgent")),
 			connect.WithClientOptions(opts...),
 		),
+		listSkills: connect.NewClient[v1.ListSkillsRequest, v1.ListSkillsResponse](
+			httpClient,
+			baseURL+AgentServiceListSkillsProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("ListSkills")),
+			connect.WithClientOptions(opts...),
+		),
+		getSkill: connect.NewClient[v1.GetSkillRequest, v1.GetSkillResponse](
+			httpClient,
+			baseURL+AgentServiceGetSkillProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("GetSkill")),
+			connect.WithClientOptions(opts...),
+		),
+		upsertSkill: connect.NewClient[v1.UpsertSkillRequest, v1.UpsertSkillResponse](
+			httpClient,
+			baseURL+AgentServiceUpsertSkillProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("UpsertSkill")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -87,6 +116,9 @@ type agentServiceClient struct {
 	listAgents  *connect.Client[v1.ListAgentsRequest, v1.ListAgentsResponse]
 	getAgent    *connect.Client[v1.GetAgentRequest, v1.GetAgentResponse]
 	upsertAgent *connect.Client[v1.UpsertAgentRequest, v1.UpsertAgentResponse]
+	listSkills  *connect.Client[v1.ListSkillsRequest, v1.ListSkillsResponse]
+	getSkill    *connect.Client[v1.GetSkillRequest, v1.GetSkillResponse]
+	upsertSkill *connect.Client[v1.UpsertSkillRequest, v1.UpsertSkillResponse]
 }
 
 // ListAgents calls nexus.v1.AgentService.ListAgents.
@@ -104,12 +136,31 @@ func (c *agentServiceClient) UpsertAgent(ctx context.Context, req *connect.Reque
 	return c.upsertAgent.CallUnary(ctx, req)
 }
 
+// ListSkills calls nexus.v1.AgentService.ListSkills.
+func (c *agentServiceClient) ListSkills(ctx context.Context, req *connect.Request[v1.ListSkillsRequest]) (*connect.Response[v1.ListSkillsResponse], error) {
+	return c.listSkills.CallUnary(ctx, req)
+}
+
+// GetSkill calls nexus.v1.AgentService.GetSkill.
+func (c *agentServiceClient) GetSkill(ctx context.Context, req *connect.Request[v1.GetSkillRequest]) (*connect.Response[v1.GetSkillResponse], error) {
+	return c.getSkill.CallUnary(ctx, req)
+}
+
+// UpsertSkill calls nexus.v1.AgentService.UpsertSkill.
+func (c *agentServiceClient) UpsertSkill(ctx context.Context, req *connect.Request[v1.UpsertSkillRequest]) (*connect.Response[v1.UpsertSkillResponse], error) {
+	return c.upsertSkill.CallUnary(ctx, req)
+}
+
 // AgentServiceHandler is an implementation of the nexus.v1.AgentService service.
 type AgentServiceHandler interface {
 	ListAgents(context.Context, *connect.Request[v1.ListAgentsRequest]) (*connect.Response[v1.ListAgentsResponse], error)
 	GetAgent(context.Context, *connect.Request[v1.GetAgentRequest]) (*connect.Response[v1.GetAgentResponse], error)
 	// UpsertAgent writes the agent note (raw Markdown) and returns the parsed agent.
 	UpsertAgent(context.Context, *connect.Request[v1.UpsertAgentRequest]) (*connect.Response[v1.UpsertAgentResponse], error)
+	// Skills (vault skills/*.md).
+	ListSkills(context.Context, *connect.Request[v1.ListSkillsRequest]) (*connect.Response[v1.ListSkillsResponse], error)
+	GetSkill(context.Context, *connect.Request[v1.GetSkillRequest]) (*connect.Response[v1.GetSkillResponse], error)
+	UpsertSkill(context.Context, *connect.Request[v1.UpsertSkillRequest]) (*connect.Response[v1.UpsertSkillResponse], error)
 }
 
 // NewAgentServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -137,6 +188,24 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(agentServiceMethods.ByName("UpsertAgent")),
 		connect.WithHandlerOptions(opts...),
 	)
+	agentServiceListSkillsHandler := connect.NewUnaryHandler(
+		AgentServiceListSkillsProcedure,
+		svc.ListSkills,
+		connect.WithSchema(agentServiceMethods.ByName("ListSkills")),
+		connect.WithHandlerOptions(opts...),
+	)
+	agentServiceGetSkillHandler := connect.NewUnaryHandler(
+		AgentServiceGetSkillProcedure,
+		svc.GetSkill,
+		connect.WithSchema(agentServiceMethods.ByName("GetSkill")),
+		connect.WithHandlerOptions(opts...),
+	)
+	agentServiceUpsertSkillHandler := connect.NewUnaryHandler(
+		AgentServiceUpsertSkillProcedure,
+		svc.UpsertSkill,
+		connect.WithSchema(agentServiceMethods.ByName("UpsertSkill")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/nexus.v1.AgentService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case AgentServiceListAgentsProcedure:
@@ -145,6 +214,12 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceGetAgentHandler.ServeHTTP(w, r)
 		case AgentServiceUpsertAgentProcedure:
 			agentServiceUpsertAgentHandler.ServeHTTP(w, r)
+		case AgentServiceListSkillsProcedure:
+			agentServiceListSkillsHandler.ServeHTTP(w, r)
+		case AgentServiceGetSkillProcedure:
+			agentServiceGetSkillHandler.ServeHTTP(w, r)
+		case AgentServiceUpsertSkillProcedure:
+			agentServiceUpsertSkillHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -164,4 +239,16 @@ func (UnimplementedAgentServiceHandler) GetAgent(context.Context, *connect.Reque
 
 func (UnimplementedAgentServiceHandler) UpsertAgent(context.Context, *connect.Request[v1.UpsertAgentRequest]) (*connect.Response[v1.UpsertAgentResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.AgentService.UpsertAgent is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) ListSkills(context.Context, *connect.Request[v1.ListSkillsRequest]) (*connect.Response[v1.ListSkillsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.AgentService.ListSkills is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) GetSkill(context.Context, *connect.Request[v1.GetSkillRequest]) (*connect.Response[v1.GetSkillResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.AgentService.GetSkill is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) UpsertSkill(context.Context, *connect.Request[v1.UpsertSkillRequest]) (*connect.Response[v1.UpsertSkillResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.AgentService.UpsertSkill is not implemented"))
 }

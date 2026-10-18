@@ -30,12 +30,12 @@ export function Tabs<T extends string>({
             onClick={() => onChange(it.id)}
             className={cx(
               "flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3 text-[13px] font-medium transition-colors",
-              active ? "bg-surface text-fg shadow-card ring-1 ring-border" : "text-muted hover:bg-surface-2 hover:text-fg",
+              active ? "bg-surface-3/70 text-fg" : "text-muted hover:bg-surface-2 hover:text-fg",
             )}
           >
             {it.label}
             {it.count != null && it.count > 0 && (
-              <span className={cx("rounded-full px-1.5 text-[11px] tabular", active ? "bg-accent-soft text-accent" : "bg-surface-3 text-fg-2")}>
+              <span className={cx("rounded-full px-1.5 text-[11px] tabular", active ? "bg-surface text-fg" : "bg-surface-3 text-fg-2")}>
                 {it.count}
               </span>
             )}

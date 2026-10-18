@@ -1,4 +1,4 @@
-import { QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { api } from "./api";
 import { useEvents } from "./store";
@@ -7,15 +7,7 @@ import type { Approval } from "../gen/nexus/v1/approval_pb";
 import type { TaskState } from "../gen/nexus/v1/task_pb";
 import { useSettings } from "./settings";
 
-export const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 15_000,
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+export { queryClient } from "./queryClient";
 
 export const qk = {
   agents: ["agents"] as const,

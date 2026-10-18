@@ -24,6 +24,8 @@ message Route {
   google.protobuf.Struct params = 6;
   string reason = 7;
   repeated string alternatives = 8;
+  // Set instead of agent_id when the router picked a team (teams/<id>.md).
+  string team_id = 9;
 }
 
 // CommandContext gives the router hints about where the command came from.

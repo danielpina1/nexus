@@ -101,25 +101,39 @@ func (TaskState) EnumDescriptor() ([]byte, []int) {
 
 // Task is a unit of intent. Runs are attempts at it.
 type Task struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	ParentId      string                 `protobuf:"bytes,2,opt,name=parent_id,json=parentId,proto3" json:"parent_id,omitempty"`
-	RootId        string                 `protobuf:"bytes,3,opt,name=root_id,json=rootId,proto3" json:"root_id,omitempty"`
-	Title         string                 `protobuf:"bytes,4,opt,name=title,proto3" json:"title,omitempty"`
-	Prompt        string                 `protobuf:"bytes,5,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	AgentId       string                 `protobuf:"bytes,6,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	WorkflowId    string                 `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
-	State         TaskState              `protobuf:"varint,8,opt,name=state,proto3,enum=nexus.v1.TaskState" json:"state,omitempty"`
-	Tier          Tier                   `protobuf:"varint,9,opt,name=tier,proto3,enum=nexus.v1.Tier" json:"tier,omitempty"`
-	CurrentRunId  string                 `protobuf:"bytes,10,opt,name=current_run_id,json=currentRunId,proto3" json:"current_run_id,omitempty"`
-	NodeId        string                 `protobuf:"bytes,11,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
-	Summary       string                 `protobuf:"bytes,12,opt,name=summary,proto3" json:"summary,omitempty"` // final result summary
-	Result        *structpb.Struct       `protobuf:"bytes,13,opt,name=result,proto3" json:"result,omitempty"`
-	Cost          *Cost                  `protobuf:"bytes,14,opt,name=cost,proto3" json:"cost,omitempty"`
-	Episode       *NoteRef               `protobuf:"bytes,15,opt,name=episode,proto3" json:"episode,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,16,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,17,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	Source        string                 `protobuf:"bytes,18,opt,name=source,proto3" json:"source,omitempty"` // ios-chat | ios-share | siri | web | cli | workflow | trigger
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Id           string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ParentId     string                 `protobuf:"bytes,2,opt,name=parent_id,json=parentId,proto3" json:"parent_id,omitempty"`
+	RootId       string                 `protobuf:"bytes,3,opt,name=root_id,json=rootId,proto3" json:"root_id,omitempty"`
+	Title        string                 `protobuf:"bytes,4,opt,name=title,proto3" json:"title,omitempty"`
+	Prompt       string                 `protobuf:"bytes,5,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	AgentId      string                 `protobuf:"bytes,6,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	WorkflowId   string                 `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	State        TaskState              `protobuf:"varint,8,opt,name=state,proto3,enum=nexus.v1.TaskState" json:"state,omitempty"`
+	Tier         Tier                   `protobuf:"varint,9,opt,name=tier,proto3,enum=nexus.v1.Tier" json:"tier,omitempty"`
+	CurrentRunId string                 `protobuf:"bytes,10,opt,name=current_run_id,json=currentRunId,proto3" json:"current_run_id,omitempty"`
+	NodeId       string                 `protobuf:"bytes,11,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	Summary      string                 `protobuf:"bytes,12,opt,name=summary,proto3" json:"summary,omitempty"` // final result summary
+	Result       *structpb.Struct       `protobuf:"bytes,13,opt,name=result,proto3" json:"result,omitempty"`
+	Cost         *Cost                  `protobuf:"bytes,14,opt,name=cost,proto3" json:"cost,omitempty"`
+	Episode      *NoteRef               `protobuf:"bytes,15,opt,name=episode,proto3" json:"episode,omitempty"`
+	CreatedAt    *timestamppb.Timestamp `protobuf:"bytes,16,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt    *timestamppb.Timestamp `protobuf:"bytes,17,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	Source       string                 `protobuf:"bytes,18,opt,name=source,proto3" json:"source,omitempty"` // ios-chat | ios-share | siri | web | cli | workflow | trigger
+	// Team (vault teams/<id>.md) this task belongs to; set on the whole tree.
+	TeamId string `protobuf:"bytes,19,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
+	// Role in the team: "orchestrator" for the root, the member role for
+	// delegated tasks, "critic" for review tasks, the spawn role for ephemeral agents.
+	Role string `protobuf:"bytes,20,opt,name=role,proto3" json:"role,omitempty"`
+	// Depth in the task tree (root = 0).
+	Depth int32 `protobuf:"varint,21,opt,name=depth,proto3" json:"depth,omitempty"`
+	// Hub-side phase while the state alone does not say it: "waiting_slot"
+	// (queued until max_parallel allows), "strategy" (team strategy running),
+	// "reviewing" (critic checking the result), "revising", "repairing"
+	// (output did not match the schema).
+	Phase string `protobuf:"bytes,22,opt,name=phase,proto3" json:"phase,omitempty"`
+	// Root tasks: LLM cost of the whole tree (root + all sub-tasks).
+	TreeCost      *Cost `protobuf:"bytes,23,opt,name=tree_cost,json=treeCost,proto3" json:"tree_cost,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -280,6 +294,41 @@ func (x *Task) GetSource() string {
 	return ""
 }
 
+func (x *Task) GetTeamId() string {
+	if x != nil {
+		return x.TeamId
+	}
+	return ""
+}
+
+func (x *Task) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *Task) GetDepth() int32 {
+	if x != nil {
+		return x.Depth
+	}
+	return 0
+}
+
+func (x *Task) GetPhase() string {
+	if x != nil {
+		return x.Phase
+	}
+	return ""
+}
+
+func (x *Task) GetTreeCost() *Cost {
+	if x != nil {
+		return x.TreeCost
+	}
+	return nil
+}
+
 type CreateTaskRequest struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	Prompt         string                 `protobuf:"bytes,1,opt,name=prompt,proto3" json:"prompt,omitempty"`
@@ -289,8 +338,11 @@ type CreateTaskRequest struct {
 	IdempotencyKey string                 `protobuf:"bytes,5,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
 	DryRun         bool                   `protobuf:"varint,6,opt,name=dry_run,json=dryRun,proto3" json:"dry_run,omitempty"`
 	Source         string                 `protobuf:"bytes,7,opt,name=source,proto3" json:"source,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Start a team run (vault teams/<id>.md): the task becomes the team's
+	// root, handled by the team's orchestrator. Mutually exclusive with agent_id.
+	TeamId        string `protobuf:"bytes,8,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateTaskRequest) Reset() {
@@ -368,6 +420,13 @@ func (x *CreateTaskRequest) GetDryRun() bool {
 func (x *CreateTaskRequest) GetSource() string {
 	if x != nil {
 		return x.Source
+	}
+	return ""
+}
+
+func (x *CreateTaskRequest) GetTeamId() string {
+	if x != nil {
+		return x.TeamId
 	}
 	return ""
 }
@@ -527,6 +586,8 @@ type ListTasksRequest struct {
 	AgentId       string                 `protobuf:"bytes,3,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	NodeId        string                 `protobuf:"bytes,4,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
 	RootsOnly     bool                   `protobuf:"varint,5,opt,name=roots_only,json=rootsOnly,proto3" json:"roots_only,omitempty"`
+	RootId        string                 `protobuf:"bytes,6,opt,name=root_id,json=rootId,proto3" json:"root_id,omitempty"` // tasks of one tree (root included)
+	TeamId        string                 `protobuf:"bytes,7,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"` // tasks of one team (with roots_only: its runs)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -594,6 +655,20 @@ func (x *ListTasksRequest) GetRootsOnly() bool {
 		return x.RootsOnly
 	}
 	return false
+}
+
+func (x *ListTasksRequest) GetRootId() string {
+	if x != nil {
+		return x.RootId
+	}
+	return ""
+}
+
+func (x *ListTasksRequest) GetTeamId() string {
+	if x != nil {
+		return x.TeamId
+	}
+	return ""
 }
 
 type ListTasksResponse struct {
@@ -1134,7 +1209,7 @@ var File_nexus_v1_task_proto protoreflect.FileDescriptor
 
 const file_nexus_v1_task_proto_rawDesc = "" +
 	"\n" +
-	"\x13nexus/v1/task.proto\x12\bnexus.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x15nexus/v1/common.proto\"\xee\x04\n" +
+	"\x13nexus/v1/task.proto\x12\bnexus.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x15nexus/v1/common.proto\"\xf4\x05\n" +
 	"\x04Task\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tparent_id\x18\x02 \x01(\tR\bparentId\x12\x17\n" +
@@ -1157,7 +1232,12 @@ const file_nexus_v1_task_proto_rawDesc = "" +
 	"created_at\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
 	"updated_at\x18\x11 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x16\n" +
-	"\x06source\x18\x12 \x01(\tR\x06source\"\x89\x02\n" +
+	"\x06source\x18\x12 \x01(\tR\x06source\x12\x17\n" +
+	"\ateam_id\x18\x13 \x01(\tR\x06teamId\x12\x12\n" +
+	"\x04role\x18\x14 \x01(\tR\x04role\x12\x14\n" +
+	"\x05depth\x18\x15 \x01(\x05R\x05depth\x12\x14\n" +
+	"\x05phase\x18\x16 \x01(\tR\x05phase\x12+\n" +
+	"\ttree_cost\x18\x17 \x01(\v2\x0e.nexus.v1.CostR\btreeCost\"\xa2\x02\n" +
 	"\x11CreateTaskRequest\x12\x16\n" +
 	"\x06prompt\x18\x01 \x01(\tR\x06prompt\x12\x19\n" +
 	"\bagent_id\x18\x02 \x01(\tR\aagentId\x126\n" +
@@ -1165,7 +1245,8 @@ const file_nexus_v1_task_proto_rawDesc = "" +
 	"\x06params\x18\x04 \x01(\v2\x17.google.protobuf.StructR\x06params\x12'\n" +
 	"\x0fidempotency_key\x18\x05 \x01(\tR\x0eidempotencyKey\x12\x17\n" +
 	"\adry_run\x18\x06 \x01(\bR\x06dryRun\x12\x16\n" +
-	"\x06source\x18\a \x01(\tR\x06source\"8\n" +
+	"\x06source\x18\a \x01(\tR\x06source\x12\x17\n" +
+	"\ateam_id\x18\b \x01(\tR\x06teamId\"8\n" +
 	"\x12CreateTaskResponse\x12\"\n" +
 	"\x04task\x18\x01 \x01(\v2\x0e.nexus.v1.TaskR\x04task\"K\n" +
 	"\x0eGetTaskRequest\x12\x0e\n" +
@@ -1173,14 +1254,16 @@ const file_nexus_v1_task_proto_rawDesc = "" +
 	"\x10include_children\x18\x02 \x01(\bR\x0fincludeChildren\"a\n" +
 	"\x0fGetTaskResponse\x12\"\n" +
 	"\x04task\x18\x01 \x01(\v2\x0e.nexus.v1.TaskR\x04task\x12*\n" +
-	"\bchildren\x18\x02 \x03(\v2\x0e.nexus.v1.TaskR\bchildren\"\xbd\x01\n" +
+	"\bchildren\x18\x02 \x03(\v2\x0e.nexus.v1.TaskR\bchildren\"\xef\x01\n" +
 	"\x10ListTasksRequest\x12)\n" +
 	"\x04page\x18\x01 \x01(\v2\x15.nexus.v1.PageRequestR\x04page\x12+\n" +
 	"\x06states\x18\x02 \x03(\x0e2\x13.nexus.v1.TaskStateR\x06states\x12\x19\n" +
 	"\bagent_id\x18\x03 \x01(\tR\aagentId\x12\x17\n" +
 	"\anode_id\x18\x04 \x01(\tR\x06nodeId\x12\x1d\n" +
 	"\n" +
-	"roots_only\x18\x05 \x01(\bR\trootsOnly\"a\n" +
+	"roots_only\x18\x05 \x01(\bR\trootsOnly\x12\x17\n" +
+	"\aroot_id\x18\x06 \x01(\tR\x06rootId\x12\x17\n" +
+	"\ateam_id\x18\a \x01(\tR\x06teamId\"a\n" +
 	"\x11ListTasksResponse\x12$\n" +
 	"\x05tasks\x18\x01 \x03(\v2\x0e.nexus.v1.TaskR\x05tasks\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"\xdb\x01\n" +
@@ -1288,37 +1371,38 @@ var file_nexus_v1_task_proto_depIdxs = []int32{
 	21, // 4: nexus.v1.Task.episode:type_name -> nexus.v1.NoteRef
 	22, // 5: nexus.v1.Task.created_at:type_name -> google.protobuf.Timestamp
 	22, // 6: nexus.v1.Task.updated_at:type_name -> google.protobuf.Timestamp
-	23, // 7: nexus.v1.CreateTaskRequest.attachments:type_name -> nexus.v1.Attachment
-	19, // 8: nexus.v1.CreateTaskRequest.params:type_name -> google.protobuf.Struct
-	1,  // 9: nexus.v1.CreateTaskResponse.task:type_name -> nexus.v1.Task
-	1,  // 10: nexus.v1.GetTaskResponse.task:type_name -> nexus.v1.Task
-	1,  // 11: nexus.v1.GetTaskResponse.children:type_name -> nexus.v1.Task
-	24, // 12: nexus.v1.ListTasksRequest.page:type_name -> nexus.v1.PageRequest
-	0,  // 13: nexus.v1.ListTasksRequest.states:type_name -> nexus.v1.TaskState
-	1,  // 14: nexus.v1.ListTasksResponse.tasks:type_name -> nexus.v1.Task
-	23, // 15: nexus.v1.SendMessageRequest.attachments:type_name -> nexus.v1.Attachment
-	1,  // 16: nexus.v1.EscalateTaskResponse.task:type_name -> nexus.v1.Task
-	2,  // 17: nexus.v1.TaskService.CreateTask:input_type -> nexus.v1.CreateTaskRequest
-	4,  // 18: nexus.v1.TaskService.GetTask:input_type -> nexus.v1.GetTaskRequest
-	6,  // 19: nexus.v1.TaskService.ListTasks:input_type -> nexus.v1.ListTasksRequest
-	8,  // 20: nexus.v1.TaskService.SendMessage:input_type -> nexus.v1.SendMessageRequest
-	10, // 21: nexus.v1.TaskService.CancelTask:input_type -> nexus.v1.CancelTaskRequest
-	12, // 22: nexus.v1.TaskService.EscalateTask:input_type -> nexus.v1.EscalateTaskRequest
-	14, // 23: nexus.v1.TaskService.StopAll:input_type -> nexus.v1.StopAllRequest
-	16, // 24: nexus.v1.TaskService.FollowTask:input_type -> nexus.v1.FollowTaskRequest
-	3,  // 25: nexus.v1.TaskService.CreateTask:output_type -> nexus.v1.CreateTaskResponse
-	5,  // 26: nexus.v1.TaskService.GetTask:output_type -> nexus.v1.GetTaskResponse
-	7,  // 27: nexus.v1.TaskService.ListTasks:output_type -> nexus.v1.ListTasksResponse
-	9,  // 28: nexus.v1.TaskService.SendMessage:output_type -> nexus.v1.SendMessageResponse
-	11, // 29: nexus.v1.TaskService.CancelTask:output_type -> nexus.v1.CancelTaskResponse
-	13, // 30: nexus.v1.TaskService.EscalateTask:output_type -> nexus.v1.EscalateTaskResponse
-	15, // 31: nexus.v1.TaskService.StopAll:output_type -> nexus.v1.StopAllResponse
-	17, // 32: nexus.v1.TaskService.FollowTask:output_type -> nexus.v1.FollowTaskResponse
-	25, // [25:33] is the sub-list for method output_type
-	17, // [17:25] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	20, // 7: nexus.v1.Task.tree_cost:type_name -> nexus.v1.Cost
+	23, // 8: nexus.v1.CreateTaskRequest.attachments:type_name -> nexus.v1.Attachment
+	19, // 9: nexus.v1.CreateTaskRequest.params:type_name -> google.protobuf.Struct
+	1,  // 10: nexus.v1.CreateTaskResponse.task:type_name -> nexus.v1.Task
+	1,  // 11: nexus.v1.GetTaskResponse.task:type_name -> nexus.v1.Task
+	1,  // 12: nexus.v1.GetTaskResponse.children:type_name -> nexus.v1.Task
+	24, // 13: nexus.v1.ListTasksRequest.page:type_name -> nexus.v1.PageRequest
+	0,  // 14: nexus.v1.ListTasksRequest.states:type_name -> nexus.v1.TaskState
+	1,  // 15: nexus.v1.ListTasksResponse.tasks:type_name -> nexus.v1.Task
+	23, // 16: nexus.v1.SendMessageRequest.attachments:type_name -> nexus.v1.Attachment
+	1,  // 17: nexus.v1.EscalateTaskResponse.task:type_name -> nexus.v1.Task
+	2,  // 18: nexus.v1.TaskService.CreateTask:input_type -> nexus.v1.CreateTaskRequest
+	4,  // 19: nexus.v1.TaskService.GetTask:input_type -> nexus.v1.GetTaskRequest
+	6,  // 20: nexus.v1.TaskService.ListTasks:input_type -> nexus.v1.ListTasksRequest
+	8,  // 21: nexus.v1.TaskService.SendMessage:input_type -> nexus.v1.SendMessageRequest
+	10, // 22: nexus.v1.TaskService.CancelTask:input_type -> nexus.v1.CancelTaskRequest
+	12, // 23: nexus.v1.TaskService.EscalateTask:input_type -> nexus.v1.EscalateTaskRequest
+	14, // 24: nexus.v1.TaskService.StopAll:input_type -> nexus.v1.StopAllRequest
+	16, // 25: nexus.v1.TaskService.FollowTask:input_type -> nexus.v1.FollowTaskRequest
+	3,  // 26: nexus.v1.TaskService.CreateTask:output_type -> nexus.v1.CreateTaskResponse
+	5,  // 27: nexus.v1.TaskService.GetTask:output_type -> nexus.v1.GetTaskResponse
+	7,  // 28: nexus.v1.TaskService.ListTasks:output_type -> nexus.v1.ListTasksResponse
+	9,  // 29: nexus.v1.TaskService.SendMessage:output_type -> nexus.v1.SendMessageResponse
+	11, // 30: nexus.v1.TaskService.CancelTask:output_type -> nexus.v1.CancelTaskResponse
+	13, // 31: nexus.v1.TaskService.EscalateTask:output_type -> nexus.v1.EscalateTaskResponse
+	15, // 32: nexus.v1.TaskService.StopAll:output_type -> nexus.v1.StopAllResponse
+	17, // 33: nexus.v1.TaskService.FollowTask:output_type -> nexus.v1.FollowTaskResponse
+	26, // [26:34] is the sub-list for method output_type
+	18, // [18:26] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_nexus_v1_task_proto_init() }

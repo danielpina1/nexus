@@ -4,15 +4,16 @@
 
 import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
+import { file_google_protobuf_struct } from "@bufbuild/protobuf/wkt";
 import type { Money, NoteRef, Tier, TrustLevel } from "./common_pb";
 import { file_nexus_v1_common } from "./common_pb";
-import type { Message } from "@bufbuild/protobuf";
+import type { JsonObject, Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file nexus/v1/agent.proto.
  */
 export const file_nexus_v1_agent: GenFile = /*@__PURE__*/
-  fileDesc("ChRuZXh1cy92MS9hZ2VudC5wcm90bxIIbmV4dXMudjEikAMKBUFnZW50EgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSEwoLZGVzY3JpcHRpb24YAyABKAkSDAoEaWNvbhgEIAEoCRIPCgdydW50aW1lGAUgASgJEg0KBW1vZGVsGAYgASgJEhwKBHRpZXIYByABKA4yDi5uZXh1cy52MS5UaWVyEhEKCW5vZGVfdGFncxgIIAMoCRINCgV0b29scxgJIAMoCRIlCgZsaW1pdHMYCiABKAsyFS5uZXh1cy52MS5BZ2VudExpbWl0cxIrCgZwb2xpY3kYCyADKAsyGy5uZXh1cy52MS5BZ2VudC5Qb2xpY3lFbnRyeRIfCgRub3RlGAwgASgLMhEubmV4dXMudjEuTm90ZVJlZhIPCgd2ZXJzaW9uGA0gASgFEg8KB2VuYWJsZWQYDiABKAgSDgoGZXJyb3JzGA8gAygJGkMKC1BvbGljeUVudHJ5EgsKA2tleRgBIAEoCRIjCgV2YWx1ZRgCIAEoDjIULm5leHVzLnYxLlRydXN0TGV2ZWw6AjgBIocBCgtBZ2VudExpbWl0cxIbChNtYXhfcnVudGltZV9zZWNvbmRzGAEgASgDEiEKCG1heF9jb3N0GAIgASgLMg8ubmV4dXMudjEuTW9uZXkSIgoJbWF4X3NwZW5kGAMgASgLMg8ubmV4dXMudjEuTW9uZXkSFAoMbWF4X3N1YnRhc2tzGAQgASgFIi0KEUxpc3RBZ2VudHNSZXF1ZXN0EhgKEGluY2x1ZGVfZGlzYWJsZWQYASABKAgiNQoSTGlzdEFnZW50c1Jlc3BvbnNlEh8KBmFnZW50cxgBIAMoCzIPLm5leHVzLnYxLkFnZW50Ih0KD0dldEFnZW50UmVxdWVzdBIKCgJpZBgBIAEoCSJEChBHZXRBZ2VudFJlc3BvbnNlEh4KBWFnZW50GAEgASgLMg8ubmV4dXMudjEuQWdlbnQSEAoIbWFya2Rvd24YAiABKAkiPgoSVXBzZXJ0QWdlbnRSZXF1ZXN0EhAKCG1hcmtkb3duGAEgASgJEhYKDmNvbW1pdF9tZXNzYWdlGAIgASgJIjUKE1Vwc2VydEFnZW50UmVzcG9uc2USHgoFYWdlbnQYASABKAsyDy5uZXh1cy52MS5BZ2VudDLmAQoMQWdlbnRTZXJ2aWNlEkcKCkxpc3RBZ2VudHMSGy5uZXh1cy52MS5MaXN0QWdlbnRzUmVxdWVzdBocLm5leHVzLnYxLkxpc3RBZ2VudHNSZXNwb25zZRJBCghHZXRBZ2VudBIZLm5leHVzLnYxLkdldEFnZW50UmVxdWVzdBoaLm5leHVzLnYxLkdldEFnZW50UmVzcG9uc2USSgoLVXBzZXJ0QWdlbnQSHC5uZXh1cy52MS5VcHNlcnRBZ2VudFJlcXVlc3QaHS5uZXh1cy52MS5VcHNlcnRBZ2VudFJlc3BvbnNlQpYBCgxjb20ubmV4dXMudjFCCkFnZW50UHJvdG9QAVo5Z2l0aHViLmNvbS9kYW5pZWxwaW5hMS9uZXh1cy9iYWNrZW5kL2dlbi9uZXh1cy92MTtuZXh1c3YxogIDTlhYqgIITmV4dXMuVjHKAghOZXh1c1xWMeICFE5leHVzXFYxXEdQQk1ldGFkYXRh6gIJTmV4dXM6OlYxYgZwcm90bzM", [file_nexus_v1_common]);
+  fileDesc("ChRuZXh1cy92MS9hZ2VudC5wcm90bxIIbmV4dXMudjEi3wQKBUFnZW50EgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSEwoLZGVzY3JpcHRpb24YAyABKAkSDAoEaWNvbhgEIAEoCRIPCgdydW50aW1lGAUgASgJEg0KBW1vZGVsGAYgASgJEhwKBHRpZXIYByABKA4yDi5uZXh1cy52MS5UaWVyEhEKCW5vZGVfdGFncxgIIAMoCRINCgV0b29scxgJIAMoCRIlCgZsaW1pdHMYCiABKAsyFS5uZXh1cy52MS5BZ2VudExpbWl0cxIrCgZwb2xpY3kYCyADKAsyGy5uZXh1cy52MS5BZ2VudC5Qb2xpY3lFbnRyeRIfCgRub3RlGAwgASgLMhEubmV4dXMudjEuTm90ZVJlZhIPCgd2ZXJzaW9uGA0gASgFEg8KB2VuYWJsZWQYDiABKAgSDgoGZXJyb3JzGA8gAygJEg4KBnNraWxscxgQIAMoCRItCgxpbnB1dF9zY2hlbWEYESABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0Ei4KDW91dHB1dF9zY2hlbWEYEiABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0EiUKBnJldmlldxgTIAEoCzIVLm5leHVzLnYxLkFnZW50UmV2aWV3EiUKBm1lbW9yeRgUIAEoCzIVLm5leHVzLnYxLkFnZW50TWVtb3J5EhAKCHdhcm5pbmdzGBUgAygJGkMKC1BvbGljeUVudHJ5EgsKA2tleRgBIAEoCRIjCgV2YWx1ZRgCIAEoDjIULm5leHVzLnYxLlRydXN0TGV2ZWw6AjgBIj8KC0FnZW50UmV2aWV3Eg4KBmNyaXRpYxgBIAEoCRIOCgZyb3VuZHMYAiABKAUSEAoIY3JpdGVyaWEYAyABKAkiLAoLQWdlbnRNZW1vcnkSDQoFcmVhZHMYASADKAkSDgoGd3JpdGVzGAIgASgJIq4BCgVTa2lsbBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhMKC2Rlc2NyaXB0aW9uGAMgASgJEg0KBXRvb2xzGAQgAygJEhQKDGluc3RydWN0aW9ucxgFIAEoCRIfCgRub3RlGAYgASgLMhEubmV4dXMudjEuTm90ZVJlZhIPCgdlbmFibGVkGAcgASgIEg4KBmVycm9ycxgIIAMoCRIPCgd2ZXJzaW9uGAkgASgFIv0BCgtBZ2VudExpbWl0cxIbChNtYXhfcnVudGltZV9zZWNvbmRzGAEgASgDEiEKCG1heF9jb3N0GAIgASgLMg8ubmV4dXMudjEuTW9uZXkSIgoJbWF4X3NwZW5kGAMgASgLMg8ubmV4dXMudjEuTW9uZXkSFAoMbWF4X3N1YnRhc2tzGAQgASgFEhEKCW1heF9kZXB0aBgFIAEoBRIUCgxtYXhfcGFyYWxsZWwYBiABKAUSEQoJbWF4X3Rhc2tzGAcgASgFEiYKDW1heF90cmVlX2Nvc3QYCCABKAsyDy5uZXh1cy52MS5Nb25leRIQCghtYXhfcnVucxgJIAEoBSItChFMaXN0QWdlbnRzUmVxdWVzdBIYChBpbmNsdWRlX2Rpc2FibGVkGAEgASgIIjUKEkxpc3RBZ2VudHNSZXNwb25zZRIfCgZhZ2VudHMYASADKAsyDy5uZXh1cy52MS5BZ2VudCIdCg9HZXRBZ2VudFJlcXVlc3QSCgoCaWQYASABKAkiRAoQR2V0QWdlbnRSZXNwb25zZRIeCgVhZ2VudBgBIAEoCzIPLm5leHVzLnYxLkFnZW50EhAKCG1hcmtkb3duGAIgASgJIj4KElVwc2VydEFnZW50UmVxdWVzdBIQCghtYXJrZG93bhgBIAEoCRIWCg5jb21taXRfbWVzc2FnZRgCIAEoCSI1ChNVcHNlcnRBZ2VudFJlc3BvbnNlEh4KBWFnZW50GAEgASgLMg8ubmV4dXMudjEuQWdlbnQiLQoRTGlzdFNraWxsc1JlcXVlc3QSGAoQaW5jbHVkZV9kaXNhYmxlZBgBIAEoCCI1ChJMaXN0U2tpbGxzUmVzcG9uc2USHwoGc2tpbGxzGAEgAygLMg8ubmV4dXMudjEuU2tpbGwiHQoPR2V0U2tpbGxSZXF1ZXN0EgoKAmlkGAEgASgJIkQKEEdldFNraWxsUmVzcG9uc2USHgoFc2tpbGwYASABKAsyDy5uZXh1cy52MS5Ta2lsbBIQCghtYXJrZG93bhgCIAEoCSI+ChJVcHNlcnRTa2lsbFJlcXVlc3QSEAoIbWFya2Rvd24YASABKAkSFgoOY29tbWl0X21lc3NhZ2UYAiABKAkiNQoTVXBzZXJ0U2tpbGxSZXNwb25zZRIeCgVza2lsbBgBIAEoCzIPLm5leHVzLnYxLlNraWxsMr4DCgxBZ2VudFNlcnZpY2USRwoKTGlzdEFnZW50cxIbLm5leHVzLnYxLkxpc3RBZ2VudHNSZXF1ZXN0GhwubmV4dXMudjEuTGlzdEFnZW50c1Jlc3BvbnNlEkEKCEdldEFnZW50EhkubmV4dXMudjEuR2V0QWdlbnRSZXF1ZXN0GhoubmV4dXMudjEuR2V0QWdlbnRSZXNwb25zZRJKCgtVcHNlcnRBZ2VudBIcLm5leHVzLnYxLlVwc2VydEFnZW50UmVxdWVzdBodLm5leHVzLnYxLlVwc2VydEFnZW50UmVzcG9uc2USRwoKTGlzdFNraWxscxIbLm5leHVzLnYxLkxpc3RTa2lsbHNSZXF1ZXN0GhwubmV4dXMudjEuTGlzdFNraWxsc1Jlc3BvbnNlEkEKCEdldFNraWxsEhkubmV4dXMudjEuR2V0U2tpbGxSZXF1ZXN0GhoubmV4dXMudjEuR2V0U2tpbGxSZXNwb25zZRJKCgtVcHNlcnRTa2lsbBIcLm5leHVzLnYxLlVwc2VydFNraWxsUmVxdWVzdBodLm5leHVzLnYxLlVwc2VydFNraWxsUmVzcG9uc2VClgEKDGNvbS5uZXh1cy52MUIKQWdlbnRQcm90b1ABWjlnaXRodWIuY29tL2RhbmllbHBpbmExL25leHVzL2JhY2tlbmQvZ2VuL25leHVzL3YxO25leHVzdjGiAgNOWFiqAghOZXh1cy5WMcoCCE5leHVzXFYx4gIUTmV4dXNcVjFcR1BCTWV0YWRhdGHqAglOZXh1czo6VjFiBnByb3RvMw", [file_google_protobuf_struct, file_nexus_v1_common]);
 
 /**
  * Agent is the parsed form of an agent note (vault agents/*.md).
@@ -102,6 +103,52 @@ export type Agent = Message<"nexus.v1.Agent"> & {
    * @generated from field: repeated string errors = 15;
    */
   errors: string[];
+
+  /**
+   * Skill ids (vault skills/<id>.md). Their instructions are appended to the
+   * agent's and their tools merged into its allow-list at assignment time.
+   *
+   * @generated from field: repeated string skills = 16;
+   */
+  skills: string[];
+
+  /**
+   * JSON Schema of the structured input params (CreateTaskRequest.params /
+   * team.delegate inputs). Tasks whose params do not match fail.
+   *
+   * @generated from field: google.protobuf.Struct input_schema = 17;
+   */
+  inputSchema?: JsonObject | undefined;
+
+  /**
+   * JSON Schema of the structured result. The runtime is told to answer with
+   * matching JSON; the hub validates it (one automatic repair run), and
+   * stores it in Task.result.
+   *
+   * @generated from field: google.protobuf.Struct output_schema = 18;
+   */
+  outputSchema?: JsonObject | undefined;
+
+  /**
+   * Reflection loop: a critic agent reviews the result before it is final.
+   *
+   * @generated from field: nexus.v1.AgentReview review = 19;
+   */
+  review?: AgentReview | undefined;
+
+  /**
+   * Context injected into every run (vault notes / folders / searches).
+   *
+   * @generated from field: nexus.v1.AgentMemory memory = 20;
+   */
+  memory?: AgentMemory | undefined;
+
+  /**
+   * Non-fatal problems (e.g. an unknown skill or critic); the agent stays enabled.
+   *
+   * @generated from field: repeated string warnings = 21;
+   */
+  warnings: string[];
 };
 
 /**
@@ -112,7 +159,132 @@ export const AgentSchema: GenMessage<Agent> = /*@__PURE__*/
   messageDesc(file_nexus_v1_agent, 0);
 
 /**
- * AgentLimits bounds a single run.
+ * AgentReview configures the reflection loop (docs/SWARMS.md).
+ *
+ * @generated from message nexus.v1.AgentReview
+ */
+export type AgentReview = Message<"nexus.v1.AgentReview"> & {
+  /**
+   * critic agent id
+   *
+   * @generated from field: string critic = 1;
+   */
+  critic: string;
+
+  /**
+   * max review rounds (default 1)
+   *
+   * @generated from field: int32 rounds = 2;
+   */
+  rounds: number;
+
+  /**
+   * what the critic checks
+   *
+   * @generated from field: string criteria = 3;
+   */
+  criteria: string;
+};
+
+/**
+ * Describes the message nexus.v1.AgentReview.
+ * Use `create(AgentReviewSchema)` to create a new message.
+ */
+export const AgentReviewSchema: GenMessage<AgentReview> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_agent, 1);
+
+/**
+ * AgentMemory is the agent note's `memory:` block.
+ *
+ * @generated from message nexus.v1.AgentMemory
+ */
+export type AgentMemory = Message<"nexus.v1.AgentMemory"> & {
+  /**
+   * "[[Note title]]", "folder/", "search: query" or a note path / id.
+   *
+   * @generated from field: repeated string reads = 1;
+   */
+  reads: string[];
+
+  /**
+   * @generated from field: string writes = 2;
+   */
+  writes: string;
+};
+
+/**
+ * Describes the message nexus.v1.AgentMemory.
+ * Use `create(AgentMemorySchema)` to create a new message.
+ */
+export const AgentMemorySchema: GenMessage<AgentMemory> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_agent, 2);
+
+/**
+ * Skill is a reusable capability note (vault skills/<id>.md).
+ *
+ * @generated from message nexus.v1.Skill
+ */
+export type Skill = Message<"nexus.v1.Skill"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * @generated from field: string description = 3;
+   */
+  description: string;
+
+  /**
+   * Tools the skill needs; merged into the agent's allow-list.
+   *
+   * @generated from field: repeated string tools = 4;
+   */
+  tools: string[];
+
+  /**
+   * The note body: appended to the agent's instructions.
+   *
+   * @generated from field: string instructions = 5;
+   */
+  instructions: string;
+
+  /**
+   * @generated from field: nexus.v1.NoteRef note = 6;
+   */
+  note?: NoteRef | undefined;
+
+  /**
+   * @generated from field: bool enabled = 7;
+   */
+  enabled: boolean;
+
+  /**
+   * @generated from field: repeated string errors = 8;
+   */
+  errors: string[];
+
+  /**
+   * @generated from field: int32 version = 9;
+   */
+  version: number;
+};
+
+/**
+ * Describes the message nexus.v1.Skill.
+ * Use `create(SkillSchema)` to create a new message.
+ */
+export const SkillSchema: GenMessage<Skill> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_agent, 3);
+
+/**
+ * AgentLimits bounds a single run (1-4) and, when the agent's task is the
+ * root of a task tree, the whole tree (5-9; enforced by the hub).
  *
  * @generated from message nexus.v1.AgentLimits
  */
@@ -123,19 +295,60 @@ export type AgentLimits = Message<"nexus.v1.AgentLimits"> & {
   maxRuntimeSeconds: bigint;
 
   /**
+   * LLM spend per run
+   *
    * @generated from field: nexus.v1.Money max_cost = 2;
    */
   maxCost?: Money | undefined;
 
   /**
+   * real-world money per run
+   *
    * @generated from field: nexus.v1.Money max_spend = 3;
    */
   maxSpend?: Money | undefined;
 
   /**
+   * direct sub-tasks per task
+   *
    * @generated from field: int32 max_subtasks = 4;
    */
   maxSubtasks: number;
+
+  /**
+   * max sub-task depth of the tree
+   *
+   * @generated from field: int32 max_depth = 5;
+   */
+  maxDepth: number;
+
+  /**
+   * max sub-tasks active at once (others wait queued)
+   *
+   * @generated from field: int32 max_parallel = 6;
+   */
+  maxParallel: number;
+
+  /**
+   * max tasks in the tree (root included)
+   *
+   * @generated from field: int32 max_tasks = 7;
+   */
+  maxTasks: number;
+
+  /**
+   * LLM spend of the whole tree
+   *
+   * @generated from field: nexus.v1.Money max_tree_cost = 8;
+   */
+  maxTreeCost?: Money | undefined;
+
+  /**
+   * max runs in the tree (retries, repairs, reviews included)
+   *
+   * @generated from field: int32 max_runs = 9;
+   */
+  maxRuns: number;
 };
 
 /**
@@ -143,7 +356,7 @@ export type AgentLimits = Message<"nexus.v1.AgentLimits"> & {
  * Use `create(AgentLimitsSchema)` to create a new message.
  */
 export const AgentLimitsSchema: GenMessage<AgentLimits> = /*@__PURE__*/
-  messageDesc(file_nexus_v1_agent, 1);
+  messageDesc(file_nexus_v1_agent, 4);
 
 /**
  * @generated from message nexus.v1.ListAgentsRequest
@@ -160,7 +373,7 @@ export type ListAgentsRequest = Message<"nexus.v1.ListAgentsRequest"> & {
  * Use `create(ListAgentsRequestSchema)` to create a new message.
  */
 export const ListAgentsRequestSchema: GenMessage<ListAgentsRequest> = /*@__PURE__*/
-  messageDesc(file_nexus_v1_agent, 2);
+  messageDesc(file_nexus_v1_agent, 5);
 
 /**
  * @generated from message nexus.v1.ListAgentsResponse
@@ -177,7 +390,7 @@ export type ListAgentsResponse = Message<"nexus.v1.ListAgentsResponse"> & {
  * Use `create(ListAgentsResponseSchema)` to create a new message.
  */
 export const ListAgentsResponseSchema: GenMessage<ListAgentsResponse> = /*@__PURE__*/
-  messageDesc(file_nexus_v1_agent, 3);
+  messageDesc(file_nexus_v1_agent, 6);
 
 /**
  * @generated from message nexus.v1.GetAgentRequest
@@ -194,7 +407,7 @@ export type GetAgentRequest = Message<"nexus.v1.GetAgentRequest"> & {
  * Use `create(GetAgentRequestSchema)` to create a new message.
  */
 export const GetAgentRequestSchema: GenMessage<GetAgentRequest> = /*@__PURE__*/
-  messageDesc(file_nexus_v1_agent, 4);
+  messageDesc(file_nexus_v1_agent, 7);
 
 /**
  * @generated from message nexus.v1.GetAgentResponse
@@ -216,7 +429,7 @@ export type GetAgentResponse = Message<"nexus.v1.GetAgentResponse"> & {
  * Use `create(GetAgentResponseSchema)` to create a new message.
  */
 export const GetAgentResponseSchema: GenMessage<GetAgentResponse> = /*@__PURE__*/
-  messageDesc(file_nexus_v1_agent, 5);
+  messageDesc(file_nexus_v1_agent, 8);
 
 /**
  * @generated from message nexus.v1.UpsertAgentRequest
@@ -238,7 +451,7 @@ export type UpsertAgentRequest = Message<"nexus.v1.UpsertAgentRequest"> & {
  * Use `create(UpsertAgentRequestSchema)` to create a new message.
  */
 export const UpsertAgentRequestSchema: GenMessage<UpsertAgentRequest> = /*@__PURE__*/
-  messageDesc(file_nexus_v1_agent, 6);
+  messageDesc(file_nexus_v1_agent, 9);
 
 /**
  * @generated from message nexus.v1.UpsertAgentResponse
@@ -255,7 +468,119 @@ export type UpsertAgentResponse = Message<"nexus.v1.UpsertAgentResponse"> & {
  * Use `create(UpsertAgentResponseSchema)` to create a new message.
  */
 export const UpsertAgentResponseSchema: GenMessage<UpsertAgentResponse> = /*@__PURE__*/
-  messageDesc(file_nexus_v1_agent, 7);
+  messageDesc(file_nexus_v1_agent, 10);
+
+/**
+ * @generated from message nexus.v1.ListSkillsRequest
+ */
+export type ListSkillsRequest = Message<"nexus.v1.ListSkillsRequest"> & {
+  /**
+   * @generated from field: bool include_disabled = 1;
+   */
+  includeDisabled: boolean;
+};
+
+/**
+ * Describes the message nexus.v1.ListSkillsRequest.
+ * Use `create(ListSkillsRequestSchema)` to create a new message.
+ */
+export const ListSkillsRequestSchema: GenMessage<ListSkillsRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_agent, 11);
+
+/**
+ * @generated from message nexus.v1.ListSkillsResponse
+ */
+export type ListSkillsResponse = Message<"nexus.v1.ListSkillsResponse"> & {
+  /**
+   * @generated from field: repeated nexus.v1.Skill skills = 1;
+   */
+  skills: Skill[];
+};
+
+/**
+ * Describes the message nexus.v1.ListSkillsResponse.
+ * Use `create(ListSkillsResponseSchema)` to create a new message.
+ */
+export const ListSkillsResponseSchema: GenMessage<ListSkillsResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_agent, 12);
+
+/**
+ * @generated from message nexus.v1.GetSkillRequest
+ */
+export type GetSkillRequest = Message<"nexus.v1.GetSkillRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+};
+
+/**
+ * Describes the message nexus.v1.GetSkillRequest.
+ * Use `create(GetSkillRequestSchema)` to create a new message.
+ */
+export const GetSkillRequestSchema: GenMessage<GetSkillRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_agent, 13);
+
+/**
+ * @generated from message nexus.v1.GetSkillResponse
+ */
+export type GetSkillResponse = Message<"nexus.v1.GetSkillResponse"> & {
+  /**
+   * @generated from field: nexus.v1.Skill skill = 1;
+   */
+  skill?: Skill | undefined;
+
+  /**
+   * @generated from field: string markdown = 2;
+   */
+  markdown: string;
+};
+
+/**
+ * Describes the message nexus.v1.GetSkillResponse.
+ * Use `create(GetSkillResponseSchema)` to create a new message.
+ */
+export const GetSkillResponseSchema: GenMessage<GetSkillResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_agent, 14);
+
+/**
+ * @generated from message nexus.v1.UpsertSkillRequest
+ */
+export type UpsertSkillRequest = Message<"nexus.v1.UpsertSkillRequest"> & {
+  /**
+   * @generated from field: string markdown = 1;
+   */
+  markdown: string;
+
+  /**
+   * @generated from field: string commit_message = 2;
+   */
+  commitMessage: string;
+};
+
+/**
+ * Describes the message nexus.v1.UpsertSkillRequest.
+ * Use `create(UpsertSkillRequestSchema)` to create a new message.
+ */
+export const UpsertSkillRequestSchema: GenMessage<UpsertSkillRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_agent, 15);
+
+/**
+ * @generated from message nexus.v1.UpsertSkillResponse
+ */
+export type UpsertSkillResponse = Message<"nexus.v1.UpsertSkillResponse"> & {
+  /**
+   * @generated from field: nexus.v1.Skill skill = 1;
+   */
+  skill?: Skill | undefined;
+};
+
+/**
+ * Describes the message nexus.v1.UpsertSkillResponse.
+ * Use `create(UpsertSkillResponseSchema)` to create a new message.
+ */
+export const UpsertSkillResponseSchema: GenMessage<UpsertSkillResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_agent, 16);
 
 /**
  * AgentService lists and edits agents. Writes go through the vault (git) and are policy-checked.
@@ -288,6 +613,32 @@ export const AgentService: GenService<{
     methodKind: "unary";
     input: typeof UpsertAgentRequestSchema;
     output: typeof UpsertAgentResponseSchema;
+  },
+  /**
+   * Skills (vault skills/*.md).
+   *
+   * @generated from rpc nexus.v1.AgentService.ListSkills
+   */
+  listSkills: {
+    methodKind: "unary";
+    input: typeof ListSkillsRequestSchema;
+    output: typeof ListSkillsResponseSchema;
+  },
+  /**
+   * @generated from rpc nexus.v1.AgentService.GetSkill
+   */
+  getSkill: {
+    methodKind: "unary";
+    input: typeof GetSkillRequestSchema;
+    output: typeof GetSkillResponseSchema;
+  },
+  /**
+   * @generated from rpc nexus.v1.AgentService.UpsertSkill
+   */
+  upsertSkill: {
+    methodKind: "unary";
+    input: typeof UpsertSkillRequestSchema;
+    output: typeof UpsertSkillResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_nexus_v1_agent, 0);

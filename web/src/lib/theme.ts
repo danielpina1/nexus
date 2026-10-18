@@ -5,7 +5,7 @@ function apply(pref: string) {
   const dark =
     pref === "dark" || (pref === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
   document.documentElement.classList.toggle("dark", dark);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#0b0d12" : "#f6f7f9");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#0B1120" : "#F8FAFC");
 }
 
 export function useThemeSync() {

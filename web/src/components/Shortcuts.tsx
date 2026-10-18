@@ -1,17 +1,18 @@
 import { useUI } from "../lib/ui";
-import { NAV } from "./layout/nav";
+import { JUMPS } from "./useGlobalShortcuts";
+import { isMac } from "./layout/Sidebar";
 import { Dialog } from "./ui/Dialog";
 import { Kbd } from "./ui/Input";
 
 export function ShortcutsDialog() {
   const open = useUI((s) => s.shortcutsOpen);
   const set = useUI((s) => s.set);
-  const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
   const rows: Array<[React.ReactNode, string]> = [
-    [<><Kbd>{isMac ? "⌘" : "Ctrl"}</Kbd><Kbd>K</Kbd></>, "Command palette"],
+    [<><Kbd>{isMac ? "⌘" : "Ctrl"}</Kbd><Kbd>K</Kbd></>, "Command palette: run, search, jump"],
     [<Kbd>/</Kbd>, "Focus the command bar"],
     [<Kbd>?</Kbd>, "This help"],
-    ...NAV.map((n) => [<><Kbd>g</Kbd><Kbd>{n.key}</Kbd></>, `Go to ${n.label}`] as [React.ReactNode, string]),
+    [<Kbd>`</Kbd>, "Performance HUD"],
+    ...JUMPS.map((n) => [<><Kbd>g</Kbd><Kbd>{n.key}</Kbd></>, `Go to ${n.label}`] as [React.ReactNode, string]),
   ];
   return (
     <Dialog open={open} onClose={() => set({ shortcutsOpen: false })} title="Keyboard shortcuts">

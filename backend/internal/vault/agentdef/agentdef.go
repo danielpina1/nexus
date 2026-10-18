@@ -14,7 +14,10 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/protobuf/types/known/structpb"
+
 	nexusv1 "github.com/danielpina1/nexus/backend/gen/nexus/v1"
+	"github.com/danielpina1/nexus/backend/internal/schema"
 	"github.com/danielpina1/nexus/backend/internal/vault/note"
 )
 
@@ -139,6 +142,52 @@ func Parse(p string, src []byte) (*nexusv1.Agent, string) {
 		}
 	}
 
+	skills, err := stringSlice(fm["skills"], "skills")
+	if err != nil {
+		addErr("%v", err)
+	}
+	for _, sk := range skills {
+		if !reID.MatchString(sk) {
+			addErr("invalid skill id %q", sk)
+		}
+	}
+	a.Skills = skills
+
+	if v, ok := fm["inputs"]; ok && v != nil {
+		st, err := SchemaStruct(v)
+		if err != nil {
+			addErr("inputs: %v", err)
+		}
+		a.InputSchema = st
+	}
+	if v, ok := fm["output"]; ok && v != nil {
+		st, err := SchemaStruct(v)
+		if err != nil {
+			addErr("output: %v", err)
+		}
+		a.OutputSchema = st
+	}
+	if v, ok := fm["review"]; ok && v != nil {
+		rv, rerrs := parseReview(v)
+		a.Review = rv
+		errs = append(errs, rerrs...)
+		if rv != nil && rv.Critic == a.Id && a.Id != "" {
+			addErr("review.critic must be another agent")
+		}
+	}
+	if v, ok := fm["memory"]; ok && v != nil {
+		m, ok := v.(map[string]any)
+		if !ok {
+			addErr("memory must be a map with reads / writes")
+		} else {
+			reads, err := stringSlice(m["reads"], "memory.reads")
+			if err != nil {
+				addErr("%v", err)
+			}
+			a.Memory = &nexusv1.AgentMemory{Reads: reads, Writes: str(m["writes"])}
+		}
+	}
+
 	if v, ok := fm["version"]; ok && v != nil {
 		i, err := toInt(v)
 		if err != nil || i < 0 || i > math.MaxInt32 {
@@ -254,6 +303,56 @@ func ParseEUR(v any) (*nexusv1.Money, error) {
 	return &nexusv1.Money{Currency: "EUR", MinorUnits: int64(math.Round(f * 100))}, nil
 }
 
+// SchemaStruct checks that v (decoded YAML) is a valid JSON Schema object
+// and converts it to a Struct. The Struct is returned even when the schema
+// does not compile, so editors can show it.
+func SchemaStruct(v any) (*structpb.Struct, error) {
+	norm, err := schema.Normalize(v)
+	if err != nil {
+		return nil, err
+	}
+	m, ok := norm.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("must be a JSON Schema object (e.g. {type: object, properties: …})")
+	}
+	st, err := structpb.NewStruct(m)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := schema.Compile(m); err != nil {
+		return st, err
+	}
+	return st, nil
+}
+
+func parseReview(v any) (*nexusv1.AgentReview, []string) {
+	switch t := v.(type) {
+	case string: // `review: critic` shorthand
+		if s := strings.TrimSpace(t); s != "" {
+			return &nexusv1.AgentReview{Critic: s, Rounds: 1}, nil
+		}
+		return nil, nil
+	case map[string]any:
+		rv := &nexusv1.AgentReview{Critic: str(t["critic"]), Criteria: strings.TrimSpace(str(t["criteria"])), Rounds: 1}
+		var errs []string
+		if rv.Critic == "" {
+			errs = append(errs, "review.critic is required")
+		} else if !reID.MatchString(rv.Critic) {
+			errs = append(errs, fmt.Sprintf("review.critic: invalid agent id %q", rv.Critic))
+		}
+		if r, ok := t["rounds"]; ok && r != nil {
+			i, err := toInt(r)
+			if err != nil || i < 1 || i > 10 {
+				errs = append(errs, "review.rounds must be an integer between 1 and 10")
+			} else {
+				rv.Rounds = int32(i)
+			}
+		}
+		return rv, errs
+	}
+	return nil, []string{"review must be a map {critic, rounds, criteria}"}
+}
+
 func parseLimits(v any) (*nexusv1.AgentLimits, []string) {
 	m, ok := v.(map[string]any)
 	if !ok {
@@ -288,6 +387,27 @@ func parseLimits(v any) (*nexusv1.AgentLimits, []string) {
 				errs = append(errs, "limits.max_subtasks must be a non-negative integer")
 			}
 			lim.MaxSubtasks = int32(i)
+		case "max_depth", "max_parallel", "max_tasks", "max_runs":
+			i, err := toInt(val)
+			if err != nil || i < 0 || i > math.MaxInt32 {
+				errs = append(errs, "limits."+k+" must be a non-negative integer")
+			}
+			switch k {
+			case "max_depth":
+				lim.MaxDepth = int32(i)
+			case "max_parallel":
+				lim.MaxParallel = int32(i)
+			case "max_tasks":
+				lim.MaxTasks = int32(i)
+			case "max_runs":
+				lim.MaxRuns = int32(i)
+			}
+		case "max_tree_cost_eur", "max_tree_cost":
+			mo, err := ParseEUR(val)
+			if err != nil {
+				errs = append(errs, "limits."+k+": "+err.Error())
+			}
+			lim.MaxTreeCost = mo
 		default:
 			// Unknown limits (max_tokens…) are tolerated for forward compatibility.
 		}
@@ -394,3 +514,23 @@ func sortedKeys(m map[string]any) []string {
 	sort.Strings(keys)
 	return keys
 }
+
+// Helpers shared with the team and skill note parsers.
+
+// ValidID reports whether s is a well-formed agent/team/skill id.
+func ValidID(s string) bool { return reID.MatchString(s) }
+
+// Str returns a trimmed scalar frontmatter value ("" for maps and lists).
+func Str(v any) string { return str(v) }
+
+// StringSlice accepts a YAML list of strings or a comma-separated string.
+func StringSlice(v any, field string) ([]string, error) { return stringSlice(v, field) }
+
+// ToInt converts a YAML scalar to an integer.
+func ToInt(v any) (int64, error) { return toInt(v) }
+
+// NodeTags parses a `node:` selector.
+func NodeTags(v any) ([]string, error) { return nodeTags(v) }
+
+// SortedKeys returns the keys of m sorted.
+func SortedKeys(m map[string]any) []string { return sortedKeys(m) }

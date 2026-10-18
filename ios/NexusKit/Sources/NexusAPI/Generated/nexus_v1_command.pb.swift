@@ -103,6 +103,9 @@ public nonisolated struct Nexus_V1_Route: Sendable {
 
   public var alternatives: [String] = []
 
+  /// Set instead of agent_id when the router picked a team (teams/<id>.md).
+  public var teamID: String = String()
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
@@ -180,42 +183,50 @@ public nonisolated struct Nexus_V1_PlanResponse: Sendable {
   fileprivate var _route: Nexus_V1_Route? = nil
 }
 
-public nonisolated struct Nexus_V1_ExecuteRequest: Sendable {
+public nonisolated struct Nexus_V1_ExecuteRequest: @unchecked Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  public var input: String = String()
+  public var input: String {
+    get {_storage._input}
+    set {_uniqueStorage()._input = newValue}
+  }
 
-  public var attachments: [Nexus_V1_Attachment] = []
+  public var attachments: [Nexus_V1_Attachment] {
+    get {_storage._attachments}
+    set {_uniqueStorage()._attachments = newValue}
+  }
 
   public var context: Nexus_V1_CommandContext {
-    get {_context ?? Nexus_V1_CommandContext()}
-    set {_context = newValue}
+    get {_storage._context ?? Nexus_V1_CommandContext()}
+    set {_uniqueStorage()._context = newValue}
   }
   /// Returns true if `context` has been explicitly set.
-  public var hasContext: Bool {self._context != nil}
+  public var hasContext: Bool {_storage._context != nil}
   /// Clears the value of `context`. Subsequent reads from it will return its default value.
-  public mutating func clearContext() {self._context = nil}
+  public mutating func clearContext() {_uniqueStorage()._context = nil}
 
   /// Optional: force a route (e.g. user picked an agent in the share sheet).
   public var route: Nexus_V1_Route {
-    get {_route ?? Nexus_V1_Route()}
-    set {_route = newValue}
+    get {_storage._route ?? Nexus_V1_Route()}
+    set {_uniqueStorage()._route = newValue}
   }
   /// Returns true if `route` has been explicitly set.
-  public var hasRoute: Bool {self._route != nil}
+  public var hasRoute: Bool {_storage._route != nil}
   /// Clears the value of `route`. Subsequent reads from it will return its default value.
-  public mutating func clearRoute() {self._route = nil}
+  public mutating func clearRoute() {_uniqueStorage()._route = nil}
 
-  public var idempotencyKey: String = String()
+  public var idempotencyKey: String {
+    get {_storage._idempotencyKey}
+    set {_uniqueStorage()._idempotencyKey = newValue}
+  }
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
 
-  fileprivate var _context: Nexus_V1_CommandContext? = nil
-  fileprivate var _route: Nexus_V1_Route? = nil
+  fileprivate var _storage = _StorageClass.defaultInstance
 }
 
 public nonisolated struct Nexus_V1_ExecuteResponse: Sendable {
@@ -311,7 +322,7 @@ nonisolated extension Nexus_V1_CommandKind: SwiftProtobuf._ProtoNameProviding {
 
 nonisolated extension Nexus_V1_Route: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Route"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}kind\0\u{3}agent_id\0\u{3}workflow_id\0\u{1}tier\0\u{1}confidence\0\u{1}params\0\u{1}reason\0\u{1}alternatives\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}kind\0\u{3}agent_id\0\u{3}workflow_id\0\u{1}tier\0\u{1}confidence\0\u{1}params\0\u{1}reason\0\u{1}alternatives\0\u{3}team_id\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -327,6 +338,7 @@ nonisolated extension Nexus_V1_Route: SwiftProtobuf.Message, SwiftProtobuf._Mess
       case 6: try { try decoder.decodeSingularMessageField(value: &self._params) }()
       case 7: try { try decoder.decodeSingularStringField(value: &self.reason) }()
       case 8: try { try decoder.decodeRepeatedStringField(value: &self.alternatives) }()
+      case 9: try { try decoder.decodeSingularStringField(value: &self.teamID) }()
       default: break
       }
     }
@@ -361,6 +373,9 @@ nonisolated extension Nexus_V1_Route: SwiftProtobuf.Message, SwiftProtobuf._Mess
     if !self.alternatives.isEmpty {
       try visitor.visitRepeatedStringField(value: self.alternatives, fieldNumber: 8)
     }
+    if !self.teamID.isEmpty {
+      try visitor.visitSingularStringField(value: self.teamID, fieldNumber: 9)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -373,6 +388,7 @@ nonisolated extension Nexus_V1_Route: SwiftProtobuf.Message, SwiftProtobuf._Mess
     if lhs._params != rhs._params {return false}
     if lhs.reason != rhs.reason {return false}
     if lhs.alternatives != rhs.alternatives {return false}
+    if lhs.teamID != rhs.teamID {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -510,51 +526,95 @@ nonisolated extension Nexus_V1_ExecuteRequest: SwiftProtobuf.Message, SwiftProto
   public static let protoMessageName: String = _protobuf_package + ".ExecuteRequest"
   public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}input\0\u{1}attachments\0\u{1}context\0\u{1}route\0\u{3}idempotency_key\0")
 
+  fileprivate class _StorageClass {
+    var _input: String = String()
+    var _attachments: [Nexus_V1_Attachment] = []
+    var _context: Nexus_V1_CommandContext? = nil
+    var _route: Nexus_V1_Route? = nil
+    var _idempotencyKey: String = String()
+
+      // This property is used as the initial default value for new instances of the type.
+      // The type itself is protecting the reference to its storage via CoW semantics.
+      // This will force a copy to be made of this reference when the first mutation occurs;
+      // hence, it is safe to mark this as `nonisolated(unsafe)`.
+      static nonisolated(unsafe) let defaultInstance = _StorageClass()
+
+    private init() {}
+
+    init(copying source: _StorageClass) {
+      _input = source._input
+      _attachments = source._attachments
+      _context = source._context
+      _route = source._route
+      _idempotencyKey = source._idempotencyKey
+    }
+  }
+
+  fileprivate mutating func _uniqueStorage() -> _StorageClass {
+    if !isKnownUniquelyReferenced(&_storage) {
+      _storage = _StorageClass(copying: _storage)
+    }
+    return _storage
+  }
+
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let fieldNumber = try decoder.nextFieldNumber() {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch fieldNumber {
-      case 1: try { try decoder.decodeSingularStringField(value: &self.input) }()
-      case 2: try { try decoder.decodeRepeatedMessageField(value: &self.attachments) }()
-      case 3: try { try decoder.decodeSingularMessageField(value: &self._context) }()
-      case 4: try { try decoder.decodeSingularMessageField(value: &self._route) }()
-      case 5: try { try decoder.decodeSingularStringField(value: &self.idempotencyKey) }()
-      default: break
+    _ = _uniqueStorage()
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      while let fieldNumber = try decoder.nextFieldNumber() {
+        // The use of inline closures is to circumvent an issue where the compiler
+        // allocates stack space for every case branch when no optimizations are
+        // enabled. https://github.com/apple/swift-protobuf/issues/1034
+        switch fieldNumber {
+        case 1: try { try decoder.decodeSingularStringField(value: &_storage._input) }()
+        case 2: try { try decoder.decodeRepeatedMessageField(value: &_storage._attachments) }()
+        case 3: try { try decoder.decodeSingularMessageField(value: &_storage._context) }()
+        case 4: try { try decoder.decodeSingularMessageField(value: &_storage._route) }()
+        case 5: try { try decoder.decodeSingularStringField(value: &_storage._idempotencyKey) }()
+        default: break
+        }
       }
     }
   }
 
   public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    // The use of inline closures is to circumvent an issue where the compiler
-    // allocates stack space for every if/case branch local when no optimizations
-    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
-    // https://github.com/apple/swift-protobuf/issues/1182
-    if !self.input.isEmpty {
-      try visitor.visitSingularStringField(value: self.input, fieldNumber: 1)
-    }
-    if !self.attachments.isEmpty {
-      try visitor.visitRepeatedMessageField(value: self.attachments, fieldNumber: 2)
-    }
-    try { if let v = self._context {
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
-    } }()
-    try { if let v = self._route {
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
-    } }()
-    if !self.idempotencyKey.isEmpty {
-      try visitor.visitSingularStringField(value: self.idempotencyKey, fieldNumber: 5)
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every if/case branch local when no optimizations
+      // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+      // https://github.com/apple/swift-protobuf/issues/1182
+      if !_storage._input.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._input, fieldNumber: 1)
+      }
+      if !_storage._attachments.isEmpty {
+        try visitor.visitRepeatedMessageField(value: _storage._attachments, fieldNumber: 2)
+      }
+      try { if let v = _storage._context {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
+      } }()
+      try { if let v = _storage._route {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
+      } }()
+      if !_storage._idempotencyKey.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._idempotencyKey, fieldNumber: 5)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   public static func ==(lhs: Nexus_V1_ExecuteRequest, rhs: Nexus_V1_ExecuteRequest) -> Bool {
-    if lhs.input != rhs.input {return false}
-    if lhs.attachments != rhs.attachments {return false}
-    if lhs._context != rhs._context {return false}
-    if lhs._route != rhs._route {return false}
-    if lhs.idempotencyKey != rhs.idempotencyKey {return false}
+    if lhs._storage !== rhs._storage {
+      let storagesAreEqual: Bool = withExtendedLifetime((lhs._storage, rhs._storage)) { (_args: (_StorageClass, _StorageClass)) in
+        let _storage = _args.0
+        let rhs_storage = _args.1
+        if _storage._input != rhs_storage._input {return false}
+        if _storage._attachments != rhs_storage._attachments {return false}
+        if _storage._context != rhs_storage._context {return false}
+        if _storage._route != rhs_storage._route {return false}
+        if _storage._idempotencyKey != rhs_storage._idempotencyKey {return false}
+        return true
+      }
+      if !storagesAreEqual {return false}
+    }
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

@@ -43,6 +43,8 @@ type Module struct {
 	cfg     Config
 	V       *Vault
 	Catalog *Catalog
+	Skills  *SkillCatalog
+	Teams   *TeamCatalog
 
 	stopWatch func()
 	cancel    context.CancelFunc
@@ -91,17 +93,39 @@ func (m *Module) Init(ctx context.Context, h kernel.Host) error {
 		l, err := kernel.Resolve[kernel.LLM](h, kernel.SvcLLM)
 		return l, err == nil
 	}
+	skills, err := NewSkillCatalog(ctx, v)
+	if err != nil {
+		v.Close()
+		return err
+	}
 	cat, err := NewCatalog(ctx, v)
 	if err != nil {
 		v.Close()
 		return err
 	}
-	m.V, m.Catalog = v, cat
+	cat.Skills = skills
+	if err := cat.Reload(ctx); err != nil { // with skill warnings
+		v.Close()
+		return err
+	}
+	v.OnChange(func(paths []string) {
+		if paths != nil && touches(paths, SkillsDir) {
+			_ = cat.Reload(context.Background())
+		}
+	})
+	teams, err := NewTeamCatalog(ctx, v, cat)
+	if err != nil {
+		v.Close()
+		return err
+	}
+	m.V, m.Catalog, m.Skills, m.Teams = v, cat, skills, teams
 
 	h.Provide(kernel.SvcVault, kernel.Vault(v))
 	h.Provide(kernel.SvcAgents, kernel.AgentCatalog(cat))
+	h.Provide(kernel.SvcSkills, kernel.SkillCatalog(skills))
+	h.Provide(kernel.SvcTeams, kernel.TeamCatalog(teams))
 	h.Handle(nexusv1connect.NewVaultServiceHandler(VaultHandler{V: v}))
-	h.Handle(nexusv1connect.NewAgentServiceHandler(AgentHandler{C: cat}))
+	h.Handle(nexusv1connect.NewAgentServiceHandler(AgentHandler{C: cat, S: skills}))
 	for _, t := range Tools(v) {
 		if err := h.Tools().Register(t); err != nil {
 			return err

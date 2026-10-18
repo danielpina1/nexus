@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package nexus.v1;
 
+import "google/protobuf/struct.proto";
 import "nexus/v1/common.proto";
 
 // Agent is the parsed form of an agent note (vault agents/*.md).
@@ -22,14 +23,65 @@ message Agent {
   bool enabled = 14;
   // Validation errors when the note could not be loaded.
   repeated string errors = 15;
+  // Skill ids (vault skills/<id>.md). Their instructions are appended to the
+  // agent's and their tools merged into its allow-list at assignment time.
+  repeated string skills = 16;
+  // JSON Schema of the structured input params (CreateTaskRequest.params /
+  // team.delegate inputs). Tasks whose params do not match fail.
+  google.protobuf.Struct input_schema = 17;
+  // JSON Schema of the structured result. The runtime is told to answer with
+  // matching JSON; the hub validates it (one automatic repair run), and
+  // stores it in Task.result.
+  google.protobuf.Struct output_schema = 18;
+  // Reflection loop: a critic agent reviews the result before it is final.
+  AgentReview review = 19;
+  // Context injected into every run (vault notes / folders / searches).
+  AgentMemory memory = 20;
+  // Non-fatal problems (e.g. an unknown skill or critic); the agent stays enabled.
+  repeated string warnings = 21;
 }
 
-// AgentLimits bounds a single run.
+// AgentReview configures the reflection loop (docs/SWARMS.md).
+message AgentReview {
+  string critic = 1; // critic agent id
+  int32 rounds = 2; // max review rounds (default 1)
+  string criteria = 3; // what the critic checks
+}
+
+// AgentMemory is the agent note's `memory:` block.
+message AgentMemory {
+  // "[[Note title]]", "folder/", "search: query" or a note path / id.
+  repeated string reads = 1;
+  string writes = 2;
+}
+
+// Skill is a reusable capability note (vault skills/<id>.md).
+message Skill {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  // Tools the skill needs; merged into the agent's allow-list.
+  repeated string tools = 4;
+  // The note body: appended to the agent's instructions.
+  string instructions = 5;
+  NoteRef note = 6;
+  bool enabled = 7;
+  repeated string errors = 8;
+  int32 version = 9;
+}
+
+// AgentLimits bounds a single run (1-4) and, when the agent's task is the
+// root of a task tree, the whole tree (5-9; enforced by the hub).
 message AgentLimits {
   int64 max_runtime_seconds = 1;
-  Money max_cost = 2;
-  Money max_spend = 3;
-  int32 max_subtasks = 4;
+  Money max_cost = 2; // LLM spend per run
+  Money max_spend = 3; // real-world money per run
+  int32 max_subtasks = 4; // direct sub-tasks per task
+  int32 max_depth = 5; // max sub-task depth of the tree
+  int32 max_parallel = 6; // max sub-tasks active at once (others wait queued)
+  int32 max_tasks = 7; // max tasks in the tree (root included)
+  Money max_tree_cost = 8; // LLM spend of the whole tree
+  int32 max_runs = 9; // max runs in the tree (retries, repairs, reviews included)
 }
 
 // AgentService lists and edits agents. Writes go through the vault (git) and are policy-checked.
@@ -38,6 +90,10 @@ service AgentService {
   rpc GetAgent(GetAgentRequest) returns (GetAgentResponse);
   // UpsertAgent writes the agent note (raw Markdown) and returns the parsed agent.
   rpc UpsertAgent(UpsertAgentRequest) returns (UpsertAgentResponse);
+  // Skills (vault skills/*.md).
+  rpc ListSkills(ListSkillsRequest) returns (ListSkillsResponse);
+  rpc GetSkill(GetSkillRequest) returns (GetSkillResponse);
+  rpc UpsertSkill(UpsertSkillRequest) returns (UpsertSkillResponse);
 }
 
 message ListAgentsRequest {
@@ -64,4 +120,30 @@ message UpsertAgentRequest {
 
 message UpsertAgentResponse {
   Agent agent = 1;
+}
+
+message ListSkillsRequest {
+  bool include_disabled = 1;
+}
+
+message ListSkillsResponse {
+  repeated Skill skills = 1;
+}
+
+message GetSkillRequest {
+  string id = 1;
+}
+
+message GetSkillResponse {
+  Skill skill = 1;
+  string markdown = 2;
+}
+
+message UpsertSkillRequest {
+  string markdown = 1;
+  string commit_message = 2;
+}
+
+message UpsertSkillResponse {
+  Skill skill = 1;
 }

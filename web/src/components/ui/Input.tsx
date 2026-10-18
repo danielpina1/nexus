@@ -2,7 +2,7 @@ import { forwardRef, type InputHTMLAttributes, type TextareaHTMLAttributes } fro
 import { cx } from "../../lib/format";
 
 const base =
-  "w-full rounded-lg border border-border bg-surface px-3 text-[13px] text-fg placeholder:text-muted outline-none transition-shadow focus:border-accent/60 focus:ring-3 focus:ring-[var(--ring)]";
+  "w-full rounded-lg border border-border bg-surface px-3 text-fg placeholder:text-muted outline-none transition-shadow focus:border-accent/60 focus:ring-3 focus:ring-ring/20 text-base sm:text-[13px]";
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input({ className, ...rest }, ref) {
   return <input ref={ref} className={cx(base, "h-9", className)} {...rest} />;

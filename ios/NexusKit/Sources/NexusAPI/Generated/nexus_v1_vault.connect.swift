@@ -36,6 +36,111 @@ public protocol Nexus_V1_VaultServiceClientInterface: Sendable {
 
     @available(iOS 13, *)
     func `reviewFact`(request: Nexus_V1_ReviewFactRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_ReviewFactResponse>
+
+    /// --- Versioning and undo -------------------------------------------------
+    /// History lists the versions of a note, newest first (git log, or the
+    /// local snapshot store when the vault is not a git repo).
+    @available(iOS 13, *)
+    func `history`(request: Nexus_V1_HistoryRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_HistoryResponse>
+
+    /// GetVersion returns the Markdown of a note at a version.
+    @available(iOS 13, *)
+    func `getVersion`(request: Nexus_V1_GetVersionRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_GetVersionResponse>
+
+    /// RestoreVersion writes an old version back as a new change.
+    @available(iOS 13, *)
+    func `restoreVersion`(request: Nexus_V1_RestoreVersionRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_RestoreVersionResponse>
+
+    /// DeleteNote moves a note (or attachment) to the vault trash (.trash/).
+    @available(iOS 13, *)
+    func `deleteNote`(request: Nexus_V1_DeleteNoteRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_DeleteNoteResponse>
+
+    @available(iOS 13, *)
+    func `listTrash`(request: Nexus_V1_ListTrashRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_ListTrashResponse>
+
+    @available(iOS 13, *)
+    func `restoreFromTrash`(request: Nexus_V1_RestoreFromTrashRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_RestoreFromTrashResponse>
+
+    /// PurgeTrash permanently deletes trash items (one id, or older than N days).
+    @available(iOS 13, *)
+    func `purgeTrash`(request: Nexus_V1_PurgeTrashRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_PurgeTrashResponse>
+
+    /// --- Refactoring -----------------------------------------------------------
+    /// RenameNote moves a note and rewrites every link to it.
+    @available(iOS 13, *)
+    func `renameNote`(request: Nexus_V1_RenameNoteRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_RenameNoteResponse>
+
+    /// MergeNotes appends source into target, redirects links, trashes source.
+    @available(iOS 13, *)
+    func `mergeNotes`(request: Nexus_V1_MergeNotesRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_MergeNotesResponse>
+
+    /// SplitNote moves each section at a heading level into its own note.
+    @available(iOS 13, *)
+    func `splitNote`(request: Nexus_V1_SplitNoteRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_SplitNoteResponse>
+
+    /// --- Queries, search and graph analytics ----------------------------------
+    /// Query runs the vault query language, e.g.
+    /// `type:person tag:work updated:>2026-09-01 links:[[ACME]] sort:-updated limit:20`.
+    @available(iOS 13, *)
+    func `query`(request: Nexus_V1_QueryRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_QueryResponse>
+
+    /// Related returns notes related to a note (shared links + embeddings).
+    @available(iOS 13, *)
+    func `related`(request: Nexus_V1_RelatedRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_RelatedResponse>
+
+    /// Backlinks returns linking notes with context lines and unlinked mentions.
+    @available(iOS 13, *)
+    func `backlinks`(request: Nexus_V1_BacklinksRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_BacklinksResponse>
+
+    /// GraphStats returns orphans, hubs and totals.
+    @available(iOS 13, *)
+    func `graphStats`(request: Nexus_V1_GraphStatsRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_GraphStatsResponse>
+
+    /// --- Tasks in notes ---------------------------------------------------------
+    @available(iOS 13, *)
+    func `listNoteTasks`(request: Nexus_V1_ListNoteTasksRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_ListNoteTasksResponse>
+
+    @available(iOS 13, *)
+    func `toggleTask`(request: Nexus_V1_ToggleTaskRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_ToggleTaskResponse>
+
+    /// --- Templates and periodic notes ------------------------------------------
+    @available(iOS 13, *)
+    func `listTemplates`(request: Nexus_V1_ListTemplatesRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_ListTemplatesResponse>
+
+    @available(iOS 13, *)
+    func `newFromTemplate`(request: Nexus_V1_NewFromTemplateRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_NewFromTemplateResponse>
+
+    /// PeriodicNote returns (creating when asked) the daily/weekly/monthly note.
+    @available(iOS 13, *)
+    func `periodicNote`(request: Nexus_V1_PeriodicNoteRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_PeriodicNoteResponse>
+
+    /// --- Integrity and backups -----------------------------------------------------
+    @available(iOS 13, *)
+    func `check`(request: Nexus_V1_CheckRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_CheckResponse>
+
+    @available(iOS 13, *)
+    func `repair`(request: Nexus_V1_RepairRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_RepairResponse>
+
+    @available(iOS 13, *)
+    func `backup`(request: Nexus_V1_BackupRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_BackupResponse>
+
+    @available(iOS 13, *)
+    func `listBackups`(request: Nexus_V1_ListBackupsRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_ListBackupsResponse>
+
+    @available(iOS 13, *)
+    func `verifyBackup`(request: Nexus_V1_VerifyBackupRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_VerifyBackupResponse>
+
+    /// --- Change feed, attachments, import ------------------------------------------
+    /// WatchVault streams note changes (created/updated/deleted/renamed).
+    @available(iOS 13, *)
+    func `watchVault`(headers: Connect.Headers) -> any Connect.ServerOnlyAsyncStreamInterface<Nexus_V1_WatchVaultRequest, Nexus_V1_WatchVaultResponse>
+
+    @available(iOS 13, *)
+    func `listAttachments`(request: Nexus_V1_ListAttachmentsRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_ListAttachmentsResponse>
+
+    /// ImportNotes imports an Obsidian vault or a Markdown folder on the hub's disk.
+    @available(iOS 13, *)
+    func `importNotes`(request: Nexus_V1_ImportNotesRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_ImportNotesResponse>
 }
 
 /// Concrete implementation of `Nexus_V1_VaultServiceClientInterface`.
@@ -86,6 +191,141 @@ public final class Nexus_V1_VaultServiceClient: Nexus_V1_VaultServiceClientInter
         return await self.client.unary(path: "/nexus.v1.VaultService/ReviewFact", idempotencyLevel: .unknown, request: request, headers: headers)
     }
 
+    @available(iOS 13, *)
+    public func `history`(request: Nexus_V1_HistoryRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_HistoryResponse> {
+        return await self.client.unary(path: "/nexus.v1.VaultService/History", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `getVersion`(request: Nexus_V1_GetVersionRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_GetVersionResponse> {
+        return await self.client.unary(path: "/nexus.v1.VaultService/GetVersion", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `restoreVersion`(request: Nexus_V1_RestoreVersionRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_RestoreVersionResponse> {
+        return await self.client.unary(path: "/nexus.v1.VaultService/RestoreVersion", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `deleteNote`(request: Nexus_V1_DeleteNoteRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_DeleteNoteResponse> {
+        return await self.client.unary(path: "/nexus.v1.VaultService/DeleteNote", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `listTrash`(request: Nexus_V1_ListTrashRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_ListTrashResponse> {
+        return await self.client.unary(path: "/nexus.v1.VaultService/ListTrash", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `restoreFromTrash`(request: Nexus_V1_RestoreFromTrashRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_RestoreFromTrashResponse> {
+        return await self.client.unary(path: "/nexus.v1.VaultService/RestoreFromTrash", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `purgeTrash`(request: Nexus_V1_PurgeTrashRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_PurgeTrashResponse> {
+        return await self.client.unary(path: "/nexus.v1.VaultService/PurgeTrash", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `renameNote`(request: Nexus_V1_RenameNoteRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_RenameNoteResponse> {
+        return await self.client.unary(path: "/nexus.v1.VaultService/RenameNote", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `mergeNotes`(request: Nexus_V1_MergeNotesRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_MergeNotesResponse> {
+        return await self.client.unary(path: "/nexus.v1.VaultService/MergeNotes", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `splitNote`(request: Nexus_V1_SplitNoteRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_SplitNoteResponse> {
+        return await self.client.unary(path: "/nexus.v1.VaultService/SplitNote", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `query`(request: Nexus_V1_QueryRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_QueryResponse> {
+        return await self.client.unary(path: "/nexus.v1.VaultService/Query", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `related`(request: Nexus_V1_RelatedRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_RelatedResponse> {
+        return await self.client.unary(path: "/nexus.v1.VaultService/Related", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `backlinks`(request: Nexus_V1_BacklinksRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_BacklinksResponse> {
+        return await self.client.unary(path: "/nexus.v1.VaultService/Backlinks", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `graphStats`(request: Nexus_V1_GraphStatsRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_GraphStatsResponse> {
+        return await self.client.unary(path: "/nexus.v1.VaultService/GraphStats", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `listNoteTasks`(request: Nexus_V1_ListNoteTasksRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_ListNoteTasksResponse> {
+        return await self.client.unary(path: "/nexus.v1.VaultService/ListNoteTasks", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `toggleTask`(request: Nexus_V1_ToggleTaskRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_ToggleTaskResponse> {
+        return await self.client.unary(path: "/nexus.v1.VaultService/ToggleTask", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `listTemplates`(request: Nexus_V1_ListTemplatesRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_ListTemplatesResponse> {
+        return await self.client.unary(path: "/nexus.v1.VaultService/ListTemplates", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `newFromTemplate`(request: Nexus_V1_NewFromTemplateRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_NewFromTemplateResponse> {
+        return await self.client.unary(path: "/nexus.v1.VaultService/NewFromTemplate", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `periodicNote`(request: Nexus_V1_PeriodicNoteRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_PeriodicNoteResponse> {
+        return await self.client.unary(path: "/nexus.v1.VaultService/PeriodicNote", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `check`(request: Nexus_V1_CheckRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_CheckResponse> {
+        return await self.client.unary(path: "/nexus.v1.VaultService/Check", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `repair`(request: Nexus_V1_RepairRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_RepairResponse> {
+        return await self.client.unary(path: "/nexus.v1.VaultService/Repair", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `backup`(request: Nexus_V1_BackupRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_BackupResponse> {
+        return await self.client.unary(path: "/nexus.v1.VaultService/Backup", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `listBackups`(request: Nexus_V1_ListBackupsRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_ListBackupsResponse> {
+        return await self.client.unary(path: "/nexus.v1.VaultService/ListBackups", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `verifyBackup`(request: Nexus_V1_VerifyBackupRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_VerifyBackupResponse> {
+        return await self.client.unary(path: "/nexus.v1.VaultService/VerifyBackup", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `watchVault`(headers: Connect.Headers = [:]) -> any Connect.ServerOnlyAsyncStreamInterface<Nexus_V1_WatchVaultRequest, Nexus_V1_WatchVaultResponse> {
+        return self.client.serverOnlyStream(path: "/nexus.v1.VaultService/WatchVault", headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `listAttachments`(request: Nexus_V1_ListAttachmentsRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_ListAttachmentsResponse> {
+        return await self.client.unary(path: "/nexus.v1.VaultService/ListAttachments", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `importNotes`(request: Nexus_V1_ImportNotesRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_ImportNotesResponse> {
+        return await self.client.unary(path: "/nexus.v1.VaultService/ImportNotes", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
     public enum Metadata {
         public enum Methods {
             public static let search = Connect.MethodSpec(name: "Search", service: "nexus.v1.VaultService", type: .unary)
@@ -96,6 +336,33 @@ public final class Nexus_V1_VaultServiceClient: Nexus_V1_VaultServiceClientInter
             public static let graph = Connect.MethodSpec(name: "Graph", service: "nexus.v1.VaultService", type: .unary)
             public static let listFacts = Connect.MethodSpec(name: "ListFacts", service: "nexus.v1.VaultService", type: .unary)
             public static let reviewFact = Connect.MethodSpec(name: "ReviewFact", service: "nexus.v1.VaultService", type: .unary)
+            public static let history = Connect.MethodSpec(name: "History", service: "nexus.v1.VaultService", type: .unary)
+            public static let getVersion = Connect.MethodSpec(name: "GetVersion", service: "nexus.v1.VaultService", type: .unary)
+            public static let restoreVersion = Connect.MethodSpec(name: "RestoreVersion", service: "nexus.v1.VaultService", type: .unary)
+            public static let deleteNote = Connect.MethodSpec(name: "DeleteNote", service: "nexus.v1.VaultService", type: .unary)
+            public static let listTrash = Connect.MethodSpec(name: "ListTrash", service: "nexus.v1.VaultService", type: .unary)
+            public static let restoreFromTrash = Connect.MethodSpec(name: "RestoreFromTrash", service: "nexus.v1.VaultService", type: .unary)
+            public static let purgeTrash = Connect.MethodSpec(name: "PurgeTrash", service: "nexus.v1.VaultService", type: .unary)
+            public static let renameNote = Connect.MethodSpec(name: "RenameNote", service: "nexus.v1.VaultService", type: .unary)
+            public static let mergeNotes = Connect.MethodSpec(name: "MergeNotes", service: "nexus.v1.VaultService", type: .unary)
+            public static let splitNote = Connect.MethodSpec(name: "SplitNote", service: "nexus.v1.VaultService", type: .unary)
+            public static let query = Connect.MethodSpec(name: "Query", service: "nexus.v1.VaultService", type: .unary)
+            public static let related = Connect.MethodSpec(name: "Related", service: "nexus.v1.VaultService", type: .unary)
+            public static let backlinks = Connect.MethodSpec(name: "Backlinks", service: "nexus.v1.VaultService", type: .unary)
+            public static let graphStats = Connect.MethodSpec(name: "GraphStats", service: "nexus.v1.VaultService", type: .unary)
+            public static let listNoteTasks = Connect.MethodSpec(name: "ListNoteTasks", service: "nexus.v1.VaultService", type: .unary)
+            public static let toggleTask = Connect.MethodSpec(name: "ToggleTask", service: "nexus.v1.VaultService", type: .unary)
+            public static let listTemplates = Connect.MethodSpec(name: "ListTemplates", service: "nexus.v1.VaultService", type: .unary)
+            public static let newFromTemplate = Connect.MethodSpec(name: "NewFromTemplate", service: "nexus.v1.VaultService", type: .unary)
+            public static let periodicNote = Connect.MethodSpec(name: "PeriodicNote", service: "nexus.v1.VaultService", type: .unary)
+            public static let check = Connect.MethodSpec(name: "Check", service: "nexus.v1.VaultService", type: .unary)
+            public static let repair = Connect.MethodSpec(name: "Repair", service: "nexus.v1.VaultService", type: .unary)
+            public static let backup = Connect.MethodSpec(name: "Backup", service: "nexus.v1.VaultService", type: .unary)
+            public static let listBackups = Connect.MethodSpec(name: "ListBackups", service: "nexus.v1.VaultService", type: .unary)
+            public static let verifyBackup = Connect.MethodSpec(name: "VerifyBackup", service: "nexus.v1.VaultService", type: .unary)
+            public static let watchVault = Connect.MethodSpec(name: "WatchVault", service: "nexus.v1.VaultService", type: .serverStream)
+            public static let listAttachments = Connect.MethodSpec(name: "ListAttachments", service: "nexus.v1.VaultService", type: .unary)
+            public static let importNotes = Connect.MethodSpec(name: "ImportNotes", service: "nexus.v1.VaultService", type: .unary)
         }
     }
 }

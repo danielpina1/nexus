@@ -60,6 +60,7 @@ func TestGrocery(t *testing.T) {
 		Note:    &nexusv1.NoteRef{Id: "grocery-continente", Path: "agents/grocery-continente.md", Title: "Grocery (Continente)"},
 		Version: 2,
 		Enabled: true,
+		Memory:  &nexusv1.AgentMemory{Reads: []string{"[[Shopping preferences]]", "products/"}, Writes: "episodes/shopping/"},
 	}
 	if !proto.Equal(a, want) {
 		t.Fatalf("got  %v\nwant %v", a, want)
@@ -193,5 +194,65 @@ func TestRuntimeAutoAndList(t *testing.T) {
 				t.Fatalf("runtime %q errors %v enabled %v", a.Runtime, a.Errors, a.Enabled)
 			}
 		})
+	}
+}
+
+func TestComplexAgentFields(t *testing.T) {
+	src := `---
+type: agent
+id: analyst
+description: Analyses things.
+runtime: auto
+skills: [web-research, critique]
+inputs:
+  type: object
+  required: [topic]
+  properties: {topic: {type: string}}
+output:
+  type: object
+  required: [verdict]
+  properties: {verdict: {type: string, enum: [yes, no]}, reasons: {type: array, items: {type: string}}}
+review: {critic: critic, rounds: 2, criteria: "Every claim has a source."}
+limits: {max_depth: 3, max_parallel: 2, max_tasks: 10, max_runs: 20, max_tree_cost_eur: 2.5}
+---
+Body`
+	a, _ := Parse("agents/analyst.md", []byte(src))
+	if len(a.Errors) > 0 {
+		t.Fatalf("errors: %v", a.Errors)
+	}
+	if got := a.Skills; len(got) != 2 || got[0] != "web-research" {
+		t.Fatalf("skills = %v", got)
+	}
+	if a.InputSchema.GetFields()["type"].GetStringValue() != "object" {
+		t.Fatalf("input schema = %v", a.InputSchema)
+	}
+	if req := a.OutputSchema.GetFields()["required"].GetListValue().GetValues(); len(req) != 1 {
+		t.Fatalf("output schema = %v", a.OutputSchema)
+	}
+	if r := a.Review; r.GetCritic() != "critic" || r.GetRounds() != 2 || r.GetCriteria() == "" {
+		t.Fatalf("review = %v", r)
+	}
+	l := a.Limits
+	if l.MaxDepth != 3 || l.MaxParallel != 2 || l.MaxTasks != 10 || l.MaxRuns != 20 || l.MaxTreeCost.GetMinorUnits() != 250 {
+		t.Fatalf("limits = %v", l)
+	}
+}
+
+func TestComplexAgentFieldErrors(t *testing.T) {
+	cases := map[string]string{
+		"bad output schema": "output: {type: 7}",
+		"output not a map":  "output: [a]",
+		"review no critic":  "review: {rounds: 2}",
+		"review self":       "review: {critic: x}",
+		"review rounds":     "review: {critic: c, rounds: 99}",
+		"bad skill":         "skills: [\"Bad Skill\"]",
+		"bad limit":         "limits: {max_parallel: -1}",
+	}
+	for name, extra := range cases {
+		src := "---\nid: x\ndescription: d\nruntime: shell\n" + extra + "\n---\n"
+		a, _ := Parse("agents/x.md", []byte(src))
+		if len(a.Errors) == 0 || a.Enabled {
+			t.Errorf("%s: expected an error, got %v", name, a)
+		}
 	}
 }

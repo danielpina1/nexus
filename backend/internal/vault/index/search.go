@@ -41,7 +41,7 @@ const (
 // contains the query ×1.5, all terms in title ×1.25, updated in the last
 // 7 days ×1.2 (30 days ×1.1). All terms must match (prefix match on the last
 // term); if that finds nothing, any term may match. When a VectorSearcher is
-// configured, its hits are fused in (0.6 text + 0.4 vector, normalised).
+// configured, its hits are fused in with reciprocal rank fusion (see fuse).
 // An empty query returns the most recently updated notes.
 func (ix *Index) Search(ctx context.Context, q Query) ([]Hit, error) {
 	limit := q.Limit
@@ -112,13 +112,13 @@ func (ix *Index) Search(ctx context.Context, q Query) ([]Hit, error) {
 }
 
 func (ix *Index) fts(ctx context.Context, match string, q Query, fetch int) ([]Hit, error) {
-	sqlq := `SELECT n.path, n.id, n.type, n.title, n.aliases, n.tags, n.hash, n.updated,
+	sqlq := `SELECT ` + entryColsN + `,
 		bm25(notes_fts, 10.0, 6.0, 1.0, 4.0), snippet(notes_fts, 2, ?, ?, '…', 16)
 		FROM notes_fts JOIN notes n ON n.rowid = notes_fts.rowid
 		WHERE notes_fts MATCH ?`
 	args := []any{HighlightStart, HighlightEnd, match}
 	sqlq, args = filters(sqlq, args, q)
-	sqlq += ` ORDER BY 9 LIMIT ?`
+	sqlq += ` ORDER BY 12 LIMIT ?`
 	args = append(args, fetch)
 	rows, err := ix.db.QueryContext(ctx, sqlq, args...)
 	if err != nil {
@@ -128,15 +128,12 @@ func (ix *Index) fts(ctx context.Context, match string, q Query, fetch int) ([]H
 	var out []Hit
 	for rows.Next() {
 		var h Hit
-		var e Entry
-		var aliases, tags string
-		var updated int64
 		var rank float64
-		if err := rows.Scan(&e.Path, &e.ID, &e.Type, &e.Title, &aliases, &tags, &e.Hash, &updated, &rank, &h.Snippet); err != nil {
+		e, err := scanEntry(rows, &rank, &h.Snippet)
+		if err != nil {
 			return nil, err
 		}
-		fill(&e, aliases, tags, updated)
-		h.Entry = &e
+		h.Entry = e
 		h.Score = -rank // bm25 is lower-is-better
 		if h.Score <= 0 {
 			h.Score = 1e-6
@@ -164,7 +161,7 @@ func filters(sqlq string, args []any, q Query) (string, []any) {
 }
 
 func (ix *Index) recent(ctx context.Context, q Query, limit int) ([]Hit, error) {
-	sqlq := `SELECT n.path, n.id, n.type, n.title, n.aliases, n.tags, n.hash, n.updated, substr(f.body, 1, 200)
+	sqlq := `SELECT ` + entryColsN + `, substr(f.body, 1, 200)
 		FROM notes n JOIN notes_fts f ON f.rowid = n.rowid WHERE 1=1`
 	sqlq, args := filters(sqlq, nil, q)
 	sqlq += ` ORDER BY n.updated DESC, n.path LIMIT ?`
@@ -176,41 +173,75 @@ func (ix *Index) recent(ctx context.Context, q Query, limit int) ([]Hit, error) 
 	defer rows.Close()
 	var out []Hit
 	for rows.Next() {
-		var e Entry
-		var aliases, tags, body string
-		var updated int64
-		if err := rows.Scan(&e.Path, &e.ID, &e.Type, &e.Title, &aliases, &tags, &e.Hash, &updated, &body); err != nil {
+		var body string
+		e, err := scanEntry(rows, &body)
+		if err != nil {
 			return nil, err
 		}
-		fill(&e, aliases, tags, updated)
-		out = append(out, Hit{Entry: &e, Snippet: cleanSnippet(body, e.Title), Score: 0})
+		out = append(out, Hit{Entry: e, Snippet: cleanSnippet(body, e.Title), Score: 0})
 	}
 	return out, rows.Err()
 }
 
+// rrfK is the reciprocal-rank-fusion constant (Cormack et al. use 60).
+const rrfK = 60.0
+
+// fuse merges full-text and vector hits with reciprocal rank fusion:
+// score = Σ 1/(rrfK + rank) over the lists a note appears in, normalised to
+// [0,1]. Weak vector matches (more than 0.25 below the best one) are dropped
+// so semantic search adds candidates without flooding the results.
 func (ix *Index) fuse(ctx context.Context, hits []Hit, vec VectorSearcher, q Query, fetch int) []Hit {
 	vhits, err := vec.SearchVectors(ctx, q.Text, fetch)
 	if err != nil || len(vhits) == 0 {
 		return hits
 	}
+	best := vhits[0].Score
+	cut := math.Max(0.25, best-0.25)
 	byPath := map[string]int{}
+	fused := make([]float64, len(hits))
 	for i := range hits {
-		hits[i].Score *= 0.6
+		fused[i] = 1 / (rrfK + float64(i+1))
 		byPath[hits[i].Entry.Path] = i
 	}
+	rank := 0
 	for _, v := range vhits {
+		if v.Score < cut {
+			break
+		}
+		rank++
+		r := 1 / (rrfK + float64(rank))
 		if i, ok := byPath[v.Path]; ok {
-			hits[i].Score += 0.4 * v.Score
+			fused[i] += r
 			continue
 		}
 		e, ok := ix.Get(ctx, v.Path)
 		if !ok || !typeMatch(e.Type, q.Types) || (!q.Since.IsZero() && e.Updated.Before(q.Since)) {
 			continue
 		}
+		snippet := v.Text
+		if ix.isPrivate(e.Path) {
+			snippet = ""
+		}
 		byPath[v.Path] = len(hits)
-		hits = append(hits, Hit{Entry: e, Snippet: cleanSnippet(v.Text, e.Title), Score: 0.4 * v.Score})
+		hits = append(hits, Hit{Entry: e, Snippet: cleanSnippet(truncateRunes(snippet, 240), e.Title)})
+		fused = append(fused, r)
+	}
+	maxF := 0.0
+	for _, f := range fused {
+		maxF = math.Max(maxF, f)
+	}
+	for i := range hits {
+		hits[i].Score = fused[i] / maxF
 	}
 	return hits
+}
+
+func truncateRunes(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n]) + "…"
 }
 
 func typeMatch(t string, types []string) bool {

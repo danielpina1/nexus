@@ -38,6 +38,14 @@ message Approval {
   // recomputes action hash from it (what you see is what you sign).
   SealedEnvelope sealed_preview = 16;
   string node_id = 17;
+  // Grouping metadata for task trees and teams: the root of the task's
+  // tree, the team and the member role. Clients group approvals with the
+  // same root_task_id; `bundle` is set when the team asks for bundled
+  // approvals (one card listing all pending items of the run).
+  string root_task_id = 18;
+  string team_id = 19;
+  string role = 20;
+  bool bundle = 21;
 }
 
 // ApprovalService lists and decides approvals.

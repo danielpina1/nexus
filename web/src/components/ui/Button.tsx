@@ -13,19 +13,20 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variants: Record<Variant, string> = {
-  primary: "bg-accent text-accent-fg hover:brightness-110 shadow-card",
-  secondary: "bg-surface-2 text-fg hover:bg-surface-3 border border-border",
+  primary: "bg-primary text-primary-fg hover:opacity-90",
+  secondary: "bg-surface text-fg hover:bg-surface-2 border border-border shadow-card",
   outline: "border border-border-strong text-fg hover:bg-surface-2",
   ghost: "text-fg-2 hover:bg-surface-2 hover:text-fg",
-  danger: "bg-danger text-white hover:brightness-110 shadow-card",
-  success: "bg-ok text-white hover:brightness-110 shadow-card dark:text-bg",
+  danger: "bg-danger text-white hover:opacity-90",
+  success: "bg-ok text-white hover:opacity-90 dark:text-bg",
 };
 
 const sizes: Record<Size, string> = {
-  xs: "h-7 px-2 text-xs gap-1 rounded-md",
-  sm: "h-8 px-3 text-[13px] gap-1.5 rounded-lg",
-  md: "h-9 px-4 text-sm gap-2 rounded-lg",
-  icon: "h-8 w-8 rounded-lg justify-center",
+  // Touch screens get ≥ 44 px targets (UI UX Pro Max: touch-target-size).
+  xs: "h-7 px-2 text-xs gap-1 rounded-md pointer-coarse:h-10 pointer-coarse:px-3",
+  sm: "h-8 px-3 text-[13px] gap-1.5 rounded-lg pointer-coarse:h-11",
+  md: "h-9 px-4 text-sm gap-2 rounded-lg pointer-coarse:h-11",
+  icon: "h-8 w-8 rounded-lg justify-center pointer-coarse:size-11",
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
@@ -37,7 +38,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ref={ref}
       disabled={disabled || loading}
       className={cx(
-        "inline-flex shrink-0 items-center font-medium whitespace-nowrap transition-[background,filter,color] duration-100 select-none",
+        "inline-flex shrink-0 items-center font-medium whitespace-nowrap transition-[background,opacity,color,transform] duration-100 select-none active:scale-[0.98]",
         "disabled:pointer-events-none disabled:opacity-50",
         variants[variant],
         sizes[size],

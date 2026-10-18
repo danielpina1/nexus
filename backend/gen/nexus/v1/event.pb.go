@@ -23,6 +23,88 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type TeamEventKind int32
+
+const (
+	TeamEventKind_TEAM_EVENT_KIND_UNSPECIFIED        TeamEventKind = 0
+	TeamEventKind_TEAM_EVENT_KIND_STARTED            TeamEventKind = 1  // team run started (task_id = root)
+	TeamEventKind_TEAM_EVENT_KIND_DELEGATED          TeamEventKind = 2  // a member task was created (task_id = child)
+	TeamEventKind_TEAM_EVENT_KIND_SPAWNED            TeamEventKind = 3  // an ephemeral specialist was created
+	TeamEventKind_TEAM_EVENT_KIND_MEMBER_FINISHED    TeamEventKind = 4  // a member task ended (data.state)
+	TeamEventKind_TEAM_EVENT_KIND_BLACKBOARD_UPDATED TeamEventKind = 5  // key, data.value
+	TeamEventKind_TEAM_EVENT_KIND_MESSAGE_SENT       TeamEventKind = 6  // text, data.to, data.delivered_to
+	TeamEventKind_TEAM_EVENT_KIND_REPORTED           TeamEventKind = 7  // a member reported a structured result
+	TeamEventKind_TEAM_EVENT_KIND_AWAITING           TeamEventKind = 8  // the orchestrator waits for data.task_ids
+	TeamEventKind_TEAM_EVENT_KIND_STRATEGY_STEP      TeamEventKind = 9  // hub-driven strategy progress (text)
+	TeamEventKind_TEAM_EVENT_KIND_REVIEW             TeamEventKind = 10 // critic verdict (data.approved, data.feedback, data.round)
+	TeamEventKind_TEAM_EVENT_KIND_LIMIT_REACHED      TeamEventKind = 11 // a tree limit stopped something (text)
+	TeamEventKind_TEAM_EVENT_KIND_APPROVAL_PENDING   TeamEventKind = 12 // a member waits for an approval (data.approval_id)
+	TeamEventKind_TEAM_EVENT_KIND_FINISHED           TeamEventKind = 13 // the team run ended (data.state)
+)
+
+// Enum value maps for TeamEventKind.
+var (
+	TeamEventKind_name = map[int32]string{
+		0:  "TEAM_EVENT_KIND_UNSPECIFIED",
+		1:  "TEAM_EVENT_KIND_STARTED",
+		2:  "TEAM_EVENT_KIND_DELEGATED",
+		3:  "TEAM_EVENT_KIND_SPAWNED",
+		4:  "TEAM_EVENT_KIND_MEMBER_FINISHED",
+		5:  "TEAM_EVENT_KIND_BLACKBOARD_UPDATED",
+		6:  "TEAM_EVENT_KIND_MESSAGE_SENT",
+		7:  "TEAM_EVENT_KIND_REPORTED",
+		8:  "TEAM_EVENT_KIND_AWAITING",
+		9:  "TEAM_EVENT_KIND_STRATEGY_STEP",
+		10: "TEAM_EVENT_KIND_REVIEW",
+		11: "TEAM_EVENT_KIND_LIMIT_REACHED",
+		12: "TEAM_EVENT_KIND_APPROVAL_PENDING",
+		13: "TEAM_EVENT_KIND_FINISHED",
+	}
+	TeamEventKind_value = map[string]int32{
+		"TEAM_EVENT_KIND_UNSPECIFIED":        0,
+		"TEAM_EVENT_KIND_STARTED":            1,
+		"TEAM_EVENT_KIND_DELEGATED":          2,
+		"TEAM_EVENT_KIND_SPAWNED":            3,
+		"TEAM_EVENT_KIND_MEMBER_FINISHED":    4,
+		"TEAM_EVENT_KIND_BLACKBOARD_UPDATED": 5,
+		"TEAM_EVENT_KIND_MESSAGE_SENT":       6,
+		"TEAM_EVENT_KIND_REPORTED":           7,
+		"TEAM_EVENT_KIND_AWAITING":           8,
+		"TEAM_EVENT_KIND_STRATEGY_STEP":      9,
+		"TEAM_EVENT_KIND_REVIEW":             10,
+		"TEAM_EVENT_KIND_LIMIT_REACHED":      11,
+		"TEAM_EVENT_KIND_APPROVAL_PENDING":   12,
+		"TEAM_EVENT_KIND_FINISHED":           13,
+	}
+)
+
+func (x TeamEventKind) Enum() *TeamEventKind {
+	p := new(TeamEventKind)
+	*p = x
+	return p
+}
+
+func (x TeamEventKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (TeamEventKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_nexus_v1_event_proto_enumTypes[0].Descriptor()
+}
+
+func (TeamEventKind) Type() protoreflect.EnumType {
+	return &file_nexus_v1_event_proto_enumTypes[0]
+}
+
+func (x TeamEventKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use TeamEventKind.Descriptor instead.
+func (TeamEventKind) EnumDescriptor() ([]byte, []int) {
+	return file_nexus_v1_event_proto_rawDescGZIP(), []int{0}
+}
+
 type NoticeKind int32
 
 const (
@@ -65,11 +147,11 @@ func (x NoticeKind) String() string {
 }
 
 func (NoticeKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_nexus_v1_event_proto_enumTypes[0].Descriptor()
+	return file_nexus_v1_event_proto_enumTypes[1].Descriptor()
 }
 
 func (NoticeKind) Type() protoreflect.EnumType {
-	return &file_nexus_v1_event_proto_enumTypes[0]
+	return &file_nexus_v1_event_proto_enumTypes[1]
 }
 
 func (x NoticeKind) Number() protoreflect.EnumNumber {
@@ -78,7 +160,7 @@ func (x NoticeKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use NoticeKind.Descriptor instead.
 func (NoticeKind) EnumDescriptor() ([]byte, []int) {
-	return file_nexus_v1_event_proto_rawDescGZIP(), []int{0}
+	return file_nexus_v1_event_proto_rawDescGZIP(), []int{1}
 }
 
 // Event is one entry of the Hub's ordered event log.
@@ -89,6 +171,9 @@ type Event struct {
 	TaskId string                 `protobuf:"bytes,3,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	RunId  string                 `protobuf:"bytes,4,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
 	Actor  string                 `protobuf:"bytes,5,opt,name=actor,proto3" json:"actor,omitempty"` // device:<id> | agent:<id> | node:<id> | hub
+	// Root of the task tree the event belongs to (set by the hub for task
+	// events), so a client can follow a whole team run.
+	RootTaskId string `protobuf:"bytes,6,opt,name=root_task_id,json=rootTaskId,proto3" json:"root_task_id,omitempty"`
 	// Types that are valid to be assigned to Body:
 	//
 	//	*Event_TaskUpdated
@@ -102,6 +187,7 @@ type Event struct {
 	//	*Event_NodeStatus
 	//	*Event_Notice
 	//	*Event_UserMessage
+	//	*Event_Team
 	Body          isEvent_Body `protobuf_oneof:"body"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -168,6 +254,13 @@ func (x *Event) GetRunId() string {
 func (x *Event) GetActor() string {
 	if x != nil {
 		return x.Actor
+	}
+	return ""
+}
+
+func (x *Event) GetRootTaskId() string {
+	if x != nil {
+		return x.RootTaskId
 	}
 	return ""
 }
@@ -278,6 +371,15 @@ func (x *Event) GetUserMessage() *UserMessage {
 	return nil
 }
 
+func (x *Event) GetTeam() *TeamEvent {
+	if x != nil {
+		if x, ok := x.Body.(*Event_Team); ok {
+			return x.Team
+		}
+	}
+	return nil
+}
+
 type isEvent_Body interface {
 	isEvent_Body()
 }
@@ -326,6 +428,10 @@ type Event_UserMessage struct {
 	UserMessage *UserMessage `protobuf:"bytes,20,opt,name=user_message,json=userMessage,proto3,oneof"`
 }
 
+type Event_Team struct {
+	Team *TeamEvent `protobuf:"bytes,21,opt,name=team,proto3,oneof"`
+}
+
 func (*Event_TaskUpdated) isEvent_Body() {}
 
 func (*Event_RunOutput) isEvent_Body() {}
@@ -348,6 +454,118 @@ func (*Event_Notice) isEvent_Body() {}
 
 func (*Event_UserMessage) isEvent_Body() {}
 
+func (*Event_Team) isEvent_Body() {}
+
+// TeamEvent is a team / task-tree lifecycle event. Event.task_id is the
+// root task; task_id here is the task the event is about.
+type TeamEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Kind          TeamEventKind          `protobuf:"varint,1,opt,name=kind,proto3,enum=nexus.v1.TeamEventKind" json:"kind,omitempty"`
+	TeamId        string                 `protobuf:"bytes,2,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
+	RootTaskId    string                 `protobuf:"bytes,3,opt,name=root_task_id,json=rootTaskId,proto3" json:"root_task_id,omitempty"`
+	TaskId        string                 `protobuf:"bytes,4,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	Role          string                 `protobuf:"bytes,5,opt,name=role,proto3" json:"role,omitempty"`
+	AgentId       string                 `protobuf:"bytes,6,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	Text          string                 `protobuf:"bytes,7,opt,name=text,proto3" json:"text,omitempty"`
+	Key           string                 `protobuf:"bytes,8,opt,name=key,proto3" json:"key,omitempty"` // blackboard key
+	Data          *structpb.Struct       `protobuf:"bytes,9,opt,name=data,proto3" json:"data,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TeamEvent) Reset() {
+	*x = TeamEvent{}
+	mi := &file_nexus_v1_event_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TeamEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TeamEvent) ProtoMessage() {}
+
+func (x *TeamEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_event_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TeamEvent.ProtoReflect.Descriptor instead.
+func (*TeamEvent) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_event_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *TeamEvent) GetKind() TeamEventKind {
+	if x != nil {
+		return x.Kind
+	}
+	return TeamEventKind_TEAM_EVENT_KIND_UNSPECIFIED
+}
+
+func (x *TeamEvent) GetTeamId() string {
+	if x != nil {
+		return x.TeamId
+	}
+	return ""
+}
+
+func (x *TeamEvent) GetRootTaskId() string {
+	if x != nil {
+		return x.RootTaskId
+	}
+	return ""
+}
+
+func (x *TeamEvent) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *TeamEvent) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *TeamEvent) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *TeamEvent) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *TeamEvent) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *TeamEvent) GetData() *structpb.Struct {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
 type TaskUpdated struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Task          *Task                  `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
@@ -357,7 +575,7 @@ type TaskUpdated struct {
 
 func (x *TaskUpdated) Reset() {
 	*x = TaskUpdated{}
-	mi := &file_nexus_v1_event_proto_msgTypes[1]
+	mi := &file_nexus_v1_event_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -369,7 +587,7 @@ func (x *TaskUpdated) String() string {
 func (*TaskUpdated) ProtoMessage() {}
 
 func (x *TaskUpdated) ProtoReflect() protoreflect.Message {
-	mi := &file_nexus_v1_event_proto_msgTypes[1]
+	mi := &file_nexus_v1_event_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -382,7 +600,7 @@ func (x *TaskUpdated) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskUpdated.ProtoReflect.Descriptor instead.
 func (*TaskUpdated) Descriptor() ([]byte, []int) {
-	return file_nexus_v1_event_proto_rawDescGZIP(), []int{1}
+	return file_nexus_v1_event_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *TaskUpdated) GetTask() *Task {
@@ -403,7 +621,7 @@ type RunOutput struct {
 
 func (x *RunOutput) Reset() {
 	*x = RunOutput{}
-	mi := &file_nexus_v1_event_proto_msgTypes[2]
+	mi := &file_nexus_v1_event_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -415,7 +633,7 @@ func (x *RunOutput) String() string {
 func (*RunOutput) ProtoMessage() {}
 
 func (x *RunOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_nexus_v1_event_proto_msgTypes[2]
+	mi := &file_nexus_v1_event_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -428,7 +646,7 @@ func (x *RunOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunOutput.ProtoReflect.Descriptor instead.
 func (*RunOutput) Descriptor() ([]byte, []int) {
-	return file_nexus_v1_event_proto_rawDescGZIP(), []int{2}
+	return file_nexus_v1_event_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *RunOutput) GetText() string {
@@ -457,7 +675,7 @@ type ToolCall struct {
 
 func (x *ToolCall) Reset() {
 	*x = ToolCall{}
-	mi := &file_nexus_v1_event_proto_msgTypes[3]
+	mi := &file_nexus_v1_event_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -469,7 +687,7 @@ func (x *ToolCall) String() string {
 func (*ToolCall) ProtoMessage() {}
 
 func (x *ToolCall) ProtoReflect() protoreflect.Message {
-	mi := &file_nexus_v1_event_proto_msgTypes[3]
+	mi := &file_nexus_v1_event_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -482,7 +700,7 @@ func (x *ToolCall) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolCall.ProtoReflect.Descriptor instead.
 func (*ToolCall) Descriptor() ([]byte, []int) {
-	return file_nexus_v1_event_proto_rawDescGZIP(), []int{3}
+	return file_nexus_v1_event_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ToolCall) GetCallId() string {
@@ -525,7 +743,7 @@ type ToolResult struct {
 
 func (x *ToolResult) Reset() {
 	*x = ToolResult{}
-	mi := &file_nexus_v1_event_proto_msgTypes[4]
+	mi := &file_nexus_v1_event_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -537,7 +755,7 @@ func (x *ToolResult) String() string {
 func (*ToolResult) ProtoMessage() {}
 
 func (x *ToolResult) ProtoReflect() protoreflect.Message {
-	mi := &file_nexus_v1_event_proto_msgTypes[4]
+	mi := &file_nexus_v1_event_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -550,7 +768,7 @@ func (x *ToolResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolResult.ProtoReflect.Descriptor instead.
 func (*ToolResult) Descriptor() ([]byte, []int) {
-	return file_nexus_v1_event_proto_rawDescGZIP(), []int{4}
+	return file_nexus_v1_event_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ToolResult) GetCallId() string {
@@ -594,7 +812,7 @@ type Question struct {
 
 func (x *Question) Reset() {
 	*x = Question{}
-	mi := &file_nexus_v1_event_proto_msgTypes[5]
+	mi := &file_nexus_v1_event_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -606,7 +824,7 @@ func (x *Question) String() string {
 func (*Question) ProtoMessage() {}
 
 func (x *Question) ProtoReflect() protoreflect.Message {
-	mi := &file_nexus_v1_event_proto_msgTypes[5]
+	mi := &file_nexus_v1_event_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -619,7 +837,7 @@ func (x *Question) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Question.ProtoReflect.Descriptor instead.
 func (*Question) Descriptor() ([]byte, []int) {
-	return file_nexus_v1_event_proto_rawDescGZIP(), []int{5}
+	return file_nexus_v1_event_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Question) GetQuestionId() string {
@@ -659,7 +877,7 @@ type CostRecorded struct {
 
 func (x *CostRecorded) Reset() {
 	*x = CostRecorded{}
-	mi := &file_nexus_v1_event_proto_msgTypes[6]
+	mi := &file_nexus_v1_event_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -671,7 +889,7 @@ func (x *CostRecorded) String() string {
 func (*CostRecorded) ProtoMessage() {}
 
 func (x *CostRecorded) ProtoReflect() protoreflect.Message {
-	mi := &file_nexus_v1_event_proto_msgTypes[6]
+	mi := &file_nexus_v1_event_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -684,7 +902,7 @@ func (x *CostRecorded) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CostRecorded.ProtoReflect.Descriptor instead.
 func (*CostRecorded) Descriptor() ([]byte, []int) {
-	return file_nexus_v1_event_proto_rawDescGZIP(), []int{6}
+	return file_nexus_v1_event_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *CostRecorded) GetCost() *Cost {
@@ -703,7 +921,7 @@ type ArtifactAdded struct {
 
 func (x *ArtifactAdded) Reset() {
 	*x = ArtifactAdded{}
-	mi := &file_nexus_v1_event_proto_msgTypes[7]
+	mi := &file_nexus_v1_event_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -715,7 +933,7 @@ func (x *ArtifactAdded) String() string {
 func (*ArtifactAdded) ProtoMessage() {}
 
 func (x *ArtifactAdded) ProtoReflect() protoreflect.Message {
-	mi := &file_nexus_v1_event_proto_msgTypes[7]
+	mi := &file_nexus_v1_event_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -728,7 +946,7 @@ func (x *ArtifactAdded) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ArtifactAdded.ProtoReflect.Descriptor instead.
 func (*ArtifactAdded) Descriptor() ([]byte, []int) {
-	return file_nexus_v1_event_proto_rawDescGZIP(), []int{7}
+	return file_nexus_v1_event_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ArtifactAdded) GetAttachment() *Attachment {
@@ -748,7 +966,7 @@ type UserMessage struct {
 
 func (x *UserMessage) Reset() {
 	*x = UserMessage{}
-	mi := &file_nexus_v1_event_proto_msgTypes[8]
+	mi := &file_nexus_v1_event_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -760,7 +978,7 @@ func (x *UserMessage) String() string {
 func (*UserMessage) ProtoMessage() {}
 
 func (x *UserMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_nexus_v1_event_proto_msgTypes[8]
+	mi := &file_nexus_v1_event_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -773,7 +991,7 @@ func (x *UserMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserMessage.ProtoReflect.Descriptor instead.
 func (*UserMessage) Descriptor() ([]byte, []int) {
-	return file_nexus_v1_event_proto_rawDescGZIP(), []int{8}
+	return file_nexus_v1_event_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *UserMessage) GetText() string {
@@ -805,7 +1023,7 @@ type Notice struct {
 
 func (x *Notice) Reset() {
 	*x = Notice{}
-	mi := &file_nexus_v1_event_proto_msgTypes[9]
+	mi := &file_nexus_v1_event_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -817,7 +1035,7 @@ func (x *Notice) String() string {
 func (*Notice) ProtoMessage() {}
 
 func (x *Notice) ProtoReflect() protoreflect.Message {
-	mi := &file_nexus_v1_event_proto_msgTypes[9]
+	mi := &file_nexus_v1_event_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -830,7 +1048,7 @@ func (x *Notice) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Notice.ProtoReflect.Descriptor instead.
 func (*Notice) Descriptor() ([]byte, []int) {
-	return file_nexus_v1_event_proto_rawDescGZIP(), []int{9}
+	return file_nexus_v1_event_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *Notice) GetId() string {
@@ -879,15 +1097,17 @@ type SubscribeRequest struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	SinceSeq int64                  `protobuf:"varint,1,opt,name=since_seq,json=sinceSeq,proto3" json:"since_seq,omitempty"`
 	// Optional filters; empty = everything the device may see.
-	TaskIds       []string `protobuf:"bytes,2,rep,name=task_ids,json=taskIds,proto3" json:"task_ids,omitempty"`
-	InboxOnly     bool     `protobuf:"varint,3,opt,name=inbox_only,json=inboxOnly,proto3" json:"inbox_only,omitempty"`
+	TaskIds   []string `protobuf:"bytes,2,rep,name=task_ids,json=taskIds,proto3" json:"task_ids,omitempty"`
+	InboxOnly bool     `protobuf:"varint,3,opt,name=inbox_only,json=inboxOnly,proto3" json:"inbox_only,omitempty"`
+	// Only events of these task trees (Event.root_task_id).
+	RootTaskIds   []string `protobuf:"bytes,4,rep,name=root_task_ids,json=rootTaskIds,proto3" json:"root_task_ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SubscribeRequest) Reset() {
 	*x = SubscribeRequest{}
-	mi := &file_nexus_v1_event_proto_msgTypes[10]
+	mi := &file_nexus_v1_event_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -899,7 +1119,7 @@ func (x *SubscribeRequest) String() string {
 func (*SubscribeRequest) ProtoMessage() {}
 
 func (x *SubscribeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nexus_v1_event_proto_msgTypes[10]
+	mi := &file_nexus_v1_event_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -912,7 +1132,7 @@ func (x *SubscribeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubscribeRequest.ProtoReflect.Descriptor instead.
 func (*SubscribeRequest) Descriptor() ([]byte, []int) {
-	return file_nexus_v1_event_proto_rawDescGZIP(), []int{10}
+	return file_nexus_v1_event_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *SubscribeRequest) GetSinceSeq() int64 {
@@ -936,6 +1156,13 @@ func (x *SubscribeRequest) GetInboxOnly() bool {
 	return false
 }
 
+func (x *SubscribeRequest) GetRootTaskIds() []string {
+	if x != nil {
+		return x.RootTaskIds
+	}
+	return nil
+}
+
 type SubscribeResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Event         *Event                 `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
@@ -945,7 +1172,7 @@ type SubscribeResponse struct {
 
 func (x *SubscribeResponse) Reset() {
 	*x = SubscribeResponse{}
-	mi := &file_nexus_v1_event_proto_msgTypes[11]
+	mi := &file_nexus_v1_event_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -957,7 +1184,7 @@ func (x *SubscribeResponse) String() string {
 func (*SubscribeResponse) ProtoMessage() {}
 
 func (x *SubscribeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nexus_v1_event_proto_msgTypes[11]
+	mi := &file_nexus_v1_event_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -970,7 +1197,7 @@ func (x *SubscribeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubscribeResponse.ProtoReflect.Descriptor instead.
 func (*SubscribeResponse) Descriptor() ([]byte, []int) {
-	return file_nexus_v1_event_proto_rawDescGZIP(), []int{11}
+	return file_nexus_v1_event_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *SubscribeResponse) GetEvent() *Event {
@@ -984,13 +1211,15 @@ var File_nexus_v1_event_proto protoreflect.FileDescriptor
 
 const file_nexus_v1_event_proto_rawDesc = "" +
 	"\n" +
-	"\x14nexus/v1/event.proto\x12\bnexus.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17nexus/v1/approval.proto\x1a\x15nexus/v1/common.proto\x1a\x13nexus/v1/node.proto\x1a\x13nexus/v1/task.proto\"\xdb\x05\n" +
+	"\x14nexus/v1/event.proto\x12\bnexus.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17nexus/v1/approval.proto\x1a\x15nexus/v1/common.proto\x1a\x13nexus/v1/node.proto\x1a\x13nexus/v1/task.proto\"\xa8\x06\n" +
 	"\x05Event\x12\x10\n" +
 	"\x03seq\x18\x01 \x01(\x03R\x03seq\x12*\n" +
 	"\x02at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x02at\x12\x17\n" +
 	"\atask_id\x18\x03 \x01(\tR\x06taskId\x12\x15\n" +
 	"\x06run_id\x18\x04 \x01(\tR\x05runId\x12\x14\n" +
-	"\x05actor\x18\x05 \x01(\tR\x05actor\x12:\n" +
+	"\x05actor\x18\x05 \x01(\tR\x05actor\x12 \n" +
+	"\froot_task_id\x18\x06 \x01(\tR\n" +
+	"rootTaskId\x12:\n" +
 	"\ftask_updated\x18\n" +
 	" \x01(\v2\x15.nexus.v1.TaskUpdatedH\x00R\vtaskUpdated\x124\n" +
 	"\n" +
@@ -1005,8 +1234,20 @@ const file_nexus_v1_event_proto_rawDesc = "" +
 	"\vnode_status\x18\x12 \x01(\v2\x14.nexus.v1.NodeStatusH\x00R\n" +
 	"nodeStatus\x12*\n" +
 	"\x06notice\x18\x13 \x01(\v2\x10.nexus.v1.NoticeH\x00R\x06notice\x12:\n" +
-	"\fuser_message\x18\x14 \x01(\v2\x15.nexus.v1.UserMessageH\x00R\vuserMessageB\x06\n" +
-	"\x04body\"1\n" +
+	"\fuser_message\x18\x14 \x01(\v2\x15.nexus.v1.UserMessageH\x00R\vuserMessage\x12)\n" +
+	"\x04team\x18\x15 \x01(\v2\x13.nexus.v1.TeamEventH\x00R\x04teamB\x06\n" +
+	"\x04body\"\x8e\x02\n" +
+	"\tTeamEvent\x12+\n" +
+	"\x04kind\x18\x01 \x01(\x0e2\x17.nexus.v1.TeamEventKindR\x04kind\x12\x17\n" +
+	"\ateam_id\x18\x02 \x01(\tR\x06teamId\x12 \n" +
+	"\froot_task_id\x18\x03 \x01(\tR\n" +
+	"rootTaskId\x12\x17\n" +
+	"\atask_id\x18\x04 \x01(\tR\x06taskId\x12\x12\n" +
+	"\x04role\x18\x05 \x01(\tR\x04role\x12\x19\n" +
+	"\bagent_id\x18\x06 \x01(\tR\aagentId\x12\x12\n" +
+	"\x04text\x18\a \x01(\tR\x04text\x12\x10\n" +
+	"\x03key\x18\b \x01(\tR\x03key\x12+\n" +
+	"\x04data\x18\t \x01(\v2\x17.google.protobuf.StructR\x04data\"1\n" +
 	"\vTaskUpdated\x12\"\n" +
 	"\x04task\x18\x01 \x01(\v2\x0e.nexus.v1.TaskR\x04task\":\n" +
 	"\tRunOutput\x12\x12\n" +
@@ -1045,14 +1286,31 @@ const file_nexus_v1_event_proto_rawDesc = "" +
 	"\x05title\x18\x03 \x01(\tR\x05title\x12\x12\n" +
 	"\x04body\x18\x04 \x01(\tR\x04body\x12+\n" +
 	"\x04data\x18\x05 \x01(\v2\x17.google.protobuf.StructR\x04data\x12'\n" +
-	"\x05notes\x18\x06 \x03(\v2\x11.nexus.v1.NoteRefR\x05notes\"i\n" +
+	"\x05notes\x18\x06 \x03(\v2\x11.nexus.v1.NoteRefR\x05notes\"\x8d\x01\n" +
 	"\x10SubscribeRequest\x12\x1b\n" +
 	"\tsince_seq\x18\x01 \x01(\x03R\bsinceSeq\x12\x19\n" +
 	"\btask_ids\x18\x02 \x03(\tR\ataskIds\x12\x1d\n" +
 	"\n" +
-	"inbox_only\x18\x03 \x01(\bR\tinboxOnly\":\n" +
+	"inbox_only\x18\x03 \x01(\bR\tinboxOnly\x12\"\n" +
+	"\rroot_task_ids\x18\x04 \x03(\tR\vrootTaskIds\":\n" +
 	"\x11SubscribeResponse\x12%\n" +
-	"\x05event\x18\x01 \x01(\v2\x0f.nexus.v1.EventR\x05event*\xa8\x01\n" +
+	"\x05event\x18\x01 \x01(\v2\x0f.nexus.v1.EventR\x05event*\xda\x03\n" +
+	"\rTeamEventKind\x12\x1f\n" +
+	"\x1bTEAM_EVENT_KIND_UNSPECIFIED\x10\x00\x12\x1b\n" +
+	"\x17TEAM_EVENT_KIND_STARTED\x10\x01\x12\x1d\n" +
+	"\x19TEAM_EVENT_KIND_DELEGATED\x10\x02\x12\x1b\n" +
+	"\x17TEAM_EVENT_KIND_SPAWNED\x10\x03\x12#\n" +
+	"\x1fTEAM_EVENT_KIND_MEMBER_FINISHED\x10\x04\x12&\n" +
+	"\"TEAM_EVENT_KIND_BLACKBOARD_UPDATED\x10\x05\x12 \n" +
+	"\x1cTEAM_EVENT_KIND_MESSAGE_SENT\x10\x06\x12\x1c\n" +
+	"\x18TEAM_EVENT_KIND_REPORTED\x10\a\x12\x1c\n" +
+	"\x18TEAM_EVENT_KIND_AWAITING\x10\b\x12!\n" +
+	"\x1dTEAM_EVENT_KIND_STRATEGY_STEP\x10\t\x12\x1a\n" +
+	"\x16TEAM_EVENT_KIND_REVIEW\x10\n" +
+	"\x12!\n" +
+	"\x1dTEAM_EVENT_KIND_LIMIT_REACHED\x10\v\x12$\n" +
+	" TEAM_EVENT_KIND_APPROVAL_PENDING\x10\f\x12\x1c\n" +
+	"\x18TEAM_EVENT_KIND_FINISHED\x10\r*\xa8\x01\n" +
 	"\n" +
 	"NoticeKind\x12\x1b\n" +
 	"\x17NOTICE_KIND_UNSPECIFIED\x10\x00\x12\x16\n" +
@@ -1078,63 +1336,68 @@ func file_nexus_v1_event_proto_rawDescGZIP() []byte {
 	return file_nexus_v1_event_proto_rawDescData
 }
 
-var file_nexus_v1_event_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_nexus_v1_event_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_nexus_v1_event_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_nexus_v1_event_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_nexus_v1_event_proto_goTypes = []any{
-	(NoticeKind)(0),               // 0: nexus.v1.NoticeKind
-	(*Event)(nil),                 // 1: nexus.v1.Event
-	(*TaskUpdated)(nil),           // 2: nexus.v1.TaskUpdated
-	(*RunOutput)(nil),             // 3: nexus.v1.RunOutput
-	(*ToolCall)(nil),              // 4: nexus.v1.ToolCall
-	(*ToolResult)(nil),            // 5: nexus.v1.ToolResult
-	(*Question)(nil),              // 6: nexus.v1.Question
-	(*CostRecorded)(nil),          // 7: nexus.v1.CostRecorded
-	(*ArtifactAdded)(nil),         // 8: nexus.v1.ArtifactAdded
-	(*UserMessage)(nil),           // 9: nexus.v1.UserMessage
-	(*Notice)(nil),                // 10: nexus.v1.Notice
-	(*SubscribeRequest)(nil),      // 11: nexus.v1.SubscribeRequest
-	(*SubscribeResponse)(nil),     // 12: nexus.v1.SubscribeResponse
-	(*timestamppb.Timestamp)(nil), // 13: google.protobuf.Timestamp
-	(*Approval)(nil),              // 14: nexus.v1.Approval
-	(*NodeStatus)(nil),            // 15: nexus.v1.NodeStatus
-	(*Task)(nil),                  // 16: nexus.v1.Task
-	(*structpb.Struct)(nil),       // 17: google.protobuf.Struct
-	(ActionClass)(0),              // 18: nexus.v1.ActionClass
-	(*Cost)(nil),                  // 19: nexus.v1.Cost
-	(*Attachment)(nil),            // 20: nexus.v1.Attachment
-	(*NoteRef)(nil),               // 21: nexus.v1.NoteRef
+	(TeamEventKind)(0),            // 0: nexus.v1.TeamEventKind
+	(NoticeKind)(0),               // 1: nexus.v1.NoticeKind
+	(*Event)(nil),                 // 2: nexus.v1.Event
+	(*TeamEvent)(nil),             // 3: nexus.v1.TeamEvent
+	(*TaskUpdated)(nil),           // 4: nexus.v1.TaskUpdated
+	(*RunOutput)(nil),             // 5: nexus.v1.RunOutput
+	(*ToolCall)(nil),              // 6: nexus.v1.ToolCall
+	(*ToolResult)(nil),            // 7: nexus.v1.ToolResult
+	(*Question)(nil),              // 8: nexus.v1.Question
+	(*CostRecorded)(nil),          // 9: nexus.v1.CostRecorded
+	(*ArtifactAdded)(nil),         // 10: nexus.v1.ArtifactAdded
+	(*UserMessage)(nil),           // 11: nexus.v1.UserMessage
+	(*Notice)(nil),                // 12: nexus.v1.Notice
+	(*SubscribeRequest)(nil),      // 13: nexus.v1.SubscribeRequest
+	(*SubscribeResponse)(nil),     // 14: nexus.v1.SubscribeResponse
+	(*timestamppb.Timestamp)(nil), // 15: google.protobuf.Timestamp
+	(*Approval)(nil),              // 16: nexus.v1.Approval
+	(*NodeStatus)(nil),            // 17: nexus.v1.NodeStatus
+	(*structpb.Struct)(nil),       // 18: google.protobuf.Struct
+	(*Task)(nil),                  // 19: nexus.v1.Task
+	(ActionClass)(0),              // 20: nexus.v1.ActionClass
+	(*Cost)(nil),                  // 21: nexus.v1.Cost
+	(*Attachment)(nil),            // 22: nexus.v1.Attachment
+	(*NoteRef)(nil),               // 23: nexus.v1.NoteRef
 }
 var file_nexus_v1_event_proto_depIdxs = []int32{
-	13, // 0: nexus.v1.Event.at:type_name -> google.protobuf.Timestamp
-	2,  // 1: nexus.v1.Event.task_updated:type_name -> nexus.v1.TaskUpdated
-	3,  // 2: nexus.v1.Event.run_output:type_name -> nexus.v1.RunOutput
-	4,  // 3: nexus.v1.Event.tool_call:type_name -> nexus.v1.ToolCall
-	5,  // 4: nexus.v1.Event.tool_result:type_name -> nexus.v1.ToolResult
-	6,  // 5: nexus.v1.Event.question:type_name -> nexus.v1.Question
-	14, // 6: nexus.v1.Event.approval:type_name -> nexus.v1.Approval
-	7,  // 7: nexus.v1.Event.cost:type_name -> nexus.v1.CostRecorded
-	8,  // 8: nexus.v1.Event.artifact:type_name -> nexus.v1.ArtifactAdded
-	15, // 9: nexus.v1.Event.node_status:type_name -> nexus.v1.NodeStatus
-	10, // 10: nexus.v1.Event.notice:type_name -> nexus.v1.Notice
-	9,  // 11: nexus.v1.Event.user_message:type_name -> nexus.v1.UserMessage
-	16, // 12: nexus.v1.TaskUpdated.task:type_name -> nexus.v1.Task
-	17, // 13: nexus.v1.ToolCall.input:type_name -> google.protobuf.Struct
-	18, // 14: nexus.v1.ToolCall.action_class:type_name -> nexus.v1.ActionClass
-	17, // 15: nexus.v1.ToolResult.output:type_name -> google.protobuf.Struct
-	19, // 16: nexus.v1.CostRecorded.cost:type_name -> nexus.v1.Cost
-	20, // 17: nexus.v1.ArtifactAdded.attachment:type_name -> nexus.v1.Attachment
-	20, // 18: nexus.v1.UserMessage.attachments:type_name -> nexus.v1.Attachment
-	0,  // 19: nexus.v1.Notice.kind:type_name -> nexus.v1.NoticeKind
-	17, // 20: nexus.v1.Notice.data:type_name -> google.protobuf.Struct
-	21, // 21: nexus.v1.Notice.notes:type_name -> nexus.v1.NoteRef
-	1,  // 22: nexus.v1.SubscribeResponse.event:type_name -> nexus.v1.Event
-	11, // 23: nexus.v1.EventService.Subscribe:input_type -> nexus.v1.SubscribeRequest
-	12, // 24: nexus.v1.EventService.Subscribe:output_type -> nexus.v1.SubscribeResponse
-	24, // [24:25] is the sub-list for method output_type
-	23, // [23:24] is the sub-list for method input_type
-	23, // [23:23] is the sub-list for extension type_name
-	23, // [23:23] is the sub-list for extension extendee
-	0,  // [0:23] is the sub-list for field type_name
+	15, // 0: nexus.v1.Event.at:type_name -> google.protobuf.Timestamp
+	4,  // 1: nexus.v1.Event.task_updated:type_name -> nexus.v1.TaskUpdated
+	5,  // 2: nexus.v1.Event.run_output:type_name -> nexus.v1.RunOutput
+	6,  // 3: nexus.v1.Event.tool_call:type_name -> nexus.v1.ToolCall
+	7,  // 4: nexus.v1.Event.tool_result:type_name -> nexus.v1.ToolResult
+	8,  // 5: nexus.v1.Event.question:type_name -> nexus.v1.Question
+	16, // 6: nexus.v1.Event.approval:type_name -> nexus.v1.Approval
+	9,  // 7: nexus.v1.Event.cost:type_name -> nexus.v1.CostRecorded
+	10, // 8: nexus.v1.Event.artifact:type_name -> nexus.v1.ArtifactAdded
+	17, // 9: nexus.v1.Event.node_status:type_name -> nexus.v1.NodeStatus
+	12, // 10: nexus.v1.Event.notice:type_name -> nexus.v1.Notice
+	11, // 11: nexus.v1.Event.user_message:type_name -> nexus.v1.UserMessage
+	3,  // 12: nexus.v1.Event.team:type_name -> nexus.v1.TeamEvent
+	0,  // 13: nexus.v1.TeamEvent.kind:type_name -> nexus.v1.TeamEventKind
+	18, // 14: nexus.v1.TeamEvent.data:type_name -> google.protobuf.Struct
+	19, // 15: nexus.v1.TaskUpdated.task:type_name -> nexus.v1.Task
+	18, // 16: nexus.v1.ToolCall.input:type_name -> google.protobuf.Struct
+	20, // 17: nexus.v1.ToolCall.action_class:type_name -> nexus.v1.ActionClass
+	18, // 18: nexus.v1.ToolResult.output:type_name -> google.protobuf.Struct
+	21, // 19: nexus.v1.CostRecorded.cost:type_name -> nexus.v1.Cost
+	22, // 20: nexus.v1.ArtifactAdded.attachment:type_name -> nexus.v1.Attachment
+	22, // 21: nexus.v1.UserMessage.attachments:type_name -> nexus.v1.Attachment
+	1,  // 22: nexus.v1.Notice.kind:type_name -> nexus.v1.NoticeKind
+	18, // 23: nexus.v1.Notice.data:type_name -> google.protobuf.Struct
+	23, // 24: nexus.v1.Notice.notes:type_name -> nexus.v1.NoteRef
+	2,  // 25: nexus.v1.SubscribeResponse.event:type_name -> nexus.v1.Event
+	13, // 26: nexus.v1.EventService.Subscribe:input_type -> nexus.v1.SubscribeRequest
+	14, // 27: nexus.v1.EventService.Subscribe:output_type -> nexus.v1.SubscribeResponse
+	27, // [27:28] is the sub-list for method output_type
+	26, // [26:27] is the sub-list for method input_type
+	26, // [26:26] is the sub-list for extension type_name
+	26, // [26:26] is the sub-list for extension extendee
+	0,  // [0:26] is the sub-list for field type_name
 }
 
 func init() { file_nexus_v1_event_proto_init() }
@@ -1158,14 +1421,15 @@ func file_nexus_v1_event_proto_init() {
 		(*Event_NodeStatus)(nil),
 		(*Event_Notice)(nil),
 		(*Event_UserMessage)(nil),
+		(*Event_Team)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_nexus_v1_event_proto_rawDesc), len(file_nexus_v1_event_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   12,
+			NumEnums:      2,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

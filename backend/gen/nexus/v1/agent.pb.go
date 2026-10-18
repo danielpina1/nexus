@@ -9,6 +9,7 @@ package nexusv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -39,7 +40,23 @@ type Agent struct {
 	Version     int32                  `protobuf:"varint,13,opt,name=version,proto3" json:"version,omitempty"`
 	Enabled     bool                   `protobuf:"varint,14,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// Validation errors when the note could not be loaded.
-	Errors        []string `protobuf:"bytes,15,rep,name=errors,proto3" json:"errors,omitempty"`
+	Errors []string `protobuf:"bytes,15,rep,name=errors,proto3" json:"errors,omitempty"`
+	// Skill ids (vault skills/<id>.md). Their instructions are appended to the
+	// agent's and their tools merged into its allow-list at assignment time.
+	Skills []string `protobuf:"bytes,16,rep,name=skills,proto3" json:"skills,omitempty"`
+	// JSON Schema of the structured input params (CreateTaskRequest.params /
+	// team.delegate inputs). Tasks whose params do not match fail.
+	InputSchema *structpb.Struct `protobuf:"bytes,17,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`
+	// JSON Schema of the structured result. The runtime is told to answer with
+	// matching JSON; the hub validates it (one automatic repair run), and
+	// stores it in Task.result.
+	OutputSchema *structpb.Struct `protobuf:"bytes,18,opt,name=output_schema,json=outputSchema,proto3" json:"output_schema,omitempty"`
+	// Reflection loop: a critic agent reviews the result before it is final.
+	Review *AgentReview `protobuf:"bytes,19,opt,name=review,proto3" json:"review,omitempty"`
+	// Context injected into every run (vault notes / folders / searches).
+	Memory *AgentMemory `protobuf:"bytes,20,opt,name=memory,proto3" json:"memory,omitempty"`
+	// Non-fatal problems (e.g. an unknown skill or critic); the agent stays enabled.
+	Warnings      []string `protobuf:"bytes,21,rep,name=warnings,proto3" json:"warnings,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -179,20 +196,294 @@ func (x *Agent) GetErrors() []string {
 	return nil
 }
 
-// AgentLimits bounds a single run.
+func (x *Agent) GetSkills() []string {
+	if x != nil {
+		return x.Skills
+	}
+	return nil
+}
+
+func (x *Agent) GetInputSchema() *structpb.Struct {
+	if x != nil {
+		return x.InputSchema
+	}
+	return nil
+}
+
+func (x *Agent) GetOutputSchema() *structpb.Struct {
+	if x != nil {
+		return x.OutputSchema
+	}
+	return nil
+}
+
+func (x *Agent) GetReview() *AgentReview {
+	if x != nil {
+		return x.Review
+	}
+	return nil
+}
+
+func (x *Agent) GetMemory() *AgentMemory {
+	if x != nil {
+		return x.Memory
+	}
+	return nil
+}
+
+func (x *Agent) GetWarnings() []string {
+	if x != nil {
+		return x.Warnings
+	}
+	return nil
+}
+
+// AgentReview configures the reflection loop (docs/SWARMS.md).
+type AgentReview struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Critic        string                 `protobuf:"bytes,1,opt,name=critic,proto3" json:"critic,omitempty"`     // critic agent id
+	Rounds        int32                  `protobuf:"varint,2,opt,name=rounds,proto3" json:"rounds,omitempty"`    // max review rounds (default 1)
+	Criteria      string                 `protobuf:"bytes,3,opt,name=criteria,proto3" json:"criteria,omitempty"` // what the critic checks
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AgentReview) Reset() {
+	*x = AgentReview{}
+	mi := &file_nexus_v1_agent_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AgentReview) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AgentReview) ProtoMessage() {}
+
+func (x *AgentReview) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_agent_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AgentReview.ProtoReflect.Descriptor instead.
+func (*AgentReview) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_agent_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *AgentReview) GetCritic() string {
+	if x != nil {
+		return x.Critic
+	}
+	return ""
+}
+
+func (x *AgentReview) GetRounds() int32 {
+	if x != nil {
+		return x.Rounds
+	}
+	return 0
+}
+
+func (x *AgentReview) GetCriteria() string {
+	if x != nil {
+		return x.Criteria
+	}
+	return ""
+}
+
+// AgentMemory is the agent note's `memory:` block.
+type AgentMemory struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// "[[Note title]]", "folder/", "search: query" or a note path / id.
+	Reads         []string `protobuf:"bytes,1,rep,name=reads,proto3" json:"reads,omitempty"`
+	Writes        string   `protobuf:"bytes,2,opt,name=writes,proto3" json:"writes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AgentMemory) Reset() {
+	*x = AgentMemory{}
+	mi := &file_nexus_v1_agent_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AgentMemory) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AgentMemory) ProtoMessage() {}
+
+func (x *AgentMemory) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_agent_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AgentMemory.ProtoReflect.Descriptor instead.
+func (*AgentMemory) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_agent_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *AgentMemory) GetReads() []string {
+	if x != nil {
+		return x.Reads
+	}
+	return nil
+}
+
+func (x *AgentMemory) GetWrites() string {
+	if x != nil {
+		return x.Writes
+	}
+	return ""
+}
+
+// Skill is a reusable capability note (vault skills/<id>.md).
+type Skill struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Id          string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name        string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Description string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	// Tools the skill needs; merged into the agent's allow-list.
+	Tools []string `protobuf:"bytes,4,rep,name=tools,proto3" json:"tools,omitempty"`
+	// The note body: appended to the agent's instructions.
+	Instructions  string   `protobuf:"bytes,5,opt,name=instructions,proto3" json:"instructions,omitempty"`
+	Note          *NoteRef `protobuf:"bytes,6,opt,name=note,proto3" json:"note,omitempty"`
+	Enabled       bool     `protobuf:"varint,7,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	Errors        []string `protobuf:"bytes,8,rep,name=errors,proto3" json:"errors,omitempty"`
+	Version       int32    `protobuf:"varint,9,opt,name=version,proto3" json:"version,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Skill) Reset() {
+	*x = Skill{}
+	mi := &file_nexus_v1_agent_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Skill) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Skill) ProtoMessage() {}
+
+func (x *Skill) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_agent_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Skill.ProtoReflect.Descriptor instead.
+func (*Skill) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_agent_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *Skill) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Skill) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Skill) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *Skill) GetTools() []string {
+	if x != nil {
+		return x.Tools
+	}
+	return nil
+}
+
+func (x *Skill) GetInstructions() string {
+	if x != nil {
+		return x.Instructions
+	}
+	return ""
+}
+
+func (x *Skill) GetNote() *NoteRef {
+	if x != nil {
+		return x.Note
+	}
+	return nil
+}
+
+func (x *Skill) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+func (x *Skill) GetErrors() []string {
+	if x != nil {
+		return x.Errors
+	}
+	return nil
+}
+
+func (x *Skill) GetVersion() int32 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+// AgentLimits bounds a single run (1-4) and, when the agent's task is the
+// root of a task tree, the whole tree (5-9; enforced by the hub).
 type AgentLimits struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	MaxRuntimeSeconds int64                  `protobuf:"varint,1,opt,name=max_runtime_seconds,json=maxRuntimeSeconds,proto3" json:"max_runtime_seconds,omitempty"`
-	MaxCost           *Money                 `protobuf:"bytes,2,opt,name=max_cost,json=maxCost,proto3" json:"max_cost,omitempty"`
-	MaxSpend          *Money                 `protobuf:"bytes,3,opt,name=max_spend,json=maxSpend,proto3" json:"max_spend,omitempty"`
-	MaxSubtasks       int32                  `protobuf:"varint,4,opt,name=max_subtasks,json=maxSubtasks,proto3" json:"max_subtasks,omitempty"`
+	MaxCost           *Money                 `protobuf:"bytes,2,opt,name=max_cost,json=maxCost,proto3" json:"max_cost,omitempty"`               // LLM spend per run
+	MaxSpend          *Money                 `protobuf:"bytes,3,opt,name=max_spend,json=maxSpend,proto3" json:"max_spend,omitempty"`            // real-world money per run
+	MaxSubtasks       int32                  `protobuf:"varint,4,opt,name=max_subtasks,json=maxSubtasks,proto3" json:"max_subtasks,omitempty"`  // direct sub-tasks per task
+	MaxDepth          int32                  `protobuf:"varint,5,opt,name=max_depth,json=maxDepth,proto3" json:"max_depth,omitempty"`           // max sub-task depth of the tree
+	MaxParallel       int32                  `protobuf:"varint,6,opt,name=max_parallel,json=maxParallel,proto3" json:"max_parallel,omitempty"`  // max sub-tasks active at once (others wait queued)
+	MaxTasks          int32                  `protobuf:"varint,7,opt,name=max_tasks,json=maxTasks,proto3" json:"max_tasks,omitempty"`           // max tasks in the tree (root included)
+	MaxTreeCost       *Money                 `protobuf:"bytes,8,opt,name=max_tree_cost,json=maxTreeCost,proto3" json:"max_tree_cost,omitempty"` // LLM spend of the whole tree
+	MaxRuns           int32                  `protobuf:"varint,9,opt,name=max_runs,json=maxRuns,proto3" json:"max_runs,omitempty"`              // max runs in the tree (retries, repairs, reviews included)
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
 
 func (x *AgentLimits) Reset() {
 	*x = AgentLimits{}
-	mi := &file_nexus_v1_agent_proto_msgTypes[1]
+	mi := &file_nexus_v1_agent_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -204,7 +495,7 @@ func (x *AgentLimits) String() string {
 func (*AgentLimits) ProtoMessage() {}
 
 func (x *AgentLimits) ProtoReflect() protoreflect.Message {
-	mi := &file_nexus_v1_agent_proto_msgTypes[1]
+	mi := &file_nexus_v1_agent_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -217,7 +508,7 @@ func (x *AgentLimits) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentLimits.ProtoReflect.Descriptor instead.
 func (*AgentLimits) Descriptor() ([]byte, []int) {
-	return file_nexus_v1_agent_proto_rawDescGZIP(), []int{1}
+	return file_nexus_v1_agent_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *AgentLimits) GetMaxRuntimeSeconds() int64 {
@@ -248,6 +539,41 @@ func (x *AgentLimits) GetMaxSubtasks() int32 {
 	return 0
 }
 
+func (x *AgentLimits) GetMaxDepth() int32 {
+	if x != nil {
+		return x.MaxDepth
+	}
+	return 0
+}
+
+func (x *AgentLimits) GetMaxParallel() int32 {
+	if x != nil {
+		return x.MaxParallel
+	}
+	return 0
+}
+
+func (x *AgentLimits) GetMaxTasks() int32 {
+	if x != nil {
+		return x.MaxTasks
+	}
+	return 0
+}
+
+func (x *AgentLimits) GetMaxTreeCost() *Money {
+	if x != nil {
+		return x.MaxTreeCost
+	}
+	return nil
+}
+
+func (x *AgentLimits) GetMaxRuns() int32 {
+	if x != nil {
+		return x.MaxRuns
+	}
+	return 0
+}
+
 type ListAgentsRequest struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	IncludeDisabled bool                   `protobuf:"varint,1,opt,name=include_disabled,json=includeDisabled,proto3" json:"include_disabled,omitempty"`
@@ -257,7 +583,7 @@ type ListAgentsRequest struct {
 
 func (x *ListAgentsRequest) Reset() {
 	*x = ListAgentsRequest{}
-	mi := &file_nexus_v1_agent_proto_msgTypes[2]
+	mi := &file_nexus_v1_agent_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -269,7 +595,7 @@ func (x *ListAgentsRequest) String() string {
 func (*ListAgentsRequest) ProtoMessage() {}
 
 func (x *ListAgentsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nexus_v1_agent_proto_msgTypes[2]
+	mi := &file_nexus_v1_agent_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -282,7 +608,7 @@ func (x *ListAgentsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAgentsRequest.ProtoReflect.Descriptor instead.
 func (*ListAgentsRequest) Descriptor() ([]byte, []int) {
-	return file_nexus_v1_agent_proto_rawDescGZIP(), []int{2}
+	return file_nexus_v1_agent_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ListAgentsRequest) GetIncludeDisabled() bool {
@@ -301,7 +627,7 @@ type ListAgentsResponse struct {
 
 func (x *ListAgentsResponse) Reset() {
 	*x = ListAgentsResponse{}
-	mi := &file_nexus_v1_agent_proto_msgTypes[3]
+	mi := &file_nexus_v1_agent_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -313,7 +639,7 @@ func (x *ListAgentsResponse) String() string {
 func (*ListAgentsResponse) ProtoMessage() {}
 
 func (x *ListAgentsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nexus_v1_agent_proto_msgTypes[3]
+	mi := &file_nexus_v1_agent_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -326,7 +652,7 @@ func (x *ListAgentsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAgentsResponse.ProtoReflect.Descriptor instead.
 func (*ListAgentsResponse) Descriptor() ([]byte, []int) {
-	return file_nexus_v1_agent_proto_rawDescGZIP(), []int{3}
+	return file_nexus_v1_agent_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ListAgentsResponse) GetAgents() []*Agent {
@@ -345,7 +671,7 @@ type GetAgentRequest struct {
 
 func (x *GetAgentRequest) Reset() {
 	*x = GetAgentRequest{}
-	mi := &file_nexus_v1_agent_proto_msgTypes[4]
+	mi := &file_nexus_v1_agent_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -357,7 +683,7 @@ func (x *GetAgentRequest) String() string {
 func (*GetAgentRequest) ProtoMessage() {}
 
 func (x *GetAgentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nexus_v1_agent_proto_msgTypes[4]
+	mi := &file_nexus_v1_agent_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -370,7 +696,7 @@ func (x *GetAgentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAgentRequest.ProtoReflect.Descriptor instead.
 func (*GetAgentRequest) Descriptor() ([]byte, []int) {
-	return file_nexus_v1_agent_proto_rawDescGZIP(), []int{4}
+	return file_nexus_v1_agent_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetAgentRequest) GetId() string {
@@ -390,7 +716,7 @@ type GetAgentResponse struct {
 
 func (x *GetAgentResponse) Reset() {
 	*x = GetAgentResponse{}
-	mi := &file_nexus_v1_agent_proto_msgTypes[5]
+	mi := &file_nexus_v1_agent_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -402,7 +728,7 @@ func (x *GetAgentResponse) String() string {
 func (*GetAgentResponse) ProtoMessage() {}
 
 func (x *GetAgentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nexus_v1_agent_proto_msgTypes[5]
+	mi := &file_nexus_v1_agent_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -415,7 +741,7 @@ func (x *GetAgentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAgentResponse.ProtoReflect.Descriptor instead.
 func (*GetAgentResponse) Descriptor() ([]byte, []int) {
-	return file_nexus_v1_agent_proto_rawDescGZIP(), []int{5}
+	return file_nexus_v1_agent_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GetAgentResponse) GetAgent() *Agent {
@@ -442,7 +768,7 @@ type UpsertAgentRequest struct {
 
 func (x *UpsertAgentRequest) Reset() {
 	*x = UpsertAgentRequest{}
-	mi := &file_nexus_v1_agent_proto_msgTypes[6]
+	mi := &file_nexus_v1_agent_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -454,7 +780,7 @@ func (x *UpsertAgentRequest) String() string {
 func (*UpsertAgentRequest) ProtoMessage() {}
 
 func (x *UpsertAgentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nexus_v1_agent_proto_msgTypes[6]
+	mi := &file_nexus_v1_agent_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -467,7 +793,7 @@ func (x *UpsertAgentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertAgentRequest.ProtoReflect.Descriptor instead.
 func (*UpsertAgentRequest) Descriptor() ([]byte, []int) {
-	return file_nexus_v1_agent_proto_rawDescGZIP(), []int{6}
+	return file_nexus_v1_agent_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *UpsertAgentRequest) GetMarkdown() string {
@@ -493,7 +819,7 @@ type UpsertAgentResponse struct {
 
 func (x *UpsertAgentResponse) Reset() {
 	*x = UpsertAgentResponse{}
-	mi := &file_nexus_v1_agent_proto_msgTypes[7]
+	mi := &file_nexus_v1_agent_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -505,7 +831,7 @@ func (x *UpsertAgentResponse) String() string {
 func (*UpsertAgentResponse) ProtoMessage() {}
 
 func (x *UpsertAgentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nexus_v1_agent_proto_msgTypes[7]
+	mi := &file_nexus_v1_agent_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -518,7 +844,7 @@ func (x *UpsertAgentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertAgentResponse.ProtoReflect.Descriptor instead.
 func (*UpsertAgentResponse) Descriptor() ([]byte, []int) {
-	return file_nexus_v1_agent_proto_rawDescGZIP(), []int{7}
+	return file_nexus_v1_agent_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *UpsertAgentResponse) GetAgent() *Agent {
@@ -528,11 +854,291 @@ func (x *UpsertAgentResponse) GetAgent() *Agent {
 	return nil
 }
 
+type ListSkillsRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	IncludeDisabled bool                   `protobuf:"varint,1,opt,name=include_disabled,json=includeDisabled,proto3" json:"include_disabled,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ListSkillsRequest) Reset() {
+	*x = ListSkillsRequest{}
+	mi := &file_nexus_v1_agent_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSkillsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSkillsRequest) ProtoMessage() {}
+
+func (x *ListSkillsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_agent_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSkillsRequest.ProtoReflect.Descriptor instead.
+func (*ListSkillsRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_agent_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *ListSkillsRequest) GetIncludeDisabled() bool {
+	if x != nil {
+		return x.IncludeDisabled
+	}
+	return false
+}
+
+type ListSkillsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Skills        []*Skill               `protobuf:"bytes,1,rep,name=skills,proto3" json:"skills,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSkillsResponse) Reset() {
+	*x = ListSkillsResponse{}
+	mi := &file_nexus_v1_agent_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSkillsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSkillsResponse) ProtoMessage() {}
+
+func (x *ListSkillsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_agent_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSkillsResponse.ProtoReflect.Descriptor instead.
+func (*ListSkillsResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_agent_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *ListSkillsResponse) GetSkills() []*Skill {
+	if x != nil {
+		return x.Skills
+	}
+	return nil
+}
+
+type GetSkillRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSkillRequest) Reset() {
+	*x = GetSkillRequest{}
+	mi := &file_nexus_v1_agent_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSkillRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSkillRequest) ProtoMessage() {}
+
+func (x *GetSkillRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_agent_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSkillRequest.ProtoReflect.Descriptor instead.
+func (*GetSkillRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_agent_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *GetSkillRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type GetSkillResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Skill         *Skill                 `protobuf:"bytes,1,opt,name=skill,proto3" json:"skill,omitempty"`
+	Markdown      string                 `protobuf:"bytes,2,opt,name=markdown,proto3" json:"markdown,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSkillResponse) Reset() {
+	*x = GetSkillResponse{}
+	mi := &file_nexus_v1_agent_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSkillResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSkillResponse) ProtoMessage() {}
+
+func (x *GetSkillResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_agent_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSkillResponse.ProtoReflect.Descriptor instead.
+func (*GetSkillResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_agent_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *GetSkillResponse) GetSkill() *Skill {
+	if x != nil {
+		return x.Skill
+	}
+	return nil
+}
+
+func (x *GetSkillResponse) GetMarkdown() string {
+	if x != nil {
+		return x.Markdown
+	}
+	return ""
+}
+
+type UpsertSkillRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Markdown      string                 `protobuf:"bytes,1,opt,name=markdown,proto3" json:"markdown,omitempty"`
+	CommitMessage string                 `protobuf:"bytes,2,opt,name=commit_message,json=commitMessage,proto3" json:"commit_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpsertSkillRequest) Reset() {
+	*x = UpsertSkillRequest{}
+	mi := &file_nexus_v1_agent_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpsertSkillRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpsertSkillRequest) ProtoMessage() {}
+
+func (x *UpsertSkillRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_agent_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpsertSkillRequest.ProtoReflect.Descriptor instead.
+func (*UpsertSkillRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_agent_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *UpsertSkillRequest) GetMarkdown() string {
+	if x != nil {
+		return x.Markdown
+	}
+	return ""
+}
+
+func (x *UpsertSkillRequest) GetCommitMessage() string {
+	if x != nil {
+		return x.CommitMessage
+	}
+	return ""
+}
+
+type UpsertSkillResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Skill         *Skill                 `protobuf:"bytes,1,opt,name=skill,proto3" json:"skill,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpsertSkillResponse) Reset() {
+	*x = UpsertSkillResponse{}
+	mi := &file_nexus_v1_agent_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpsertSkillResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpsertSkillResponse) ProtoMessage() {}
+
+func (x *UpsertSkillResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_agent_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpsertSkillResponse.ProtoReflect.Descriptor instead.
+func (*UpsertSkillResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_agent_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *UpsertSkillResponse) GetSkill() *Skill {
+	if x != nil {
+		return x.Skill
+	}
+	return nil
+}
+
 var File_nexus_v1_agent_proto protoreflect.FileDescriptor
 
 const file_nexus_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14nexus/v1/agent.proto\x12\bnexus.v1\x1a\x15nexus/v1/common.proto\"\x90\x04\n" +
+	"\x14nexus/v1/agent.proto\x12\bnexus.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x15nexus/v1/common.proto\"\x9c\x06\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -549,15 +1155,43 @@ const file_nexus_v1_agent_proto_rawDesc = "" +
 	"\x04note\x18\f \x01(\v2\x11.nexus.v1.NoteRefR\x04note\x12\x18\n" +
 	"\aversion\x18\r \x01(\x05R\aversion\x12\x18\n" +
 	"\aenabled\x18\x0e \x01(\bR\aenabled\x12\x16\n" +
-	"\x06errors\x18\x0f \x03(\tR\x06errors\x1aO\n" +
+	"\x06errors\x18\x0f \x03(\tR\x06errors\x12\x16\n" +
+	"\x06skills\x18\x10 \x03(\tR\x06skills\x12:\n" +
+	"\finput_schema\x18\x11 \x01(\v2\x17.google.protobuf.StructR\vinputSchema\x12<\n" +
+	"\routput_schema\x18\x12 \x01(\v2\x17.google.protobuf.StructR\foutputSchema\x12-\n" +
+	"\x06review\x18\x13 \x01(\v2\x15.nexus.v1.AgentReviewR\x06review\x12-\n" +
+	"\x06memory\x18\x14 \x01(\v2\x15.nexus.v1.AgentMemoryR\x06memory\x12\x1a\n" +
+	"\bwarnings\x18\x15 \x03(\tR\bwarnings\x1aO\n" +
 	"\vPolicyEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12*\n" +
-	"\x05value\x18\x02 \x01(\x0e2\x14.nexus.v1.TrustLevelR\x05value:\x028\x01\"\xba\x01\n" +
+	"\x05value\x18\x02 \x01(\x0e2\x14.nexus.v1.TrustLevelR\x05value:\x028\x01\"Y\n" +
+	"\vAgentReview\x12\x16\n" +
+	"\x06critic\x18\x01 \x01(\tR\x06critic\x12\x16\n" +
+	"\x06rounds\x18\x02 \x01(\x05R\x06rounds\x12\x1a\n" +
+	"\bcriteria\x18\x03 \x01(\tR\bcriteria\";\n" +
+	"\vAgentMemory\x12\x14\n" +
+	"\x05reads\x18\x01 \x03(\tR\x05reads\x12\x16\n" +
+	"\x06writes\x18\x02 \x01(\tR\x06writes\"\xfa\x01\n" +
+	"\x05Skill\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x14\n" +
+	"\x05tools\x18\x04 \x03(\tR\x05tools\x12\"\n" +
+	"\finstructions\x18\x05 \x01(\tR\finstructions\x12%\n" +
+	"\x04note\x18\x06 \x01(\v2\x11.nexus.v1.NoteRefR\x04note\x12\x18\n" +
+	"\aenabled\x18\a \x01(\bR\aenabled\x12\x16\n" +
+	"\x06errors\x18\b \x03(\tR\x06errors\x12\x18\n" +
+	"\aversion\x18\t \x01(\x05R\aversion\"\xe7\x02\n" +
 	"\vAgentLimits\x12.\n" +
 	"\x13max_runtime_seconds\x18\x01 \x01(\x03R\x11maxRuntimeSeconds\x12*\n" +
 	"\bmax_cost\x18\x02 \x01(\v2\x0f.nexus.v1.MoneyR\amaxCost\x12,\n" +
 	"\tmax_spend\x18\x03 \x01(\v2\x0f.nexus.v1.MoneyR\bmaxSpend\x12!\n" +
-	"\fmax_subtasks\x18\x04 \x01(\x05R\vmaxSubtasks\">\n" +
+	"\fmax_subtasks\x18\x04 \x01(\x05R\vmaxSubtasks\x12\x1b\n" +
+	"\tmax_depth\x18\x05 \x01(\x05R\bmaxDepth\x12!\n" +
+	"\fmax_parallel\x18\x06 \x01(\x05R\vmaxParallel\x12\x1b\n" +
+	"\tmax_tasks\x18\a \x01(\x05R\bmaxTasks\x123\n" +
+	"\rmax_tree_cost\x18\b \x01(\v2\x0f.nexus.v1.MoneyR\vmaxTreeCost\x12\x19\n" +
+	"\bmax_runs\x18\t \x01(\x05R\amaxRuns\">\n" +
 	"\x11ListAgentsRequest\x12)\n" +
 	"\x10include_disabled\x18\x01 \x01(\bR\x0fincludeDisabled\"=\n" +
 	"\x12ListAgentsResponse\x12'\n" +
@@ -571,12 +1205,30 @@ const file_nexus_v1_agent_proto_rawDesc = "" +
 	"\bmarkdown\x18\x01 \x01(\tR\bmarkdown\x12%\n" +
 	"\x0ecommit_message\x18\x02 \x01(\tR\rcommitMessage\"<\n" +
 	"\x13UpsertAgentResponse\x12%\n" +
-	"\x05agent\x18\x01 \x01(\v2\x0f.nexus.v1.AgentR\x05agent2\xe6\x01\n" +
+	"\x05agent\x18\x01 \x01(\v2\x0f.nexus.v1.AgentR\x05agent\">\n" +
+	"\x11ListSkillsRequest\x12)\n" +
+	"\x10include_disabled\x18\x01 \x01(\bR\x0fincludeDisabled\"=\n" +
+	"\x12ListSkillsResponse\x12'\n" +
+	"\x06skills\x18\x01 \x03(\v2\x0f.nexus.v1.SkillR\x06skills\"!\n" +
+	"\x0fGetSkillRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"U\n" +
+	"\x10GetSkillResponse\x12%\n" +
+	"\x05skill\x18\x01 \x01(\v2\x0f.nexus.v1.SkillR\x05skill\x12\x1a\n" +
+	"\bmarkdown\x18\x02 \x01(\tR\bmarkdown\"W\n" +
+	"\x12UpsertSkillRequest\x12\x1a\n" +
+	"\bmarkdown\x18\x01 \x01(\tR\bmarkdown\x12%\n" +
+	"\x0ecommit_message\x18\x02 \x01(\tR\rcommitMessage\"<\n" +
+	"\x13UpsertSkillResponse\x12%\n" +
+	"\x05skill\x18\x01 \x01(\v2\x0f.nexus.v1.SkillR\x05skill2\xbe\x03\n" +
 	"\fAgentService\x12G\n" +
 	"\n" +
 	"ListAgents\x12\x1b.nexus.v1.ListAgentsRequest\x1a\x1c.nexus.v1.ListAgentsResponse\x12A\n" +
 	"\bGetAgent\x12\x19.nexus.v1.GetAgentRequest\x1a\x1a.nexus.v1.GetAgentResponse\x12J\n" +
-	"\vUpsertAgent\x12\x1c.nexus.v1.UpsertAgentRequest\x1a\x1d.nexus.v1.UpsertAgentResponseB\x96\x01\n" +
+	"\vUpsertAgent\x12\x1c.nexus.v1.UpsertAgentRequest\x1a\x1d.nexus.v1.UpsertAgentResponse\x12G\n" +
+	"\n" +
+	"ListSkills\x12\x1b.nexus.v1.ListSkillsRequest\x1a\x1c.nexus.v1.ListSkillsResponse\x12A\n" +
+	"\bGetSkill\x12\x19.nexus.v1.GetSkillRequest\x1a\x1a.nexus.v1.GetSkillResponse\x12J\n" +
+	"\vUpsertSkill\x12\x1c.nexus.v1.UpsertSkillRequest\x1a\x1d.nexus.v1.UpsertSkillResponseB\x96\x01\n" +
 	"\fcom.nexus.v1B\n" +
 	"AgentProtoP\x01Z9github.com/danielpina1/nexus/backend/gen/nexus/v1;nexusv1\xa2\x02\x03NXX\xaa\x02\bNexus.V1\xca\x02\bNexus\\V1\xe2\x02\x14Nexus\\V1\\GPBMetadata\xea\x02\tNexus::V1b\x06proto3"
 
@@ -592,44 +1244,69 @@ func file_nexus_v1_agent_proto_rawDescGZIP() []byte {
 	return file_nexus_v1_agent_proto_rawDescData
 }
 
-var file_nexus_v1_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_nexus_v1_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_nexus_v1_agent_proto_goTypes = []any{
 	(*Agent)(nil),               // 0: nexus.v1.Agent
-	(*AgentLimits)(nil),         // 1: nexus.v1.AgentLimits
-	(*ListAgentsRequest)(nil),   // 2: nexus.v1.ListAgentsRequest
-	(*ListAgentsResponse)(nil),  // 3: nexus.v1.ListAgentsResponse
-	(*GetAgentRequest)(nil),     // 4: nexus.v1.GetAgentRequest
-	(*GetAgentResponse)(nil),    // 5: nexus.v1.GetAgentResponse
-	(*UpsertAgentRequest)(nil),  // 6: nexus.v1.UpsertAgentRequest
-	(*UpsertAgentResponse)(nil), // 7: nexus.v1.UpsertAgentResponse
-	nil,                         // 8: nexus.v1.Agent.PolicyEntry
-	(Tier)(0),                   // 9: nexus.v1.Tier
-	(*NoteRef)(nil),             // 10: nexus.v1.NoteRef
-	(*Money)(nil),               // 11: nexus.v1.Money
-	(TrustLevel)(0),             // 12: nexus.v1.TrustLevel
+	(*AgentReview)(nil),         // 1: nexus.v1.AgentReview
+	(*AgentMemory)(nil),         // 2: nexus.v1.AgentMemory
+	(*Skill)(nil),               // 3: nexus.v1.Skill
+	(*AgentLimits)(nil),         // 4: nexus.v1.AgentLimits
+	(*ListAgentsRequest)(nil),   // 5: nexus.v1.ListAgentsRequest
+	(*ListAgentsResponse)(nil),  // 6: nexus.v1.ListAgentsResponse
+	(*GetAgentRequest)(nil),     // 7: nexus.v1.GetAgentRequest
+	(*GetAgentResponse)(nil),    // 8: nexus.v1.GetAgentResponse
+	(*UpsertAgentRequest)(nil),  // 9: nexus.v1.UpsertAgentRequest
+	(*UpsertAgentResponse)(nil), // 10: nexus.v1.UpsertAgentResponse
+	(*ListSkillsRequest)(nil),   // 11: nexus.v1.ListSkillsRequest
+	(*ListSkillsResponse)(nil),  // 12: nexus.v1.ListSkillsResponse
+	(*GetSkillRequest)(nil),     // 13: nexus.v1.GetSkillRequest
+	(*GetSkillResponse)(nil),    // 14: nexus.v1.GetSkillResponse
+	(*UpsertSkillRequest)(nil),  // 15: nexus.v1.UpsertSkillRequest
+	(*UpsertSkillResponse)(nil), // 16: nexus.v1.UpsertSkillResponse
+	nil,                         // 17: nexus.v1.Agent.PolicyEntry
+	(Tier)(0),                   // 18: nexus.v1.Tier
+	(*NoteRef)(nil),             // 19: nexus.v1.NoteRef
+	(*structpb.Struct)(nil),     // 20: google.protobuf.Struct
+	(*Money)(nil),               // 21: nexus.v1.Money
+	(TrustLevel)(0),             // 22: nexus.v1.TrustLevel
 }
 var file_nexus_v1_agent_proto_depIdxs = []int32{
-	9,  // 0: nexus.v1.Agent.tier:type_name -> nexus.v1.Tier
-	1,  // 1: nexus.v1.Agent.limits:type_name -> nexus.v1.AgentLimits
-	8,  // 2: nexus.v1.Agent.policy:type_name -> nexus.v1.Agent.PolicyEntry
-	10, // 3: nexus.v1.Agent.note:type_name -> nexus.v1.NoteRef
-	11, // 4: nexus.v1.AgentLimits.max_cost:type_name -> nexus.v1.Money
-	11, // 5: nexus.v1.AgentLimits.max_spend:type_name -> nexus.v1.Money
-	0,  // 6: nexus.v1.ListAgentsResponse.agents:type_name -> nexus.v1.Agent
-	0,  // 7: nexus.v1.GetAgentResponse.agent:type_name -> nexus.v1.Agent
-	0,  // 8: nexus.v1.UpsertAgentResponse.agent:type_name -> nexus.v1.Agent
-	12, // 9: nexus.v1.Agent.PolicyEntry.value:type_name -> nexus.v1.TrustLevel
-	2,  // 10: nexus.v1.AgentService.ListAgents:input_type -> nexus.v1.ListAgentsRequest
-	4,  // 11: nexus.v1.AgentService.GetAgent:input_type -> nexus.v1.GetAgentRequest
-	6,  // 12: nexus.v1.AgentService.UpsertAgent:input_type -> nexus.v1.UpsertAgentRequest
-	3,  // 13: nexus.v1.AgentService.ListAgents:output_type -> nexus.v1.ListAgentsResponse
-	5,  // 14: nexus.v1.AgentService.GetAgent:output_type -> nexus.v1.GetAgentResponse
-	7,  // 15: nexus.v1.AgentService.UpsertAgent:output_type -> nexus.v1.UpsertAgentResponse
-	13, // [13:16] is the sub-list for method output_type
-	10, // [10:13] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	18, // 0: nexus.v1.Agent.tier:type_name -> nexus.v1.Tier
+	4,  // 1: nexus.v1.Agent.limits:type_name -> nexus.v1.AgentLimits
+	17, // 2: nexus.v1.Agent.policy:type_name -> nexus.v1.Agent.PolicyEntry
+	19, // 3: nexus.v1.Agent.note:type_name -> nexus.v1.NoteRef
+	20, // 4: nexus.v1.Agent.input_schema:type_name -> google.protobuf.Struct
+	20, // 5: nexus.v1.Agent.output_schema:type_name -> google.protobuf.Struct
+	1,  // 6: nexus.v1.Agent.review:type_name -> nexus.v1.AgentReview
+	2,  // 7: nexus.v1.Agent.memory:type_name -> nexus.v1.AgentMemory
+	19, // 8: nexus.v1.Skill.note:type_name -> nexus.v1.NoteRef
+	21, // 9: nexus.v1.AgentLimits.max_cost:type_name -> nexus.v1.Money
+	21, // 10: nexus.v1.AgentLimits.max_spend:type_name -> nexus.v1.Money
+	21, // 11: nexus.v1.AgentLimits.max_tree_cost:type_name -> nexus.v1.Money
+	0,  // 12: nexus.v1.ListAgentsResponse.agents:type_name -> nexus.v1.Agent
+	0,  // 13: nexus.v1.GetAgentResponse.agent:type_name -> nexus.v1.Agent
+	0,  // 14: nexus.v1.UpsertAgentResponse.agent:type_name -> nexus.v1.Agent
+	3,  // 15: nexus.v1.ListSkillsResponse.skills:type_name -> nexus.v1.Skill
+	3,  // 16: nexus.v1.GetSkillResponse.skill:type_name -> nexus.v1.Skill
+	3,  // 17: nexus.v1.UpsertSkillResponse.skill:type_name -> nexus.v1.Skill
+	22, // 18: nexus.v1.Agent.PolicyEntry.value:type_name -> nexus.v1.TrustLevel
+	5,  // 19: nexus.v1.AgentService.ListAgents:input_type -> nexus.v1.ListAgentsRequest
+	7,  // 20: nexus.v1.AgentService.GetAgent:input_type -> nexus.v1.GetAgentRequest
+	9,  // 21: nexus.v1.AgentService.UpsertAgent:input_type -> nexus.v1.UpsertAgentRequest
+	11, // 22: nexus.v1.AgentService.ListSkills:input_type -> nexus.v1.ListSkillsRequest
+	13, // 23: nexus.v1.AgentService.GetSkill:input_type -> nexus.v1.GetSkillRequest
+	15, // 24: nexus.v1.AgentService.UpsertSkill:input_type -> nexus.v1.UpsertSkillRequest
+	6,  // 25: nexus.v1.AgentService.ListAgents:output_type -> nexus.v1.ListAgentsResponse
+	8,  // 26: nexus.v1.AgentService.GetAgent:output_type -> nexus.v1.GetAgentResponse
+	10, // 27: nexus.v1.AgentService.UpsertAgent:output_type -> nexus.v1.UpsertAgentResponse
+	12, // 28: nexus.v1.AgentService.ListSkills:output_type -> nexus.v1.ListSkillsResponse
+	14, // 29: nexus.v1.AgentService.GetSkill:output_type -> nexus.v1.GetSkillResponse
+	16, // 30: nexus.v1.AgentService.UpsertSkill:output_type -> nexus.v1.UpsertSkillResponse
+	25, // [25:31] is the sub-list for method output_type
+	19, // [19:25] is the sub-list for method input_type
+	19, // [19:19] is the sub-list for extension type_name
+	19, // [19:19] is the sub-list for extension extendee
+	0,  // [0:19] is the sub-list for field type_name
 }
 
 func init() { file_nexus_v1_agent_proto_init() }
@@ -644,7 +1321,7 @@ func file_nexus_v1_agent_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_nexus_v1_agent_proto_rawDesc), len(file_nexus_v1_agent_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -136,6 +136,8 @@ type Edge struct {
 	Relation string
 	Heading  string
 	Embed    bool
+	// Line is the 1-based line of the link in Src (0 = frontmatter).
+	Line int
 }
 
 func (ix *Index) edges(ctx context.Context, where string, args ...any) ([]Edge, error) {
@@ -143,7 +145,7 @@ func (ix *Index) edges(ctx context.Context, where string, args ...any) ([]Edge, 
 	if err != nil {
 		return nil, err
 	}
-	rows, err := ix.db.QueryContext(ctx, `SELECT src, dst, relation, raw, heading, embed FROM edges `+where, args...)
+	rows, err := ix.db.QueryContext(ctx, `SELECT src, dst, relation, raw, heading, embed, line FROM edges `+where, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +155,7 @@ func (ix *Index) edges(ctx context.Context, where string, args ...any) ([]Edge, 
 		var e Edge
 		var dst string
 		var embed int
-		if err := rows.Scan(&e.Src, &dst, &e.Relation, &e.Target, &e.Heading, &embed); err != nil {
+		if err := rows.Scan(&e.Src, &dst, &e.Relation, &e.Target, &e.Heading, &embed, &e.Line); err != nil {
 			return nil, err
 		}
 		e.Embed = embed == 1

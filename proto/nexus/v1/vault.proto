@@ -17,6 +17,9 @@ message Note {
   repeated NoteRef backlinks = 7;
   google.protobuf.Timestamp updated_at = 8;
   string commit = 9;
+  // encrypted is true when the note is stored encrypted at rest
+  // (vault.encryption.folders); the body here is the decrypted text.
+  bool encrypted = 10;
 }
 
 message SearchHit {
@@ -42,6 +45,64 @@ service VaultService {
   rpc Graph(GraphRequest) returns (GraphResponse);
   rpc ListFacts(ListFactsRequest) returns (ListFactsResponse);
   rpc ReviewFact(ReviewFactRequest) returns (ReviewFactResponse);
+
+  // --- Versioning and undo -------------------------------------------------
+  // History lists the versions of a note, newest first (git log, or the
+  // local snapshot store when the vault is not a git repo).
+  rpc History(HistoryRequest) returns (HistoryResponse);
+  // GetVersion returns the Markdown of a note at a version.
+  rpc GetVersion(GetVersionRequest) returns (GetVersionResponse);
+  // RestoreVersion writes an old version back as a new change.
+  rpc RestoreVersion(RestoreVersionRequest) returns (RestoreVersionResponse);
+  // DeleteNote moves a note (or attachment) to the vault trash (.trash/).
+  rpc DeleteNote(DeleteNoteRequest) returns (DeleteNoteResponse);
+  rpc ListTrash(ListTrashRequest) returns (ListTrashResponse);
+  rpc RestoreFromTrash(RestoreFromTrashRequest) returns (RestoreFromTrashResponse);
+  // PurgeTrash permanently deletes trash items (one id, or older than N days).
+  rpc PurgeTrash(PurgeTrashRequest) returns (PurgeTrashResponse);
+
+  // --- Refactoring -----------------------------------------------------------
+  // RenameNote moves a note and rewrites every link to it.
+  rpc RenameNote(RenameNoteRequest) returns (RenameNoteResponse);
+  // MergeNotes appends source into target, redirects links, trashes source.
+  rpc MergeNotes(MergeNotesRequest) returns (MergeNotesResponse);
+  // SplitNote moves each section at a heading level into its own note.
+  rpc SplitNote(SplitNoteRequest) returns (SplitNoteResponse);
+
+  // --- Queries, search and graph analytics ----------------------------------
+  // Query runs the vault query language, e.g.
+  // `type:person tag:work updated:>2026-09-01 links:[[ACME]] sort:-updated limit:20`.
+  rpc Query(QueryRequest) returns (QueryResponse);
+  // Related returns notes related to a note (shared links + embeddings).
+  rpc Related(RelatedRequest) returns (RelatedResponse);
+  // Backlinks returns linking notes with context lines and unlinked mentions.
+  rpc Backlinks(BacklinksRequest) returns (BacklinksResponse);
+  // GraphStats returns orphans, hubs and totals.
+  rpc GraphStats(GraphStatsRequest) returns (GraphStatsResponse);
+
+  // --- Tasks in notes ---------------------------------------------------------
+  rpc ListNoteTasks(ListNoteTasksRequest) returns (ListNoteTasksResponse);
+  rpc ToggleTask(ToggleTaskRequest) returns (ToggleTaskResponse);
+
+  // --- Templates and periodic notes ------------------------------------------
+  rpc ListTemplates(ListTemplatesRequest) returns (ListTemplatesResponse);
+  rpc NewFromTemplate(NewFromTemplateRequest) returns (NewFromTemplateResponse);
+  // PeriodicNote returns (creating when asked) the daily/weekly/monthly note.
+  rpc PeriodicNote(PeriodicNoteRequest) returns (PeriodicNoteResponse);
+
+  // --- Integrity and backups -----------------------------------------------------
+  rpc Check(CheckRequest) returns (CheckResponse);
+  rpc Repair(RepairRequest) returns (RepairResponse);
+  rpc Backup(BackupRequest) returns (BackupResponse);
+  rpc ListBackups(ListBackupsRequest) returns (ListBackupsResponse);
+  rpc VerifyBackup(VerifyBackupRequest) returns (VerifyBackupResponse);
+
+  // --- Change feed, attachments, import ------------------------------------------
+  // WatchVault streams note changes (created/updated/deleted/renamed).
+  rpc WatchVault(WatchVaultRequest) returns (stream WatchVaultResponse);
+  rpc ListAttachments(ListAttachmentsRequest) returns (ListAttachmentsResponse);
+  // ImportNotes imports an Obsidian vault or a Markdown folder on the hub's disk.
+  rpc ImportNotes(ImportNotesRequest) returns (ImportNotesResponse);
 }
 
 message SearchRequest {
@@ -81,6 +142,9 @@ message WriteNoteRequest {
 
 message WriteNoteResponse {
   Note note = 1;
+  // merged is true when base_commit was stale and the change was merged
+  // (three-way, line based) with the newer version without conflicts.
+  bool merged = 2;
 }
 
 message CaptureRequest {
@@ -89,6 +153,9 @@ message CaptureRequest {
   repeated Attachment attachments = 3;
   string source = 4;
   string idempotency_key = 5;
+  // clip fetches url and stores the readable page text as Markdown
+  // (needs the web tools module; falls back to a plain link capture).
+  bool clip = 6;
 }
 
 message CaptureResponse {
@@ -100,6 +167,16 @@ message GraphRequest {
   int32 depth = 2;
   repeated string types = 3;
   int32 limit = 4;
+  // relations keeps only edges with these relations (e.g. links_to, works_at).
+  repeated string relations = 5;
+  // tags keeps only notes with any of these tags (the center is always kept).
+  repeated string tags = 6;
+  // path_prefix keeps only notes under a folder, e.g. "people/".
+  string path_prefix = 7;
+  // hide_dangling drops unresolved link targets.
+  bool hide_dangling = 8;
+  // hide_orphans drops notes without links (whole-graph view).
+  bool hide_orphans = 9;
 }
 
 message GraphResponse {
@@ -144,4 +221,468 @@ message ReviewFactRequest {
 
 message ReviewFactResponse {
   Fact fact = 1;
+}
+
+// ---------------------------------------------------------------------------
+// Versioning and undo
+
+// NoteVersion is one version of a note. commit is a git commit hash, or
+// "snap:<sha256>" for the local snapshot store (vaults without git).
+message NoteVersion {
+  string commit = 1;
+  string path = 2;
+  google.protobuf.Timestamp at = 3;
+  string message = 4;
+  string author = 5;
+  // diff is a unified diff against the previous version (include_diff).
+  string diff = 6;
+  // run_id is the Nexus-Run trailer of the commit (agent writes).
+  string run_id = 7;
+  // deleted is true when this version removed the note.
+  bool deleted = 8;
+}
+
+message HistoryRequest {
+  string id = 1;
+  string path = 2;
+  int32 limit = 3; // default 50
+  bool include_diff = 4;
+}
+
+message HistoryResponse {
+  repeated NoteVersion versions = 1;
+}
+
+message GetVersionRequest {
+  string id = 1;
+  string path = 2;
+  string commit = 3;
+}
+
+message GetVersionResponse {
+  string markdown = 1;
+  NoteVersion version = 2;
+}
+
+message RestoreVersionRequest {
+  string id = 1;
+  string path = 2;
+  string commit = 3;
+  string commit_message = 4;
+}
+
+message RestoreVersionResponse {
+  Note note = 1;
+}
+
+// TrashItem is a deleted file kept under .trash/ until purged.
+message TrashItem {
+  string id = 1;
+  string path = 2; // original vault path
+  string title = 3;
+  google.protobuf.Timestamp deleted_at = 4;
+  int64 size_bytes = 5;
+}
+
+message DeleteNoteRequest {
+  string id = 1;
+  string path = 2;
+  string base_commit = 3;
+  string commit_message = 4;
+}
+
+message DeleteNoteResponse {
+  TrashItem item = 1;
+}
+
+message ListTrashRequest {}
+
+message ListTrashResponse {
+  repeated TrashItem items = 1;
+}
+
+message RestoreFromTrashRequest {
+  string id = 1;
+  // path restores to a different location; default = original path (a
+  // free name is chosen when it is taken).
+  string path = 2;
+}
+
+message RestoreFromTrashResponse {
+  string path = 1;
+  NoteRef note = 2;
+}
+
+message PurgeTrashRequest {
+  string id = 1; // one item; empty = by age
+  int32 older_than_days = 2; // 0 with empty id = everything
+}
+
+message PurgeTrashResponse {
+  int32 purged = 1;
+}
+
+// ---------------------------------------------------------------------------
+// Refactoring
+
+message RenameNoteRequest {
+  string from = 1; // path or id
+  string to = 2; // new vault path (.md added when missing)
+  bool skip_link_updates = 3;
+  string commit_message = 4;
+}
+
+message RenameNoteResponse {
+  Note note = 1;
+  repeated string updated_paths = 2; // notes whose links were rewritten
+}
+
+message MergeNotesRequest {
+  string source = 1; // path or id; trashed afterwards
+  string target = 2; // path or id
+  string commit_message = 3;
+}
+
+message MergeNotesResponse {
+  Note note = 1;
+  repeated string updated_paths = 2;
+}
+
+message SplitNoteRequest {
+  string id = 1;
+  string path = 2;
+  int32 heading_level = 3; // default 2
+  string folder = 4; // default: the note's folder
+}
+
+message SplitNoteResponse {
+  Note note = 1;
+  repeated NoteRef created = 2;
+}
+
+// ---------------------------------------------------------------------------
+// Queries and graph analytics
+
+message QueryHit {
+  NoteRef note = 1;
+  string type = 2;
+  repeated string tags = 3;
+  google.protobuf.Timestamp updated_at = 4;
+  google.protobuf.Timestamp created_at = 5;
+  // snippet has **highlighted** matches when the query has free text.
+  string snippet = 6;
+  float score = 7;
+  google.protobuf.Struct frontmatter = 8;
+}
+
+message QueryRequest {
+  string query = 1;
+  int32 limit = 2; // overrides limit: in the query; default 50, max 500
+}
+
+message QueryResponse {
+  repeated QueryHit hits = 1;
+  int32 total = 2; // matches before limit
+  repeated string warnings = 3; // unknown operators etc.
+}
+
+message RelatedNote {
+  NoteRef note = 1;
+  float score = 2;
+  // reasons: "links to", "linked from", "shared links: 3", "similar text".
+  repeated string reasons = 3;
+}
+
+message RelatedRequest {
+  string id = 1;
+  string path = 2;
+  int32 limit = 3;
+}
+
+message RelatedResponse {
+  repeated RelatedNote notes = 1;
+}
+
+message Backlink {
+  NoteRef source = 1;
+  int32 line = 2; // 1-based, 0 = frontmatter
+  string context = 3; // the line containing the link or mention
+  string relation = 4;
+}
+
+message BacklinksRequest {
+  string id = 1;
+  string path = 2;
+  bool include_unlinked = 3; // also return unlinked mentions
+  int32 limit = 4;
+}
+
+message BacklinksResponse {
+  repeated Backlink backlinks = 1;
+  repeated Backlink unlinked_mentions = 2;
+}
+
+message GraphHub {
+  NoteRef note = 1;
+  int32 in_degree = 2;
+  int32 out_degree = 3;
+}
+
+message GraphStatsRequest {
+  int32 limit = 1; // per list, default 20
+}
+
+message GraphStatsResponse {
+  int32 notes = 1;
+  int32 edges = 2;
+  int32 dangling_links = 3;
+  repeated NoteRef orphans = 4;
+  repeated GraphHub hubs = 5;
+  repeated string top_dangling = 6;
+}
+
+// ---------------------------------------------------------------------------
+// Tasks in notes
+
+// NoteTask is a Markdown checkbox, e.g. `- [ ] Call João 📅 2026-10-20 #work`.
+message NoteTask {
+  NoteRef note = 1;
+  int32 line = 2; // 1-based line in the file
+  string text = 3; // without checkbox, dates and priority markers
+  bool done = 4;
+  string status = 5; // the checkbox character: " ", "x", "/", "-", ...
+  string due = 6; // YYYY-MM-DD (📅 or [due:: ])
+  string scheduled = 7; // ⏳
+  string start = 8; // 🛫
+  string done_date = 9; // ✅
+  string priority = 10; // highest | high | medium | low | lowest | ""
+  repeated string tags = 11;
+  string raw = 12; // the full line
+}
+
+message ListNoteTasksRequest {
+  string status = 1; // open | done | all (default open)
+  string due_before = 2; // YYYY-MM-DD inclusive
+  string due_after = 3; // YYYY-MM-DD inclusive
+  repeated string tags = 4;
+  string path_prefix = 5;
+  string note_id = 6; // id or path of one note
+  string text = 7; // substring match
+  int32 limit = 8; // default 200
+}
+
+message ListNoteTasksResponse {
+  repeated NoteTask tasks = 1;
+}
+
+message ToggleTaskRequest {
+  string id = 1; // note id or path
+  string path = 2;
+  int32 line = 3;
+  // raw is the line as last read; the toggle fails (ABORTED) when the line
+  // changed since. Empty = no check.
+  string raw = 4;
+  // done sets the state explicitly; unset = toggle.
+  optional bool done = 5;
+}
+
+message ToggleTaskResponse {
+  NoteTask task = 1;
+  string commit = 2;
+}
+
+// ---------------------------------------------------------------------------
+// Templates and periodic notes
+
+message NoteTemplate {
+  string path = 1;
+  string name = 2;
+  // variables used by the template ({{title}}, {{date:YYYY-MM-DD}}, custom).
+  repeated string variables = 3;
+  // prompts must be supplied in NewFromTemplateRequest.variables
+  // ({{prompt:Question}} / {{ask:name}}).
+  repeated string prompts = 4;
+  string type = 5; // frontmatter type of the template
+}
+
+message ListTemplatesRequest {}
+
+message ListTemplatesResponse {
+  repeated NoteTemplate templates = 1;
+}
+
+message NewFromTemplateRequest {
+  string template = 1; // path under templates/ or name
+  string path = 2; // destination; default <folder>/<title>.md
+  string title = 3;
+  map<string, string> variables = 4;
+  string commit_message = 5;
+}
+
+message NewFromTemplateResponse {
+  Note note = 1;
+  repeated string missing_prompts = 2;
+}
+
+message PeriodicNoteRequest {
+  string period = 1; // daily | weekly | monthly | yearly
+  string date = 2; // YYYY-MM-DD; default today
+  bool create = 3; // create from the configured template when missing
+}
+
+message PeriodicNoteResponse {
+  Note note = 1; // empty when missing and create=false
+  bool created = 2;
+  string path = 3;
+}
+
+// ---------------------------------------------------------------------------
+// Integrity and backups
+
+message IntegrityIssue {
+  // kind: index_missing | index_stale | index_orphan | broken_link |
+  // duplicate_id | missing_id | invalid_frontmatter | orphan_attachment |
+  // oversize | temp_file | conflict_copy | pending_journal | unreadable
+  string kind = 1;
+  string severity = 2; // error | warning | info
+  string path = 3;
+  string detail = 4;
+  bool fixable = 5; // Repair can fix it
+  repeated string related_paths = 6;
+}
+
+message IntegrityReport {
+  google.protobuf.Timestamp at = 1;
+  bool full = 2;
+  int32 notes = 3;
+  int32 attachments = 4;
+  repeated IntegrityIssue issues = 5;
+  int64 duration_ms = 6;
+  map<string, int32> counts = 7; // issues by kind
+}
+
+message CheckRequest {
+  bool full = 1; // quick = index consistency + temp files + duplicate ids
+}
+
+message CheckResponse {
+  IntegrityReport report = 1;
+}
+
+message RepairRequest {
+  bool dry_run = 1;
+}
+
+message RepairResponse {
+  repeated string actions = 1;
+  IntegrityReport report = 2; // the check after repairing
+}
+
+message BackupInfo {
+  string name = 1;
+  google.protobuf.Timestamp created_at = 2;
+  int64 size_bytes = 3;
+  string kind = 4; // tar.gz | bundle
+  string sha256 = 5;
+}
+
+message BackupRequest {
+  bool push_remote = 1; // also push to vault.backup.remote
+}
+
+message BackupResponse {
+  repeated BackupInfo created = 1;
+  repeated string pruned = 2;
+  string push_result = 3;
+}
+
+message ListBackupsRequest {}
+
+message ListBackupsResponse {
+  string dir = 1;
+  repeated BackupInfo backups = 2;
+}
+
+message VerifyBackupRequest {
+  string name = 1;
+}
+
+message VerifyBackupResponse {
+  bool ok = 1;
+  int32 files = 2;
+  repeated string problems = 3;
+}
+
+// ---------------------------------------------------------------------------
+// Change feed
+
+enum VaultChangeKind {
+  VAULT_CHANGE_KIND_UNSPECIFIED = 0;
+  VAULT_CHANGE_KIND_CREATED = 1;
+  VAULT_CHANGE_KIND_UPDATED = 2;
+  VAULT_CHANGE_KIND_DELETED = 3;
+  VAULT_CHANGE_KIND_RENAMED = 4;
+  // RESYNC: changes were missed (since_rev too old, full rescan); reload.
+  VAULT_CHANGE_KIND_RESYNC = 5;
+}
+
+message VaultChange {
+  int64 rev = 1; // increasing; resume with WatchVaultRequest.since_rev
+  VaultChangeKind kind = 2;
+  string path = 3;
+  string old_path = 4; // RENAMED
+  string id = 5;
+  google.protobuf.Timestamp at = 6;
+  string origin = 7; // api | agent | external | system
+}
+
+message WatchVaultRequest {
+  int64 since_rev = 1; // 0 = live only
+  string path_prefix = 2;
+}
+
+message WatchVaultResponse {
+  VaultChange change = 1;
+}
+
+// ---------------------------------------------------------------------------
+// Attachments and import
+
+message AttachmentInfo {
+  string path = 1;
+  string mime_type = 2;
+  int64 size_bytes = 3;
+  string sha256 = 4;
+  google.protobuf.Timestamp modified_at = 5;
+  google.protobuf.Timestamp taken_at = 6; // EXIF DateTimeOriginal
+  bool has_text = 7; // text extracted (PDF, txt) and searchable
+  repeated NoteRef referenced_by = 8;
+  string text_excerpt = 9;
+}
+
+message ListAttachmentsRequest {
+  string path_prefix = 1;
+  bool orphaned_only = 2;
+  string query = 3; // matches name and extracted text
+  int32 limit = 4; // default 200
+}
+
+message ListAttachmentsResponse {
+  repeated AttachmentInfo attachments = 1;
+}
+
+message ImportNotesRequest {
+  string source_dir = 1; // absolute path on the hub
+  string dest_folder = 2; // vault folder, default "imported/<dir name>"
+  string kind = 3; // obsidian | markdown (default: detect .obsidian/)
+  bool dry_run = 4;
+}
+
+message ImportNotesResponse {
+  int32 notes = 1;
+  int32 attachments = 2;
+  int32 ids_assigned = 3;
+  int32 ids_replaced = 4; // duplicate ids given fresh ones
+  repeated string skipped = 5;
+  repeated string warnings = 6;
 }

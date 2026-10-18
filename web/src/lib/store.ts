@@ -9,13 +9,15 @@ import type { Cost } from "../gen/nexus/v1/common_pb";
 import { tsMs } from "./format";
 import { readJSON, removeKey, writeJSON } from "./storage";
 
-export type ConnectionStatus = "idle" | "connecting" | "live" | "reconnecting" | "offline";
+export type ConnectionStatus = "idle" | "connecting" | "live" | "reconnecting" | "offline" | "unauthorized";
 
 export interface Connection {
   status: ConnectionStatus;
   retryAt?: number;
   error?: string;
   attempt: number;
+  /** When the stream last became live. */
+  since?: number;
 }
 
 export interface QuestionItem {
@@ -54,11 +56,18 @@ export interface EventState {
   costs: CostItem[];
   /** Bumped on every ingest, handy for "something changed" effects. */
   version: number;
+  /** True once the first batch after (re)connecting has been applied. */
+  synced: boolean;
 
   ingest: (events: Event[], opts?: { global?: boolean }) => void;
   upsertTasks: (tasks: Task[]) => void;
   upsertApprovals: (approvals: Approval[]) => void;
   upsertNodeStatus: (statuses: NodeStatus[]) => void;
+  /** Force-set a task (optimistic updates and their rollback); skips the updatedAt check. */
+  putTask: (task: Task) => void;
+  /** Force-set an approval (optimistic updates and their rollback). */
+  putApproval: (approval: Approval) => void;
+  setAnswered: (questionId: string, answered: boolean) => void;
   markAnswered: (questionId: string) => void;
   dismiss: (ids: string[]) => void;
   setConnection: (c: Partial<Connection>) => void;
@@ -74,27 +83,41 @@ function newer(a: Task | undefined, b: Task): boolean {
   return tsMs(b.updatedAt) >= tsMs(a.updatedAt);
 }
 
-/** Insert an event into a seq-ordered timeline, ignoring duplicates. Returns null if unchanged. */
-function insertSorted(list: Event[] | undefined, ev: Event): Event[] | null {
-  if (!list || list.length === 0) return [ev];
-  const last = list[list.length - 1];
-  if (ev.seq > last.seq) {
-    const next = list.length >= TIMELINE_CAP ? list.slice(list.length - TIMELINE_CAP + 1) : list.slice();
-    next.push(ev);
-    return next;
+/**
+ * Merge a batch of events into a seq-ordered timeline, ignoring duplicates. The common case (all
+ * new events are newer than the tail) is a single concat; out-of-order history is merge-sorted.
+ * Returns null when nothing changed. One copy per task per flush keeps streaming O(n).
+ */
+function mergeTimeline(list: Event[] | undefined, add: Event[]): Event[] | null {
+  if (add.length === 0) return null;
+  if (add.length > 1) add.sort((a, b) => (a.seq < b.seq ? -1 : a.seq > b.seq ? 1 : 0));
+  let next: Event[];
+  if (!list || list.length === 0) {
+    next = dedupeSorted(add);
+  } else if (add[0].seq > list[list.length - 1].seq) {
+    next = list.concat(dedupeSorted(add));
+  } else {
+    next = [];
+    let i = 0;
+    let j = 0;
+    while (i < list.length || j < add.length) {
+      const a = list[i];
+      const b = add[j];
+      const pick = b === undefined || (a !== undefined && a.seq <= b.seq) ? a : b;
+      if (pick === a) i++;
+      else j++;
+      if (next.length === 0 || next[next.length - 1].seq !== pick.seq) next.push(pick);
+    }
+    if (next.length === list.length) return null;
   }
-  // Out-of-order (history fetched after live events): binary search.
-  let lo = 0;
-  let hi = list.length;
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1;
-    if (list[mid].seq < ev.seq) lo = mid + 1;
-    else hi = mid;
-  }
-  if (lo < list.length && list[lo].seq === ev.seq) return null;
-  const next = list.slice();
-  next.splice(lo, 0, ev);
-  return next;
+  return next.length > TIMELINE_CAP ? next.slice(next.length - TIMELINE_CAP) : next;
+}
+
+function dedupeSorted(list: Event[]): Event[] {
+  if (list.length < 2) return list;
+  const out = [list[0]];
+  for (let i = 1; i < list.length; i++) if (list[i].seq !== out[out.length - 1].seq) out.push(list[i]);
+  return out;
 }
 
 const initial = () => ({
@@ -109,6 +132,7 @@ const initial = () => ({
   nodeStatus: {} as Record<string, NodeStatus>,
   costs: [] as CostItem[],
   version: 0,
+  synced: false,
 });
 
 const costSeqs = new Set<bigint>();
@@ -128,17 +152,16 @@ export const useEvents = create<EventState>((set, get) => ({
     let nodeStatus = s.nodeStatus;
     let costs = s.costs;
     const touch = <T extends object>(cur: T, orig: T): T => (cur === orig ? { ...cur } : cur);
+    const perTask = new Map<string, Event[]>();
 
     for (const ev of events) {
       if (opts?.global !== false && ev.seq > lastSeq) lastSeq = ev.seq;
       const at = tsMs(ev.at) || Date.now();
 
-      if (ev.taskId) {
-        const next = insertSorted(timelines[ev.taskId], ev);
-        if (next) {
-          timelines = touch(timelines, s.timelines);
-          timelines[ev.taskId] = next;
-        }
+      if (ev.taskId && ev.seq > 0n) {
+        const l = perTask.get(ev.taskId);
+        if (l) l.push(ev);
+        else perTask.set(ev.taskId, [ev]);
       }
 
       const b = ev.body;
@@ -197,8 +220,15 @@ export const useEvents = create<EventState>((set, get) => ({
           break;
       }
     }
+    for (const [taskId, add] of perTask) {
+      const next = mergeTimeline(timelines[taskId], add);
+      if (next) {
+        timelines = touch(timelines, s.timelines);
+        timelines[taskId] = next;
+      }
+    }
     if (costs.length > COST_CAP) costs = costs.slice(costs.length - COST_CAP);
-    set({ lastSeq, tasks, timelines, approvals, questions, notices, nodeStatus, costs, version: s.version + 1 });
+    set({ lastSeq, tasks, timelines, approvals, questions, notices, nodeStatus, costs, version: s.version + 1, synced: true });
     scheduleSnapshot();
   },
 
@@ -232,6 +262,16 @@ export const useEvents = create<EventState>((set, get) => ({
       }
     }
     if (changed) set({ nodeStatus });
+  },
+
+  putTask: (t) => set({ tasks: { ...get().tasks, [t.id]: t } }),
+
+  putApproval: (a) => set({ approvals: { ...get().approvals, [a.id]: a } }),
+
+  setAnswered: (qid, answered) => {
+    const q = get().questions[qid];
+    if (!q || q.answered === answered) return;
+    set({ questions: { ...get().questions, [qid]: { ...q, answered } } });
   },
 
   markAnswered: (qid) => {

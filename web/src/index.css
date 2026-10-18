@@ -1,78 +1,9 @@
 @import "tailwindcss";
 
+/* Colors, radii, motion and sizes come from design/tokens.json (npm run tokens). */
+@import "./styles/tokens.css";
+
 @custom-variant dark (&:where(.dark, .dark *));
-
-:root {
-  color-scheme: light;
-  --bg: #f6f7f9;
-  --surface: #ffffff;
-  --surface-2: #f1f2f5;
-  --surface-3: #e7e9ee;
-  --border: #e3e5ea;
-  --border-strong: #cfd3db;
-  --fg: #0f1219;
-  --fg-2: #3c4250;
-  --muted: #6b7180;
-  --accent: #5b5bf0;
-  --accent-fg: #ffffff;
-  --accent-soft: #ececfe;
-  --ok: #138a52;
-  --ok-soft: #e3f5ec;
-  --warn: #a86400;
-  --warn-soft: #fdf1dc;
-  --danger: #d23b3b;
-  --danger-soft: #fde8e8;
-  --info: #2a78d6;
-  --info-soft: #e5f0fc;
-  --ring: rgb(91 91 240 / 0.45);
-  --shadow: 0 1px 2px rgb(15 18 25 / 0.04), 0 1px 3px rgb(15 18 25 / 0.06);
-  --shadow-lg: 0 10px 40px -10px rgb(15 18 25 / 0.25);
-
-  --series-1: #2a78d6;
-  --series-2: #eb6834;
-  --series-3: #1baf7a;
-  --series-4: #eda100;
-  --series-5: #e87ba4;
-  --series-6: #008300;
-  --series-7: #6250d6;
-  --series-8: #e34948;
-}
-
-.dark {
-  color-scheme: dark;
-  --bg: #0b0d12;
-  --surface: #12151c;
-  --surface-2: #181c25;
-  --surface-3: #212633;
-  --border: #232836;
-  --border-strong: #323a4c;
-  --fg: #eceef3;
-  --fg-2: #c0c5d1;
-  --muted: #8a91a2;
-  --accent: #7c7cff;
-  --accent-fg: #0b0d12;
-  --accent-soft: #23234a;
-  --ok: #3ccf8e;
-  --ok-soft: #10291d;
-  --warn: #f2b14c;
-  --warn-soft: #2c2210;
-  --danger: #f06b6b;
-  --danger-soft: #331617;
-  --info: #5ea2f0;
-  --info-soft: #11223a;
-  --ring: rgb(124 124 255 / 0.5);
-  --shadow: 0 1px 2px rgb(0 0 0 / 0.3);
-  --shadow-lg: 0 20px 50px -12px rgb(0 0 0 / 0.7);
-
-  --series-1: #3987e5;
-  --series-2: #d95926;
-  --series-3: #199e70;
-  --series-4: #c98500;
-  --series-5: #d55181;
-  --series-6: #008300;
-  --series-7: #9085e9;
-  --series-8: #e66767;
-}
 
 @theme inline {
   --color-bg: var(--bg);
@@ -84,6 +15,8 @@
   --color-fg: var(--fg);
   --color-fg-2: var(--fg-2);
   --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-primary-fg: var(--primary-fg);
   --color-accent: var(--accent);
   --color-accent-fg: var(--accent-fg);
   --color-accent-soft: var(--accent-soft);
@@ -95,8 +28,10 @@
   --color-danger-soft: var(--danger-soft);
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --color-ring: var(--ring);
+  --color-overlay: var(--overlay);
+  --font-sans: var(--font-sans-stack);
+  --font-mono: var(--font-mono-stack);
   --shadow-card: var(--shadow);
   --shadow-pop: var(--shadow-lg);
 }
@@ -112,7 +47,10 @@
     color: var(--fg);
     font-family: var(--font-sans);
     font-size: 14px;
+    line-height: 1.5;
+    font-feature-settings: "cv11", "ss01";
     -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
     text-rendering: optimizeLegibility;
   }
   *,
@@ -123,6 +61,7 @@
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
+    border-radius: 4px;
   }
   ::selection {
     background: var(--accent-soft);
@@ -137,6 +76,33 @@
   .tabular {
     font-variant-numeric: tabular-nums;
   }
+}
+
+/* Respect reduced motion everywhere: no transforms, no infinite pulses. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.animate-fade-up {
+  animation: fade-up 220ms var(--ease-out) both;
+}
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+.animate-sheet-up {
+  animation: sheet-up 260ms var(--ease-out) both;
 }
 
 @keyframes pulse-dot {

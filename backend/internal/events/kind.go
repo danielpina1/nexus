@@ -35,8 +35,12 @@ func Match(f kernel.EventFilter, ev *nexusv1.Event) bool {
 	if f.InboxOnly && !IsInbox(ev) {
 		return false
 	}
-	if len(f.TaskIDs) > 0 && !slices.Contains(f.TaskIDs, ev.GetTaskId()) {
-		return false
+	if len(f.TaskIDs) == 0 && len(f.RootTaskIDs) == 0 {
+		return true
 	}
-	return true
+	if slices.Contains(f.TaskIDs, ev.GetTaskId()) {
+		return true
+	}
+	return ev.GetRootTaskId() != "" && slices.Contains(f.RootTaskIDs, ev.GetRootTaskId()) ||
+		ev.GetTaskId() != "" && slices.Contains(f.RootTaskIDs, ev.GetTaskId())
 }

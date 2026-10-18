@@ -61,6 +61,15 @@ export function useInboxCount(): number {
   return useInbox().length;
 }
 
+/** Number of active tasks; re-renders only when the count changes. */
+export function useRunningCount(): number {
+  return useEvents((s) => {
+    let n = 0;
+    for (const id in s.tasks) if (isActive(s.tasks[id].state)) n++;
+    return n;
+  });
+}
+
 export function useRunningTasks(): Task[] {
   const tasks = useEvents((s) => s.tasks);
   return useMemo(

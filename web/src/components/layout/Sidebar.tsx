@@ -1,72 +1,54 @@
 import { NavLink } from "react-router";
 import { Search } from "lucide-react";
-import { NAV } from "./nav";
-import { useInboxCount, useRunningTasks } from "../../lib/selectors";
+import { SECTIONS, prefetchPath } from "../../app/registry";
 import { useUI } from "../../lib/ui";
 import { cx } from "../../lib/format";
+import { useLocation } from "react-router";
+import { sectionFor } from "../../app/registry";
 import { ConnectionIndicator } from "./ConnectionIndicator";
 import { ThemeToggle } from "./ThemeToggle";
 import { Kbd } from "../ui/Input";
-import { isMock } from "../../lib/api";
+import { Logo } from "./Logo";
+import { NavBadge } from "./NavBadge";
 
-export function Logo() {
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex size-7 items-center justify-center rounded-lg bg-accent text-accent-fg shadow-card">
-        <svg viewBox="0 0 32 32" className="size-4" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M9 23V9l14 14V9" />
-        </svg>
-      </div>
-      <span className="text-[15px] font-semibold tracking-tight text-fg">Nexus</span>
-      {isMock() && <span className="rounded bg-warn-soft px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-warn uppercase">mock</span>}
-    </div>
-  );
-}
+export const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
-export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
-  const inbox = useInboxCount();
-  const running = useRunningTasks().length;
-  const openPalette = () => useUI.getState().set({ paletteOpen: true });
-  const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
+export function Sidebar() {
+  const openPalette = useUI((s) => s.openPalette);
+  const loc = useLocation();
+  const active = sectionFor(loc.pathname).id;
   return (
-    <div className="flex h-full flex-col gap-1 px-3 py-4">
-      <div className="mb-3 px-2">
+    <div className="flex h-full flex-col px-3 pt-4 pb-3">
+      <div className="mb-4 px-2">
         <Logo />
       </div>
       <button
-        onClick={() => {
-          onNavigate?.();
-          openPalette();
-        }}
-        className="mb-2 flex h-9 items-center gap-2 rounded-lg border border-border bg-surface px-2.5 text-[13px] text-muted shadow-card transition-colors hover:border-border-strong hover:text-fg"
+        onClick={() => openPalette()}
+        className="mb-3 flex h-9 items-center gap-2 rounded-lg border border-border bg-surface px-2.5 text-[13px] text-muted transition-colors hover:border-border-strong hover:text-fg"
+        data-testid="open-palette"
       >
         <Search className="size-4" />
-        <span className="min-w-0 flex-1 truncate text-left whitespace-nowrap">Search…</span>
+        <span className="min-w-0 flex-1 truncate text-left">Search or run…</span>
         <Kbd>{isMac ? "⌘" : "Ctrl"}</Kbd>
         <Kbd>K</Kbd>
       </button>
-      <nav className="flex flex-col gap-0.5">
-        {NAV.map(({ to, label, icon: Icon }) => (
+      <nav className="flex flex-col gap-0.5" aria-label="Main">
+        {SECTIONS.map((s) => (
           <NavLink
-            key={to}
-            to={to}
-            end={to === "/"}
-            onClick={onNavigate}
-            className={({ isActive }) =>
-              cx(
-                "group flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-[13px] font-medium transition-colors",
-                isActive ? "bg-surface text-fg shadow-card ring-1 ring-border" : "text-fg-2 hover:bg-surface-2 hover:text-fg",
-              )
-            }
+            key={s.id}
+            to={s.to}
+            end={s.to === "/"}
+            onMouseEnter={() => prefetchPath(s.to)}
+            onFocus={() => prefetchPath(s.to)}
+            aria-current={active === s.id ? "page" : undefined}
+            className={cx(
+              "group flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-[13.5px] font-medium transition-colors duration-150",
+              active === s.id ? "bg-surface-3/70 text-fg" : "text-fg-2 hover:bg-surface-2 hover:text-fg",
+            )}
           >
-            <Icon className="size-4 shrink-0 opacity-80" />
-            <span className="flex-1">{label}</span>
-            {to === "/inbox" && inbox > 0 && (
-              <span className="min-w-5 rounded-full bg-danger px-1.5 text-center text-[11px] leading-5 font-semibold text-white tabular">{inbox}</span>
-            )}
-            {to === "/tasks" && running > 0 && (
-              <span className="min-w-5 rounded-full bg-info-soft px-1.5 text-center text-[11px] leading-5 font-semibold text-info tabular">{running}</span>
-            )}
+            <s.icon className={cx("size-[17px] shrink-0", active === s.id ? "text-accent" : "text-muted group-hover:text-fg-2")} strokeWidth={1.9} />
+            <span className="flex-1">{s.label}</span>
+            <NavBadge kind={s.badge} />
           </NavLink>
         ))}
       </nav>

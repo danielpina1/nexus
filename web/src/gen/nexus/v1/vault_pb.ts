@@ -14,7 +14,7 @@ import type { JsonObject, Message } from "@bufbuild/protobuf";
  * Describes the file nexus/v1/vault.proto.
  */
 export const file_nexus_v1_vault: GenFile = /*@__PURE__*/
-  fileDesc("ChRuZXh1cy92MS92YXVsdC5wcm90bxIIbmV4dXMudjEihgIKBE5vdGUSHgoDcmVmGAEgASgLMhEubmV4dXMudjEuTm90ZVJlZhIMCgR0eXBlGAIgASgJEgwKBHRhZ3MYAyADKAkSLAoLZnJvbnRtYXR0ZXIYBCABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0EgwKBGJvZHkYBSABKAkSIAoFbGlua3MYBiADKAsyES5uZXh1cy52MS5Ob3RlUmVmEiQKCWJhY2tsaW5rcxgHIAMoCzIRLm5leHVzLnYxLk5vdGVSZWYSLgoKdXBkYXRlZF9hdBgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDgoGY29tbWl0GAkgASgJIkwKCVNlYXJjaEhpdBIfCgRub3RlGAEgASgLMhEubmV4dXMudjEuTm90ZVJlZhIPCgdzbmlwcGV0GAIgASgJEg0KBXNjb3JlGAMgASgCIkMKCUdyYXBoRWRnZRIRCglzb3VyY2VfaWQYASABKAkSEQoJdGFyZ2V0X2lkGAIgASgJEhAKCHJlbGF0aW9uGAMgASgJIjwKDVNlYXJjaFJlcXVlc3QSDQoFcXVlcnkYASABKAkSDQoFdHlwZXMYAiADKAkSDQoFbGltaXQYAyABKAUiMwoOU2VhcmNoUmVzcG9uc2USIQoEaGl0cxgBIAMoCzITLm5leHVzLnYxLlNlYXJjaEhpdCIeCgpBc2tSZXF1ZXN0EhAKCHF1ZXN0aW9uGAEgASgJIkEKC0Fza1Jlc3BvbnNlEg4KBmFuc3dlchgBIAEoCRIiCgdzb3VyY2VzGAIgAygLMhEubmV4dXMudjEuTm90ZVJlZiIqCg5HZXROb3RlUmVxdWVzdBIKCgJpZBgBIAEoCRIMCgRwYXRoGAIgASgJIi8KD0dldE5vdGVSZXNwb25zZRIcCgRub3RlGAEgASgLMg4ubmV4dXMudjEuTm90ZSJfChBXcml0ZU5vdGVSZXF1ZXN0EgwKBHBhdGgYASABKAkSEAoIbWFya2Rvd24YAiABKAkSEwoLYmFzZV9jb21taXQYAyABKAkSFgoOY29tbWl0X21lc3NhZ2UYBCABKAkiMQoRV3JpdGVOb3RlUmVzcG9uc2USHAoEbm90ZRgBIAEoCzIOLm5leHVzLnYxLk5vdGUifwoOQ2FwdHVyZVJlcXVlc3QSDAoEdGV4dBgBIAEoCRILCgN1cmwYAiABKAkSKQoLYXR0YWNobWVudHMYAyADKAsyFC5uZXh1cy52MS5BdHRhY2htZW50Eg4KBnNvdXJjZRgEIAEoCRIXCg9pZGVtcG90ZW5jeV9rZXkYBSABKAkiMgoPQ2FwdHVyZVJlc3BvbnNlEh8KBG5vdGUYASABKAsyES5uZXh1cy52MS5Ob3RlUmVmIk4KDEdyYXBoUmVxdWVzdBIRCgljZW50ZXJfaWQYASABKAkSDQoFZGVwdGgYAiABKAUSDQoFdHlwZXMYAyADKAkSDQoFbGltaXQYBCABKAUiVQoNR3JhcGhSZXNwb25zZRIgCgVub2RlcxgBIAMoCzIRLm5leHVzLnYxLk5vdGVSZWYSIgoFZWRnZXMYAiADKAsyEy5uZXh1cy52MS5HcmFwaEVkZ2UilAIKBEZhY3QSCgoCaWQYASABKAkSIgoHc3ViamVjdBgCIAEoCzIRLm5leHVzLnYxLk5vdGVSZWYSEQoJcHJlZGljYXRlGAMgASgJEg4KBm9iamVjdBgEIAEoCRISCgpjb25maWRlbmNlGAUgASgCEiQKBnN0YXR1cxgGIAEoDjIULm5leHVzLnYxLkZhY3RTdGF0dXMSIQoGc291cmNlGAcgASgLMhEubmV4dXMudjEuTm90ZVJlZhIuCgp2YWxpZF9mcm9tGAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIsCgh2YWxpZF90bxgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiXQoQTGlzdEZhY3RzUmVxdWVzdBIkCgZzdGF0dXMYASABKA4yFC5uZXh1cy52MS5GYWN0U3RhdHVzEiMKBHBhZ2UYAiABKAsyFS5uZXh1cy52MS5QYWdlUmVxdWVzdCJLChFMaXN0RmFjdHNSZXNwb25zZRIdCgVmYWN0cxgBIAMoCzIOLm5leHVzLnYxLkZhY3QSFwoPbmV4dF9wYWdlX3Rva2VuGAIgASgJIl8KEVJldmlld0ZhY3RSZXF1ZXN0EgoKAmlkGAEgASgJEiQKBnN0YXR1cxgCIAEoDjIULm5leHVzLnYxLkZhY3RTdGF0dXMSGAoQY29ycmVjdGVkX29iamVjdBgDIAEoCSIyChJSZXZpZXdGYWN0UmVzcG9uc2USHAoEZmFjdBgBIAEoCzIOLm5leHVzLnYxLkZhY3QqeAoKRmFjdFN0YXR1cxIbChdGQUNUX1NUQVRVU19VTlNQRUNJRklFRBAAEhgKFEZBQ1RfU1RBVFVTX1BST1BPU0VEEAESGQoVRkFDVF9TVEFUVVNfQ09ORklSTUVEEAISGAoURkFDVF9TVEFUVVNfUkVKRUNURUQQAzKOBAoMVmF1bHRTZXJ2aWNlEjsKBlNlYXJjaBIXLm5leHVzLnYxLlNlYXJjaFJlcXVlc3QaGC5uZXh1cy52MS5TZWFyY2hSZXNwb25zZRIyCgNBc2sSFC5uZXh1cy52MS5Bc2tSZXF1ZXN0GhUubmV4dXMudjEuQXNrUmVzcG9uc2USPgoHR2V0Tm90ZRIYLm5leHVzLnYxLkdldE5vdGVSZXF1ZXN0GhkubmV4dXMudjEuR2V0Tm90ZVJlc3BvbnNlEkQKCVdyaXRlTm90ZRIaLm5leHVzLnYxLldyaXRlTm90ZVJlcXVlc3QaGy5uZXh1cy52MS5Xcml0ZU5vdGVSZXNwb25zZRI+CgdDYXB0dXJlEhgubmV4dXMudjEuQ2FwdHVyZVJlcXVlc3QaGS5uZXh1cy52MS5DYXB0dXJlUmVzcG9uc2USOAoFR3JhcGgSFi5uZXh1cy52MS5HcmFwaFJlcXVlc3QaFy5uZXh1cy52MS5HcmFwaFJlc3BvbnNlEkQKCUxpc3RGYWN0cxIaLm5leHVzLnYxLkxpc3RGYWN0c1JlcXVlc3QaGy5uZXh1cy52MS5MaXN0RmFjdHNSZXNwb25zZRJHCgpSZXZpZXdGYWN0EhsubmV4dXMudjEuUmV2aWV3RmFjdFJlcXVlc3QaHC5uZXh1cy52MS5SZXZpZXdGYWN0UmVzcG9uc2VClgEKDGNvbS5uZXh1cy52MUIKVmF1bHRQcm90b1ABWjlnaXRodWIuY29tL2RhbmllbHBpbmExL25leHVzL2JhY2tlbmQvZ2VuL25leHVzL3YxO25leHVzdjGiAgNOWFiqAghOZXh1cy5WMcoCCE5leHVzXFYx4gIUTmV4dXNcVjFcR1BCTWV0YWRhdGHqAglOZXh1czo6VjFiBnByb3RvMw", [file_google_protobuf_struct, file_google_protobuf_timestamp, file_nexus_v1_common]);
+  fileDesc("ChRuZXh1cy92MS92YXVsdC5wcm90bxIIbmV4dXMudjEimQIKBE5vdGUSHgoDcmVmGAEgASgLMhEubmV4dXMudjEuTm90ZVJlZhIMCgR0eXBlGAIgASgJEgwKBHRhZ3MYAyADKAkSLAoLZnJvbnRtYXR0ZXIYBCABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0EgwKBGJvZHkYBSABKAkSIAoFbGlua3MYBiADKAsyES5uZXh1cy52MS5Ob3RlUmVmEiQKCWJhY2tsaW5rcxgHIAMoCzIRLm5leHVzLnYxLk5vdGVSZWYSLgoKdXBkYXRlZF9hdBgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDgoGY29tbWl0GAkgASgJEhEKCWVuY3J5cHRlZBgKIAEoCCJMCglTZWFyY2hIaXQSHwoEbm90ZRgBIAEoCzIRLm5leHVzLnYxLk5vdGVSZWYSDwoHc25pcHBldBgCIAEoCRINCgVzY29yZRgDIAEoAiJDCglHcmFwaEVkZ2USEQoJc291cmNlX2lkGAEgASgJEhEKCXRhcmdldF9pZBgCIAEoCRIQCghyZWxhdGlvbhgDIAEoCSI8Cg1TZWFyY2hSZXF1ZXN0Eg0KBXF1ZXJ5GAEgASgJEg0KBXR5cGVzGAIgAygJEg0KBWxpbWl0GAMgASgFIjMKDlNlYXJjaFJlc3BvbnNlEiEKBGhpdHMYASADKAsyEy5uZXh1cy52MS5TZWFyY2hIaXQiHgoKQXNrUmVxdWVzdBIQCghxdWVzdGlvbhgBIAEoCSJBCgtBc2tSZXNwb25zZRIOCgZhbnN3ZXIYASABKAkSIgoHc291cmNlcxgCIAMoCzIRLm5leHVzLnYxLk5vdGVSZWYiKgoOR2V0Tm90ZVJlcXVlc3QSCgoCaWQYASABKAkSDAoEcGF0aBgCIAEoCSIvCg9HZXROb3RlUmVzcG9uc2USHAoEbm90ZRgBIAEoCzIOLm5leHVzLnYxLk5vdGUiXwoQV3JpdGVOb3RlUmVxdWVzdBIMCgRwYXRoGAEgASgJEhAKCG1hcmtkb3duGAIgASgJEhMKC2Jhc2VfY29tbWl0GAMgASgJEhYKDmNvbW1pdF9tZXNzYWdlGAQgASgJIkEKEVdyaXRlTm90ZVJlc3BvbnNlEhwKBG5vdGUYASABKAsyDi5uZXh1cy52MS5Ob3RlEg4KBm1lcmdlZBgCIAEoCCKNAQoOQ2FwdHVyZVJlcXVlc3QSDAoEdGV4dBgBIAEoCRILCgN1cmwYAiABKAkSKQoLYXR0YWNobWVudHMYAyADKAsyFC5uZXh1cy52MS5BdHRhY2htZW50Eg4KBnNvdXJjZRgEIAEoCRIXCg9pZGVtcG90ZW5jeV9rZXkYBSABKAkSDAoEY2xpcBgGIAEoCCIyCg9DYXB0dXJlUmVzcG9uc2USHwoEbm90ZRgBIAEoCzIRLm5leHVzLnYxLk5vdGVSZWYisQEKDEdyYXBoUmVxdWVzdBIRCgljZW50ZXJfaWQYASABKAkSDQoFZGVwdGgYAiABKAUSDQoFdHlwZXMYAyADKAkSDQoFbGltaXQYBCABKAUSEQoJcmVsYXRpb25zGAUgAygJEgwKBHRhZ3MYBiADKAkSEwoLcGF0aF9wcmVmaXgYByABKAkSFQoNaGlkZV9kYW5nbGluZxgIIAEoCBIUCgxoaWRlX29ycGhhbnMYCSABKAgiVQoNR3JhcGhSZXNwb25zZRIgCgVub2RlcxgBIAMoCzIRLm5leHVzLnYxLk5vdGVSZWYSIgoFZWRnZXMYAiADKAsyEy5uZXh1cy52MS5HcmFwaEVkZ2UilAIKBEZhY3QSCgoCaWQYASABKAkSIgoHc3ViamVjdBgCIAEoCzIRLm5leHVzLnYxLk5vdGVSZWYSEQoJcHJlZGljYXRlGAMgASgJEg4KBm9iamVjdBgEIAEoCRISCgpjb25maWRlbmNlGAUgASgCEiQKBnN0YXR1cxgGIAEoDjIULm5leHVzLnYxLkZhY3RTdGF0dXMSIQoGc291cmNlGAcgASgLMhEubmV4dXMudjEuTm90ZVJlZhIuCgp2YWxpZF9mcm9tGAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIsCgh2YWxpZF90bxgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiXQoQTGlzdEZhY3RzUmVxdWVzdBIkCgZzdGF0dXMYASABKA4yFC5uZXh1cy52MS5GYWN0U3RhdHVzEiMKBHBhZ2UYAiABKAsyFS5uZXh1cy52MS5QYWdlUmVxdWVzdCJLChFMaXN0RmFjdHNSZXNwb25zZRIdCgVmYWN0cxgBIAMoCzIOLm5leHVzLnYxLkZhY3QSFwoPbmV4dF9wYWdlX3Rva2VuGAIgASgJIl8KEVJldmlld0ZhY3RSZXF1ZXN0EgoKAmlkGAEgASgJEiQKBnN0YXR1cxgCIAEoDjIULm5leHVzLnYxLkZhY3RTdGF0dXMSGAoQY29ycmVjdGVkX29iamVjdBgDIAEoCSIyChJSZXZpZXdGYWN0UmVzcG9uc2USHAoEZmFjdBgBIAEoCzIOLm5leHVzLnYxLkZhY3QiowEKC05vdGVWZXJzaW9uEg4KBmNvbW1pdBgBIAEoCRIMCgRwYXRoGAIgASgJEiYKAmF0GAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIPCgdtZXNzYWdlGAQgASgJEg4KBmF1dGhvchgFIAEoCRIMCgRkaWZmGAYgASgJEg4KBnJ1bl9pZBgHIAEoCRIPCgdkZWxldGVkGAggASgIIk8KDkhpc3RvcnlSZXF1ZXN0EgoKAmlkGAEgASgJEgwKBHBhdGgYAiABKAkSDQoFbGltaXQYAyABKAUSFAoMaW5jbHVkZV9kaWZmGAQgASgIIjoKD0hpc3RvcnlSZXNwb25zZRInCgh2ZXJzaW9ucxgBIAMoCzIVLm5leHVzLnYxLk5vdGVWZXJzaW9uIj0KEUdldFZlcnNpb25SZXF1ZXN0EgoKAmlkGAEgASgJEgwKBHBhdGgYAiABKAkSDgoGY29tbWl0GAMgASgJIk4KEkdldFZlcnNpb25SZXNwb25zZRIQCghtYXJrZG93bhgBIAEoCRImCgd2ZXJzaW9uGAIgASgLMhUubmV4dXMudjEuTm90ZVZlcnNpb24iWQoVUmVzdG9yZVZlcnNpb25SZXF1ZXN0EgoKAmlkGAEgASgJEgwKBHBhdGgYAiABKAkSDgoGY29tbWl0GAMgASgJEhYKDmNvbW1pdF9tZXNzYWdlGAQgASgJIjYKFlJlc3RvcmVWZXJzaW9uUmVzcG9uc2USHAoEbm90ZRgBIAEoCzIOLm5leHVzLnYxLk5vdGUieAoJVHJhc2hJdGVtEgoKAmlkGAEgASgJEgwKBHBhdGgYAiABKAkSDQoFdGl0bGUYAyABKAkSLgoKZGVsZXRlZF9hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEgoKc2l6ZV9ieXRlcxgFIAEoAyJaChFEZWxldGVOb3RlUmVxdWVzdBIKCgJpZBgBIAEoCRIMCgRwYXRoGAIgASgJEhMKC2Jhc2VfY29tbWl0GAMgASgJEhYKDmNvbW1pdF9tZXNzYWdlGAQgASgJIjcKEkRlbGV0ZU5vdGVSZXNwb25zZRIhCgRpdGVtGAEgASgLMhMubmV4dXMudjEuVHJhc2hJdGVtIhIKEExpc3RUcmFzaFJlcXVlc3QiNwoRTGlzdFRyYXNoUmVzcG9uc2USIgoFaXRlbXMYASADKAsyEy5uZXh1cy52MS5UcmFzaEl0ZW0iMwoXUmVzdG9yZUZyb21UcmFzaFJlcXVlc3QSCgoCaWQYASABKAkSDAoEcGF0aBgCIAEoCSJJChhSZXN0b3JlRnJvbVRyYXNoUmVzcG9uc2USDAoEcGF0aBgBIAEoCRIfCgRub3RlGAIgASgLMhEubmV4dXMudjEuTm90ZVJlZiI4ChFQdXJnZVRyYXNoUmVxdWVzdBIKCgJpZBgBIAEoCRIXCg9vbGRlcl90aGFuX2RheXMYAiABKAUiJAoSUHVyZ2VUcmFzaFJlc3BvbnNlEg4KBnB1cmdlZBgBIAEoBSJgChFSZW5hbWVOb3RlUmVxdWVzdBIMCgRmcm9tGAEgASgJEgoKAnRvGAIgASgJEhkKEXNraXBfbGlua191cGRhdGVzGAMgASgIEhYKDmNvbW1pdF9tZXNzYWdlGAQgASgJIkkKElJlbmFtZU5vdGVSZXNwb25zZRIcCgRub3RlGAEgASgLMg4ubmV4dXMudjEuTm90ZRIVCg11cGRhdGVkX3BhdGhzGAIgAygJIksKEU1lcmdlTm90ZXNSZXF1ZXN0Eg4KBnNvdXJjZRgBIAEoCRIOCgZ0YXJnZXQYAiABKAkSFgoOY29tbWl0X21lc3NhZ2UYAyABKAkiSQoSTWVyZ2VOb3Rlc1Jlc3BvbnNlEhwKBG5vdGUYASABKAsyDi5uZXh1cy52MS5Ob3RlEhUKDXVwZGF0ZWRfcGF0aHMYAiADKAkiUwoQU3BsaXROb3RlUmVxdWVzdBIKCgJpZBgBIAEoCRIMCgRwYXRoGAIgASgJEhUKDWhlYWRpbmdfbGV2ZWwYAyABKAUSDgoGZm9sZGVyGAQgASgJIlUKEVNwbGl0Tm90ZVJlc3BvbnNlEhwKBG5vdGUYASABKAsyDi5uZXh1cy52MS5Ob3RlEiIKB2NyZWF0ZWQYAiADKAsyES5uZXh1cy52MS5Ob3RlUmVmIvUBCghRdWVyeUhpdBIfCgRub3RlGAEgASgLMhEubmV4dXMudjEuTm90ZVJlZhIMCgR0eXBlGAIgASgJEgwKBHRhZ3MYAyADKAkSLgoKdXBkYXRlZF9hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKY3JlYXRlZF9hdBgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDwoHc25pcHBldBgGIAEoCRINCgVzY29yZRgHIAEoAhIsCgtmcm9udG1hdHRlchgIIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1Y3QiLAoMUXVlcnlSZXF1ZXN0Eg0KBXF1ZXJ5GAEgASgJEg0KBWxpbWl0GAIgASgFIlIKDVF1ZXJ5UmVzcG9uc2USIAoEaGl0cxgBIAMoCzISLm5leHVzLnYxLlF1ZXJ5SGl0Eg0KBXRvdGFsGAIgASgFEhAKCHdhcm5pbmdzGAMgAygJIk4KC1JlbGF0ZWROb3RlEh8KBG5vdGUYASABKAsyES5uZXh1cy52MS5Ob3RlUmVmEg0KBXNjb3JlGAIgASgCEg8KB3JlYXNvbnMYAyADKAkiOQoOUmVsYXRlZFJlcXVlc3QSCgoCaWQYASABKAkSDAoEcGF0aBgCIAEoCRINCgVsaW1pdBgDIAEoBSI3Cg9SZWxhdGVkUmVzcG9uc2USJAoFbm90ZXMYASADKAsyFS5uZXh1cy52MS5SZWxhdGVkTm90ZSJeCghCYWNrbGluaxIhCgZzb3VyY2UYASABKAsyES5uZXh1cy52MS5Ob3RlUmVmEgwKBGxpbmUYAiABKAUSDwoHY29udGV4dBgDIAEoCRIQCghyZWxhdGlvbhgEIAEoCSJVChBCYWNrbGlua3NSZXF1ZXN0EgoKAmlkGAEgASgJEgwKBHBhdGgYAiABKAkSGAoQaW5jbHVkZV91bmxpbmtlZBgDIAEoCBINCgVsaW1pdBgEIAEoBSJpChFCYWNrbGlua3NSZXNwb25zZRIlCgliYWNrbGlua3MYASADKAsyEi5uZXh1cy52MS5CYWNrbGluaxItChF1bmxpbmtlZF9tZW50aW9ucxgCIAMoCzISLm5leHVzLnYxLkJhY2tsaW5rIlIKCEdyYXBoSHViEh8KBG5vdGUYASABKAsyES5uZXh1cy52MS5Ob3RlUmVmEhEKCWluX2RlZ3JlZRgCIAEoBRISCgpvdXRfZGVncmVlGAMgASgFIiIKEUdyYXBoU3RhdHNSZXF1ZXN0Eg0KBWxpbWl0GAEgASgFIqYBChJHcmFwaFN0YXRzUmVzcG9uc2USDQoFbm90ZXMYASABKAUSDQoFZWRnZXMYAiABKAUSFgoOZGFuZ2xpbmdfbGlua3MYAyABKAUSIgoHb3JwaGFucxgEIAMoCzIRLm5leHVzLnYxLk5vdGVSZWYSIAoEaHVicxgFIAMoCzISLm5leHVzLnYxLkdyYXBoSHViEhQKDHRvcF9kYW5nbGluZxgGIAMoCSLUAQoITm90ZVRhc2sSHwoEbm90ZRgBIAEoCzIRLm5leHVzLnYxLk5vdGVSZWYSDAoEbGluZRgCIAEoBRIMCgR0ZXh0GAMgASgJEgwKBGRvbmUYBCABKAgSDgoGc3RhdHVzGAUgASgJEgsKA2R1ZRgGIAEoCRIRCglzY2hlZHVsZWQYByABKAkSDQoFc3RhcnQYCCABKAkSEQoJZG9uZV9kYXRlGAkgASgJEhAKCHByaW9yaXR5GAogASgJEgwKBHRhZ3MYCyADKAkSCwoDcmF3GAwgASgJIp4BChRMaXN0Tm90ZVRhc2tzUmVxdWVzdBIOCgZzdGF0dXMYASABKAkSEgoKZHVlX2JlZm9yZRgCIAEoCRIRCglkdWVfYWZ0ZXIYAyABKAkSDAoEdGFncxgEIAMoCRITCgtwYXRoX3ByZWZpeBgFIAEoCRIPCgdub3RlX2lkGAYgASgJEgwKBHRleHQYByABKAkSDQoFbGltaXQYCCABKAUiOgoVTGlzdE5vdGVUYXNrc1Jlc3BvbnNlEiEKBXRhc2tzGAEgAygLMhIubmV4dXMudjEuTm90ZVRhc2siZAoRVG9nZ2xlVGFza1JlcXVlc3QSCgoCaWQYASABKAkSDAoEcGF0aBgCIAEoCRIMCgRsaW5lGAMgASgFEgsKA3JhdxgEIAEoCRIRCgRkb25lGAUgASgISACIAQFCBwoFX2RvbmUiRgoSVG9nZ2xlVGFza1Jlc3BvbnNlEiAKBHRhc2sYASABKAsyEi5uZXh1cy52MS5Ob3RlVGFzaxIOCgZjb21taXQYAiABKAkiXAoMTm90ZVRlbXBsYXRlEgwKBHBhdGgYASABKAkSDAoEbmFtZRgCIAEoCRIRCgl2YXJpYWJsZXMYAyADKAkSDwoHcHJvbXB0cxgEIAMoCRIMCgR0eXBlGAUgASgJIhYKFExpc3RUZW1wbGF0ZXNSZXF1ZXN0IkIKFUxpc3RUZW1wbGF0ZXNSZXNwb25zZRIpCgl0ZW1wbGF0ZXMYASADKAsyFi5uZXh1cy52MS5Ob3RlVGVtcGxhdGUi1QEKFk5ld0Zyb21UZW1wbGF0ZVJlcXVlc3QSEAoIdGVtcGxhdGUYASABKAkSDAoEcGF0aBgCIAEoCRINCgV0aXRsZRgDIAEoCRJCCgl2YXJpYWJsZXMYBCADKAsyLy5uZXh1cy52MS5OZXdGcm9tVGVtcGxhdGVSZXF1ZXN0LlZhcmlhYmxlc0VudHJ5EhYKDmNvbW1pdF9tZXNzYWdlGAUgASgJGjAKDlZhcmlhYmxlc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEiUAoXTmV3RnJvbVRlbXBsYXRlUmVzcG9uc2USHAoEbm90ZRgBIAEoCzIOLm5leHVzLnYxLk5vdGUSFwoPbWlzc2luZ19wcm9tcHRzGAIgAygJIkMKE1BlcmlvZGljTm90ZVJlcXVlc3QSDgoGcGVyaW9kGAEgASgJEgwKBGRhdGUYAiABKAkSDgoGY3JlYXRlGAMgASgIIlMKFFBlcmlvZGljTm90ZVJlc3BvbnNlEhwKBG5vdGUYASABKAsyDi5uZXh1cy52MS5Ob3RlEg8KB2NyZWF0ZWQYAiABKAgSDAoEcGF0aBgDIAEoCSJ2Cg5JbnRlZ3JpdHlJc3N1ZRIMCgRraW5kGAEgASgJEhAKCHNldmVyaXR5GAIgASgJEgwKBHBhdGgYAyABKAkSDgoGZGV0YWlsGAQgASgJEg8KB2ZpeGFibGUYBSABKAgSFQoNcmVsYXRlZF9wYXRocxgGIAMoCSKQAgoPSW50ZWdyaXR5UmVwb3J0EiYKAmF0GAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIMCgRmdWxsGAIgASgIEg0KBW5vdGVzGAMgASgFEhMKC2F0dGFjaG1lbnRzGAQgASgFEigKBmlzc3VlcxgFIAMoCzIYLm5leHVzLnYxLkludGVncml0eUlzc3VlEhMKC2R1cmF0aW9uX21zGAYgASgDEjUKBmNvdW50cxgHIAMoCzIlLm5leHVzLnYxLkludGVncml0eVJlcG9ydC5Db3VudHNFbnRyeRotCgtDb3VudHNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAU6AjgBIhwKDENoZWNrUmVxdWVzdBIMCgRmdWxsGAEgASgIIjoKDUNoZWNrUmVzcG9uc2USKQoGcmVwb3J0GAEgASgLMhkubmV4dXMudjEuSW50ZWdyaXR5UmVwb3J0IiAKDVJlcGFpclJlcXVlc3QSDwoHZHJ5X3J1bhgBIAEoCCJMCg5SZXBhaXJSZXNwb25zZRIPCgdhY3Rpb25zGAEgAygJEikKBnJlcG9ydBgCIAEoCzIZLm5leHVzLnYxLkludGVncml0eVJlcG9ydCJ8CgpCYWNrdXBJbmZvEgwKBG5hbWUYASABKAkSLgoKY3JlYXRlZF9hdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEgoKc2l6ZV9ieXRlcxgDIAEoAxIMCgRraW5kGAQgASgJEg4KBnNoYTI1NhgFIAEoCSIkCg1CYWNrdXBSZXF1ZXN0EhMKC3B1c2hfcmVtb3RlGAEgASgIIlwKDkJhY2t1cFJlc3BvbnNlEiUKB2NyZWF0ZWQYASADKAsyFC5uZXh1cy52MS5CYWNrdXBJbmZvEg4KBnBydW5lZBgCIAMoCRITCgtwdXNoX3Jlc3VsdBgDIAEoCSIUChJMaXN0QmFja3Vwc1JlcXVlc3QiSQoTTGlzdEJhY2t1cHNSZXNwb25zZRILCgNkaXIYASABKAkSJQoHYmFja3VwcxgCIAMoCzIULm5leHVzLnYxLkJhY2t1cEluZm8iIwoTVmVyaWZ5QmFja3VwUmVxdWVzdBIMCgRuYW1lGAEgASgJIkMKFFZlcmlmeUJhY2t1cFJlc3BvbnNlEgoKAm9rGAEgASgIEg0KBWZpbGVzGAIgASgFEhAKCHByb2JsZW1zGAMgAygJIqcBCgtWYXVsdENoYW5nZRILCgNyZXYYASABKAMSJwoEa2luZBgCIAEoDjIZLm5leHVzLnYxLlZhdWx0Q2hhbmdlS2luZBIMCgRwYXRoGAMgASgJEhAKCG9sZF9wYXRoGAQgASgJEgoKAmlkGAUgASgJEiYKAmF0GAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIOCgZvcmlnaW4YByABKAkiOwoRV2F0Y2hWYXVsdFJlcXVlc3QSEQoJc2luY2VfcmV2GAEgASgDEhMKC3BhdGhfcHJlZml4GAIgASgJIjsKEldhdGNoVmF1bHRSZXNwb25zZRIlCgZjaGFuZ2UYASABKAsyFS5uZXh1cy52MS5WYXVsdENoYW5nZSKGAgoOQXR0YWNobWVudEluZm8SDAoEcGF0aBgBIAEoCRIRCgltaW1lX3R5cGUYAiABKAkSEgoKc2l6ZV9ieXRlcxgDIAEoAxIOCgZzaGEyNTYYBCABKAkSLwoLbW9kaWZpZWRfYXQYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiwKCHRha2VuX2F0GAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIQCghoYXNfdGV4dBgHIAEoCBIoCg1yZWZlcmVuY2VkX2J5GAggAygLMhEubmV4dXMudjEuTm90ZVJlZhIUCgx0ZXh0X2V4Y2VycHQYCSABKAkiYgoWTGlzdEF0dGFjaG1lbnRzUmVxdWVzdBITCgtwYXRoX3ByZWZpeBgBIAEoCRIVCg1vcnBoYW5lZF9vbmx5GAIgASgIEg0KBXF1ZXJ5GAMgASgJEg0KBWxpbWl0GAQgASgFIkgKF0xpc3RBdHRhY2htZW50c1Jlc3BvbnNlEi0KC2F0dGFjaG1lbnRzGAEgAygLMhgubmV4dXMudjEuQXR0YWNobWVudEluZm8iXAoSSW1wb3J0Tm90ZXNSZXF1ZXN0EhIKCnNvdXJjZV9kaXIYASABKAkSEwoLZGVzdF9mb2xkZXIYAiABKAkSDAoEa2luZBgDIAEoCRIPCgdkcnlfcnVuGAQgASgIIogBChNJbXBvcnROb3Rlc1Jlc3BvbnNlEg0KBW5vdGVzGAEgASgFEhMKC2F0dGFjaG1lbnRzGAIgASgFEhQKDGlkc19hc3NpZ25lZBgDIAEoBRIUCgxpZHNfcmVwbGFjZWQYBCABKAUSDwoHc2tpcHBlZBgFIAMoCRIQCgh3YXJuaW5ncxgGIAMoCSp4CgpGYWN0U3RhdHVzEhsKF0ZBQ1RfU1RBVFVTX1VOU1BFQ0lGSUVEEAASGAoURkFDVF9TVEFUVVNfUFJPUE9TRUQQARIZChVGQUNUX1NUQVRVU19DT05GSVJNRUQQAhIYChRGQUNUX1NUQVRVU19SRUpFQ1RFRBADKs4BCg9WYXVsdENoYW5nZUtpbmQSIQodVkFVTFRfQ0hBTkdFX0tJTkRfVU5TUEVDSUZJRUQQABIdChlWQVVMVF9DSEFOR0VfS0lORF9DUkVBVEVEEAESHQoZVkFVTFRfQ0hBTkdFX0tJTkRfVVBEQVRFRBACEh0KGVZBVUxUX0NIQU5HRV9LSU5EX0RFTEVURUQQAxIdChlWQVVMVF9DSEFOR0VfS0lORF9SRU5BTUVEEAQSHAoYVkFVTFRfQ0hBTkdFX0tJTkRfUkVTWU5DEAUy0hMKDFZhdWx0U2VydmljZRI7CgZTZWFyY2gSFy5uZXh1cy52MS5TZWFyY2hSZXF1ZXN0GhgubmV4dXMudjEuU2VhcmNoUmVzcG9uc2USMgoDQXNrEhQubmV4dXMudjEuQXNrUmVxdWVzdBoVLm5leHVzLnYxLkFza1Jlc3BvbnNlEj4KB0dldE5vdGUSGC5uZXh1cy52MS5HZXROb3RlUmVxdWVzdBoZLm5leHVzLnYxLkdldE5vdGVSZXNwb25zZRJECglXcml0ZU5vdGUSGi5uZXh1cy52MS5Xcml0ZU5vdGVSZXF1ZXN0GhsubmV4dXMudjEuV3JpdGVOb3RlUmVzcG9uc2USPgoHQ2FwdHVyZRIYLm5leHVzLnYxLkNhcHR1cmVSZXF1ZXN0GhkubmV4dXMudjEuQ2FwdHVyZVJlc3BvbnNlEjgKBUdyYXBoEhYubmV4dXMudjEuR3JhcGhSZXF1ZXN0GhcubmV4dXMudjEuR3JhcGhSZXNwb25zZRJECglMaXN0RmFjdHMSGi5uZXh1cy52MS5MaXN0RmFjdHNSZXF1ZXN0GhsubmV4dXMudjEuTGlzdEZhY3RzUmVzcG9uc2USRwoKUmV2aWV3RmFjdBIbLm5leHVzLnYxLlJldmlld0ZhY3RSZXF1ZXN0GhwubmV4dXMudjEuUmV2aWV3RmFjdFJlc3BvbnNlEj4KB0hpc3RvcnkSGC5uZXh1cy52MS5IaXN0b3J5UmVxdWVzdBoZLm5leHVzLnYxLkhpc3RvcnlSZXNwb25zZRJHCgpHZXRWZXJzaW9uEhsubmV4dXMudjEuR2V0VmVyc2lvblJlcXVlc3QaHC5uZXh1cy52MS5HZXRWZXJzaW9uUmVzcG9uc2USUwoOUmVzdG9yZVZlcnNpb24SHy5uZXh1cy52MS5SZXN0b3JlVmVyc2lvblJlcXVlc3QaIC5uZXh1cy52MS5SZXN0b3JlVmVyc2lvblJlc3BvbnNlEkcKCkRlbGV0ZU5vdGUSGy5uZXh1cy52MS5EZWxldGVOb3RlUmVxdWVzdBocLm5leHVzLnYxLkRlbGV0ZU5vdGVSZXNwb25zZRJECglMaXN0VHJhc2gSGi5uZXh1cy52MS5MaXN0VHJhc2hSZXF1ZXN0GhsubmV4dXMudjEuTGlzdFRyYXNoUmVzcG9uc2USWQoQUmVzdG9yZUZyb21UcmFzaBIhLm5leHVzLnYxLlJlc3RvcmVGcm9tVHJhc2hSZXF1ZXN0GiIubmV4dXMudjEuUmVzdG9yZUZyb21UcmFzaFJlc3BvbnNlEkcKClB1cmdlVHJhc2gSGy5uZXh1cy52MS5QdXJnZVRyYXNoUmVxdWVzdBocLm5leHVzLnYxLlB1cmdlVHJhc2hSZXNwb25zZRJHCgpSZW5hbWVOb3RlEhsubmV4dXMudjEuUmVuYW1lTm90ZVJlcXVlc3QaHC5uZXh1cy52MS5SZW5hbWVOb3RlUmVzcG9uc2USRwoKTWVyZ2VOb3RlcxIbLm5leHVzLnYxLk1lcmdlTm90ZXNSZXF1ZXN0GhwubmV4dXMudjEuTWVyZ2VOb3Rlc1Jlc3BvbnNlEkQKCVNwbGl0Tm90ZRIaLm5leHVzLnYxLlNwbGl0Tm90ZVJlcXVlc3QaGy5uZXh1cy52MS5TcGxpdE5vdGVSZXNwb25zZRI4CgVRdWVyeRIWLm5leHVzLnYxLlF1ZXJ5UmVxdWVzdBoXLm5leHVzLnYxLlF1ZXJ5UmVzcG9uc2USPgoHUmVsYXRlZBIYLm5leHVzLnYxLlJlbGF0ZWRSZXF1ZXN0GhkubmV4dXMudjEuUmVsYXRlZFJlc3BvbnNlEkQKCUJhY2tsaW5rcxIaLm5leHVzLnYxLkJhY2tsaW5rc1JlcXVlc3QaGy5uZXh1cy52MS5CYWNrbGlua3NSZXNwb25zZRJHCgpHcmFwaFN0YXRzEhsubmV4dXMudjEuR3JhcGhTdGF0c1JlcXVlc3QaHC5uZXh1cy52MS5HcmFwaFN0YXRzUmVzcG9uc2USUAoNTGlzdE5vdGVUYXNrcxIeLm5leHVzLnYxLkxpc3ROb3RlVGFza3NSZXF1ZXN0Gh8ubmV4dXMudjEuTGlzdE5vdGVUYXNrc1Jlc3BvbnNlEkcKClRvZ2dsZVRhc2sSGy5uZXh1cy52MS5Ub2dnbGVUYXNrUmVxdWVzdBocLm5leHVzLnYxLlRvZ2dsZVRhc2tSZXNwb25zZRJQCg1MaXN0VGVtcGxhdGVzEh4ubmV4dXMudjEuTGlzdFRlbXBsYXRlc1JlcXVlc3QaHy5uZXh1cy52MS5MaXN0VGVtcGxhdGVzUmVzcG9uc2USVgoPTmV3RnJvbVRlbXBsYXRlEiAubmV4dXMudjEuTmV3RnJvbVRlbXBsYXRlUmVxdWVzdBohLm5leHVzLnYxLk5ld0Zyb21UZW1wbGF0ZVJlc3BvbnNlEk0KDFBlcmlvZGljTm90ZRIdLm5leHVzLnYxLlBlcmlvZGljTm90ZVJlcXVlc3QaHi5uZXh1cy52MS5QZXJpb2RpY05vdGVSZXNwb25zZRI4CgVDaGVjaxIWLm5leHVzLnYxLkNoZWNrUmVxdWVzdBoXLm5leHVzLnYxLkNoZWNrUmVzcG9uc2USOwoGUmVwYWlyEhcubmV4dXMudjEuUmVwYWlyUmVxdWVzdBoYLm5leHVzLnYxLlJlcGFpclJlc3BvbnNlEjsKBkJhY2t1cBIXLm5leHVzLnYxLkJhY2t1cFJlcXVlc3QaGC5uZXh1cy52MS5CYWNrdXBSZXNwb25zZRJKCgtMaXN0QmFja3VwcxIcLm5leHVzLnYxLkxpc3RCYWNrdXBzUmVxdWVzdBodLm5leHVzLnYxLkxpc3RCYWNrdXBzUmVzcG9uc2USTQoMVmVyaWZ5QmFja3VwEh0ubmV4dXMudjEuVmVyaWZ5QmFja3VwUmVxdWVzdBoeLm5leHVzLnYxLlZlcmlmeUJhY2t1cFJlc3BvbnNlEkkKCldhdGNoVmF1bHQSGy5uZXh1cy52MS5XYXRjaFZhdWx0UmVxdWVzdBocLm5leHVzLnYxLldhdGNoVmF1bHRSZXNwb25zZTABElYKD0xpc3RBdHRhY2htZW50cxIgLm5leHVzLnYxLkxpc3RBdHRhY2htZW50c1JlcXVlc3QaIS5uZXh1cy52MS5MaXN0QXR0YWNobWVudHNSZXNwb25zZRJKCgtJbXBvcnROb3RlcxIcLm5leHVzLnYxLkltcG9ydE5vdGVzUmVxdWVzdBodLm5leHVzLnYxLkltcG9ydE5vdGVzUmVzcG9uc2VClgEKDGNvbS5uZXh1cy52MUIKVmF1bHRQcm90b1ABWjlnaXRodWIuY29tL2RhbmllbHBpbmExL25leHVzL2JhY2tlbmQvZ2VuL25leHVzL3YxO25leHVzdjGiAgNOWFiqAghOZXh1cy5WMcoCCE5leHVzXFYx4gIUTmV4dXNcVjFcR1BCTWV0YWRhdGHqAglOZXh1czo6VjFiBnByb3RvMw", [file_google_protobuf_struct, file_google_protobuf_timestamp, file_nexus_v1_common]);
 
 /**
  * Note is a vault note.
@@ -66,6 +66,14 @@ export type Note = Message<"nexus.v1.Note"> & {
    * @generated from field: string commit = 9;
    */
   commit: string;
+
+  /**
+   * encrypted is true when the note is stored encrypted at rest
+   * (vault.encryption.folders); the body here is the decrypted text.
+   *
+   * @generated from field: bool encrypted = 10;
+   */
+  encrypted: boolean;
 };
 
 /**
@@ -295,6 +303,14 @@ export type WriteNoteResponse = Message<"nexus.v1.WriteNoteResponse"> & {
    * @generated from field: nexus.v1.Note note = 1;
    */
   note?: Note | undefined;
+
+  /**
+   * merged is true when base_commit was stale and the change was merged
+   * (three-way, line based) with the newer version without conflicts.
+   *
+   * @generated from field: bool merged = 2;
+   */
+  merged: boolean;
 };
 
 /**
@@ -332,6 +348,14 @@ export type CaptureRequest = Message<"nexus.v1.CaptureRequest"> & {
    * @generated from field: string idempotency_key = 5;
    */
   idempotencyKey: string;
+
+  /**
+   * clip fetches url and stores the readable page text as Markdown
+   * (needs the web tools module; falls back to a plain link capture).
+   *
+   * @generated from field: bool clip = 6;
+   */
+  clip: boolean;
 };
 
 /**
@@ -383,6 +407,41 @@ export type GraphRequest = Message<"nexus.v1.GraphRequest"> & {
    * @generated from field: int32 limit = 4;
    */
   limit: number;
+
+  /**
+   * relations keeps only edges with these relations (e.g. links_to, works_at).
+   *
+   * @generated from field: repeated string relations = 5;
+   */
+  relations: string[];
+
+  /**
+   * tags keeps only notes with any of these tags (the center is always kept).
+   *
+   * @generated from field: repeated string tags = 6;
+   */
+  tags: string[];
+
+  /**
+   * path_prefix keeps only notes under a folder, e.g. "people/".
+   *
+   * @generated from field: string path_prefix = 7;
+   */
+  pathPrefix: string;
+
+  /**
+   * hide_dangling drops unresolved link targets.
+   *
+   * @generated from field: bool hide_dangling = 8;
+   */
+  hideDangling: boolean;
+
+  /**
+   * hide_orphans drops notes without links (whole-graph view).
+   *
+   * @generated from field: bool hide_orphans = 9;
+   */
+  hideOrphans: boolean;
 };
 
 /**
@@ -560,6 +619,2027 @@ export const ReviewFactResponseSchema: GenMessage<ReviewFactResponse> = /*@__PUR
   messageDesc(file_nexus_v1_vault, 19);
 
 /**
+ * NoteVersion is one version of a note. commit is a git commit hash, or
+ * "snap:<sha256>" for the local snapshot store (vaults without git).
+ *
+ * @generated from message nexus.v1.NoteVersion
+ */
+export type NoteVersion = Message<"nexus.v1.NoteVersion"> & {
+  /**
+   * @generated from field: string commit = 1;
+   */
+  commit: string;
+
+  /**
+   * @generated from field: string path = 2;
+   */
+  path: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp at = 3;
+   */
+  at?: Timestamp | undefined;
+
+  /**
+   * @generated from field: string message = 4;
+   */
+  message: string;
+
+  /**
+   * @generated from field: string author = 5;
+   */
+  author: string;
+
+  /**
+   * diff is a unified diff against the previous version (include_diff).
+   *
+   * @generated from field: string diff = 6;
+   */
+  diff: string;
+
+  /**
+   * run_id is the Nexus-Run trailer of the commit (agent writes).
+   *
+   * @generated from field: string run_id = 7;
+   */
+  runId: string;
+
+  /**
+   * deleted is true when this version removed the note.
+   *
+   * @generated from field: bool deleted = 8;
+   */
+  deleted: boolean;
+};
+
+/**
+ * Describes the message nexus.v1.NoteVersion.
+ * Use `create(NoteVersionSchema)` to create a new message.
+ */
+export const NoteVersionSchema: GenMessage<NoteVersion> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 20);
+
+/**
+ * @generated from message nexus.v1.HistoryRequest
+ */
+export type HistoryRequest = Message<"nexus.v1.HistoryRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string path = 2;
+   */
+  path: string;
+
+  /**
+   * default 50
+   *
+   * @generated from field: int32 limit = 3;
+   */
+  limit: number;
+
+  /**
+   * @generated from field: bool include_diff = 4;
+   */
+  includeDiff: boolean;
+};
+
+/**
+ * Describes the message nexus.v1.HistoryRequest.
+ * Use `create(HistoryRequestSchema)` to create a new message.
+ */
+export const HistoryRequestSchema: GenMessage<HistoryRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 21);
+
+/**
+ * @generated from message nexus.v1.HistoryResponse
+ */
+export type HistoryResponse = Message<"nexus.v1.HistoryResponse"> & {
+  /**
+   * @generated from field: repeated nexus.v1.NoteVersion versions = 1;
+   */
+  versions: NoteVersion[];
+};
+
+/**
+ * Describes the message nexus.v1.HistoryResponse.
+ * Use `create(HistoryResponseSchema)` to create a new message.
+ */
+export const HistoryResponseSchema: GenMessage<HistoryResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 22);
+
+/**
+ * @generated from message nexus.v1.GetVersionRequest
+ */
+export type GetVersionRequest = Message<"nexus.v1.GetVersionRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string path = 2;
+   */
+  path: string;
+
+  /**
+   * @generated from field: string commit = 3;
+   */
+  commit: string;
+};
+
+/**
+ * Describes the message nexus.v1.GetVersionRequest.
+ * Use `create(GetVersionRequestSchema)` to create a new message.
+ */
+export const GetVersionRequestSchema: GenMessage<GetVersionRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 23);
+
+/**
+ * @generated from message nexus.v1.GetVersionResponse
+ */
+export type GetVersionResponse = Message<"nexus.v1.GetVersionResponse"> & {
+  /**
+   * @generated from field: string markdown = 1;
+   */
+  markdown: string;
+
+  /**
+   * @generated from field: nexus.v1.NoteVersion version = 2;
+   */
+  version?: NoteVersion | undefined;
+};
+
+/**
+ * Describes the message nexus.v1.GetVersionResponse.
+ * Use `create(GetVersionResponseSchema)` to create a new message.
+ */
+export const GetVersionResponseSchema: GenMessage<GetVersionResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 24);
+
+/**
+ * @generated from message nexus.v1.RestoreVersionRequest
+ */
+export type RestoreVersionRequest = Message<"nexus.v1.RestoreVersionRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string path = 2;
+   */
+  path: string;
+
+  /**
+   * @generated from field: string commit = 3;
+   */
+  commit: string;
+
+  /**
+   * @generated from field: string commit_message = 4;
+   */
+  commitMessage: string;
+};
+
+/**
+ * Describes the message nexus.v1.RestoreVersionRequest.
+ * Use `create(RestoreVersionRequestSchema)` to create a new message.
+ */
+export const RestoreVersionRequestSchema: GenMessage<RestoreVersionRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 25);
+
+/**
+ * @generated from message nexus.v1.RestoreVersionResponse
+ */
+export type RestoreVersionResponse = Message<"nexus.v1.RestoreVersionResponse"> & {
+  /**
+   * @generated from field: nexus.v1.Note note = 1;
+   */
+  note?: Note | undefined;
+};
+
+/**
+ * Describes the message nexus.v1.RestoreVersionResponse.
+ * Use `create(RestoreVersionResponseSchema)` to create a new message.
+ */
+export const RestoreVersionResponseSchema: GenMessage<RestoreVersionResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 26);
+
+/**
+ * TrashItem is a deleted file kept under .trash/ until purged.
+ *
+ * @generated from message nexus.v1.TrashItem
+ */
+export type TrashItem = Message<"nexus.v1.TrashItem"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * original vault path
+   *
+   * @generated from field: string path = 2;
+   */
+  path: string;
+
+  /**
+   * @generated from field: string title = 3;
+   */
+  title: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp deleted_at = 4;
+   */
+  deletedAt?: Timestamp | undefined;
+
+  /**
+   * @generated from field: int64 size_bytes = 5;
+   */
+  sizeBytes: bigint;
+};
+
+/**
+ * Describes the message nexus.v1.TrashItem.
+ * Use `create(TrashItemSchema)` to create a new message.
+ */
+export const TrashItemSchema: GenMessage<TrashItem> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 27);
+
+/**
+ * @generated from message nexus.v1.DeleteNoteRequest
+ */
+export type DeleteNoteRequest = Message<"nexus.v1.DeleteNoteRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string path = 2;
+   */
+  path: string;
+
+  /**
+   * @generated from field: string base_commit = 3;
+   */
+  baseCommit: string;
+
+  /**
+   * @generated from field: string commit_message = 4;
+   */
+  commitMessage: string;
+};
+
+/**
+ * Describes the message nexus.v1.DeleteNoteRequest.
+ * Use `create(DeleteNoteRequestSchema)` to create a new message.
+ */
+export const DeleteNoteRequestSchema: GenMessage<DeleteNoteRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 28);
+
+/**
+ * @generated from message nexus.v1.DeleteNoteResponse
+ */
+export type DeleteNoteResponse = Message<"nexus.v1.DeleteNoteResponse"> & {
+  /**
+   * @generated from field: nexus.v1.TrashItem item = 1;
+   */
+  item?: TrashItem | undefined;
+};
+
+/**
+ * Describes the message nexus.v1.DeleteNoteResponse.
+ * Use `create(DeleteNoteResponseSchema)` to create a new message.
+ */
+export const DeleteNoteResponseSchema: GenMessage<DeleteNoteResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 29);
+
+/**
+ * @generated from message nexus.v1.ListTrashRequest
+ */
+export type ListTrashRequest = Message<"nexus.v1.ListTrashRequest"> & {
+};
+
+/**
+ * Describes the message nexus.v1.ListTrashRequest.
+ * Use `create(ListTrashRequestSchema)` to create a new message.
+ */
+export const ListTrashRequestSchema: GenMessage<ListTrashRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 30);
+
+/**
+ * @generated from message nexus.v1.ListTrashResponse
+ */
+export type ListTrashResponse = Message<"nexus.v1.ListTrashResponse"> & {
+  /**
+   * @generated from field: repeated nexus.v1.TrashItem items = 1;
+   */
+  items: TrashItem[];
+};
+
+/**
+ * Describes the message nexus.v1.ListTrashResponse.
+ * Use `create(ListTrashResponseSchema)` to create a new message.
+ */
+export const ListTrashResponseSchema: GenMessage<ListTrashResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 31);
+
+/**
+ * @generated from message nexus.v1.RestoreFromTrashRequest
+ */
+export type RestoreFromTrashRequest = Message<"nexus.v1.RestoreFromTrashRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * path restores to a different location; default = original path (a
+   * free name is chosen when it is taken).
+   *
+   * @generated from field: string path = 2;
+   */
+  path: string;
+};
+
+/**
+ * Describes the message nexus.v1.RestoreFromTrashRequest.
+ * Use `create(RestoreFromTrashRequestSchema)` to create a new message.
+ */
+export const RestoreFromTrashRequestSchema: GenMessage<RestoreFromTrashRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 32);
+
+/**
+ * @generated from message nexus.v1.RestoreFromTrashResponse
+ */
+export type RestoreFromTrashResponse = Message<"nexus.v1.RestoreFromTrashResponse"> & {
+  /**
+   * @generated from field: string path = 1;
+   */
+  path: string;
+
+  /**
+   * @generated from field: nexus.v1.NoteRef note = 2;
+   */
+  note?: NoteRef | undefined;
+};
+
+/**
+ * Describes the message nexus.v1.RestoreFromTrashResponse.
+ * Use `create(RestoreFromTrashResponseSchema)` to create a new message.
+ */
+export const RestoreFromTrashResponseSchema: GenMessage<RestoreFromTrashResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 33);
+
+/**
+ * @generated from message nexus.v1.PurgeTrashRequest
+ */
+export type PurgeTrashRequest = Message<"nexus.v1.PurgeTrashRequest"> & {
+  /**
+   * one item; empty = by age
+   *
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * 0 with empty id = everything
+   *
+   * @generated from field: int32 older_than_days = 2;
+   */
+  olderThanDays: number;
+};
+
+/**
+ * Describes the message nexus.v1.PurgeTrashRequest.
+ * Use `create(PurgeTrashRequestSchema)` to create a new message.
+ */
+export const PurgeTrashRequestSchema: GenMessage<PurgeTrashRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 34);
+
+/**
+ * @generated from message nexus.v1.PurgeTrashResponse
+ */
+export type PurgeTrashResponse = Message<"nexus.v1.PurgeTrashResponse"> & {
+  /**
+   * @generated from field: int32 purged = 1;
+   */
+  purged: number;
+};
+
+/**
+ * Describes the message nexus.v1.PurgeTrashResponse.
+ * Use `create(PurgeTrashResponseSchema)` to create a new message.
+ */
+export const PurgeTrashResponseSchema: GenMessage<PurgeTrashResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 35);
+
+/**
+ * @generated from message nexus.v1.RenameNoteRequest
+ */
+export type RenameNoteRequest = Message<"nexus.v1.RenameNoteRequest"> & {
+  /**
+   * path or id
+   *
+   * @generated from field: string from = 1;
+   */
+  from: string;
+
+  /**
+   * new vault path (.md added when missing)
+   *
+   * @generated from field: string to = 2;
+   */
+  to: string;
+
+  /**
+   * @generated from field: bool skip_link_updates = 3;
+   */
+  skipLinkUpdates: boolean;
+
+  /**
+   * @generated from field: string commit_message = 4;
+   */
+  commitMessage: string;
+};
+
+/**
+ * Describes the message nexus.v1.RenameNoteRequest.
+ * Use `create(RenameNoteRequestSchema)` to create a new message.
+ */
+export const RenameNoteRequestSchema: GenMessage<RenameNoteRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 36);
+
+/**
+ * @generated from message nexus.v1.RenameNoteResponse
+ */
+export type RenameNoteResponse = Message<"nexus.v1.RenameNoteResponse"> & {
+  /**
+   * @generated from field: nexus.v1.Note note = 1;
+   */
+  note?: Note | undefined;
+
+  /**
+   * notes whose links were rewritten
+   *
+   * @generated from field: repeated string updated_paths = 2;
+   */
+  updatedPaths: string[];
+};
+
+/**
+ * Describes the message nexus.v1.RenameNoteResponse.
+ * Use `create(RenameNoteResponseSchema)` to create a new message.
+ */
+export const RenameNoteResponseSchema: GenMessage<RenameNoteResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 37);
+
+/**
+ * @generated from message nexus.v1.MergeNotesRequest
+ */
+export type MergeNotesRequest = Message<"nexus.v1.MergeNotesRequest"> & {
+  /**
+   * path or id; trashed afterwards
+   *
+   * @generated from field: string source = 1;
+   */
+  source: string;
+
+  /**
+   * path or id
+   *
+   * @generated from field: string target = 2;
+   */
+  target: string;
+
+  /**
+   * @generated from field: string commit_message = 3;
+   */
+  commitMessage: string;
+};
+
+/**
+ * Describes the message nexus.v1.MergeNotesRequest.
+ * Use `create(MergeNotesRequestSchema)` to create a new message.
+ */
+export const MergeNotesRequestSchema: GenMessage<MergeNotesRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 38);
+
+/**
+ * @generated from message nexus.v1.MergeNotesResponse
+ */
+export type MergeNotesResponse = Message<"nexus.v1.MergeNotesResponse"> & {
+  /**
+   * @generated from field: nexus.v1.Note note = 1;
+   */
+  note?: Note | undefined;
+
+  /**
+   * @generated from field: repeated string updated_paths = 2;
+   */
+  updatedPaths: string[];
+};
+
+/**
+ * Describes the message nexus.v1.MergeNotesResponse.
+ * Use `create(MergeNotesResponseSchema)` to create a new message.
+ */
+export const MergeNotesResponseSchema: GenMessage<MergeNotesResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 39);
+
+/**
+ * @generated from message nexus.v1.SplitNoteRequest
+ */
+export type SplitNoteRequest = Message<"nexus.v1.SplitNoteRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string path = 2;
+   */
+  path: string;
+
+  /**
+   * default 2
+   *
+   * @generated from field: int32 heading_level = 3;
+   */
+  headingLevel: number;
+
+  /**
+   * default: the note's folder
+   *
+   * @generated from field: string folder = 4;
+   */
+  folder: string;
+};
+
+/**
+ * Describes the message nexus.v1.SplitNoteRequest.
+ * Use `create(SplitNoteRequestSchema)` to create a new message.
+ */
+export const SplitNoteRequestSchema: GenMessage<SplitNoteRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 40);
+
+/**
+ * @generated from message nexus.v1.SplitNoteResponse
+ */
+export type SplitNoteResponse = Message<"nexus.v1.SplitNoteResponse"> & {
+  /**
+   * @generated from field: nexus.v1.Note note = 1;
+   */
+  note?: Note | undefined;
+
+  /**
+   * @generated from field: repeated nexus.v1.NoteRef created = 2;
+   */
+  created: NoteRef[];
+};
+
+/**
+ * Describes the message nexus.v1.SplitNoteResponse.
+ * Use `create(SplitNoteResponseSchema)` to create a new message.
+ */
+export const SplitNoteResponseSchema: GenMessage<SplitNoteResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 41);
+
+/**
+ * @generated from message nexus.v1.QueryHit
+ */
+export type QueryHit = Message<"nexus.v1.QueryHit"> & {
+  /**
+   * @generated from field: nexus.v1.NoteRef note = 1;
+   */
+  note?: NoteRef | undefined;
+
+  /**
+   * @generated from field: string type = 2;
+   */
+  type: string;
+
+  /**
+   * @generated from field: repeated string tags = 3;
+   */
+  tags: string[];
+
+  /**
+   * @generated from field: google.protobuf.Timestamp updated_at = 4;
+   */
+  updatedAt?: Timestamp | undefined;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 5;
+   */
+  createdAt?: Timestamp | undefined;
+
+  /**
+   * snippet has **highlighted** matches when the query has free text.
+   *
+   * @generated from field: string snippet = 6;
+   */
+  snippet: string;
+
+  /**
+   * @generated from field: float score = 7;
+   */
+  score: number;
+
+  /**
+   * @generated from field: google.protobuf.Struct frontmatter = 8;
+   */
+  frontmatter?: JsonObject | undefined;
+};
+
+/**
+ * Describes the message nexus.v1.QueryHit.
+ * Use `create(QueryHitSchema)` to create a new message.
+ */
+export const QueryHitSchema: GenMessage<QueryHit> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 42);
+
+/**
+ * @generated from message nexus.v1.QueryRequest
+ */
+export type QueryRequest = Message<"nexus.v1.QueryRequest"> & {
+  /**
+   * @generated from field: string query = 1;
+   */
+  query: string;
+
+  /**
+   * overrides limit: in the query; default 50, max 500
+   *
+   * @generated from field: int32 limit = 2;
+   */
+  limit: number;
+};
+
+/**
+ * Describes the message nexus.v1.QueryRequest.
+ * Use `create(QueryRequestSchema)` to create a new message.
+ */
+export const QueryRequestSchema: GenMessage<QueryRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 43);
+
+/**
+ * @generated from message nexus.v1.QueryResponse
+ */
+export type QueryResponse = Message<"nexus.v1.QueryResponse"> & {
+  /**
+   * @generated from field: repeated nexus.v1.QueryHit hits = 1;
+   */
+  hits: QueryHit[];
+
+  /**
+   * matches before limit
+   *
+   * @generated from field: int32 total = 2;
+   */
+  total: number;
+
+  /**
+   * unknown operators etc.
+   *
+   * @generated from field: repeated string warnings = 3;
+   */
+  warnings: string[];
+};
+
+/**
+ * Describes the message nexus.v1.QueryResponse.
+ * Use `create(QueryResponseSchema)` to create a new message.
+ */
+export const QueryResponseSchema: GenMessage<QueryResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 44);
+
+/**
+ * @generated from message nexus.v1.RelatedNote
+ */
+export type RelatedNote = Message<"nexus.v1.RelatedNote"> & {
+  /**
+   * @generated from field: nexus.v1.NoteRef note = 1;
+   */
+  note?: NoteRef | undefined;
+
+  /**
+   * @generated from field: float score = 2;
+   */
+  score: number;
+
+  /**
+   * reasons: "links to", "linked from", "shared links: 3", "similar text".
+   *
+   * @generated from field: repeated string reasons = 3;
+   */
+  reasons: string[];
+};
+
+/**
+ * Describes the message nexus.v1.RelatedNote.
+ * Use `create(RelatedNoteSchema)` to create a new message.
+ */
+export const RelatedNoteSchema: GenMessage<RelatedNote> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 45);
+
+/**
+ * @generated from message nexus.v1.RelatedRequest
+ */
+export type RelatedRequest = Message<"nexus.v1.RelatedRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string path = 2;
+   */
+  path: string;
+
+  /**
+   * @generated from field: int32 limit = 3;
+   */
+  limit: number;
+};
+
+/**
+ * Describes the message nexus.v1.RelatedRequest.
+ * Use `create(RelatedRequestSchema)` to create a new message.
+ */
+export const RelatedRequestSchema: GenMessage<RelatedRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 46);
+
+/**
+ * @generated from message nexus.v1.RelatedResponse
+ */
+export type RelatedResponse = Message<"nexus.v1.RelatedResponse"> & {
+  /**
+   * @generated from field: repeated nexus.v1.RelatedNote notes = 1;
+   */
+  notes: RelatedNote[];
+};
+
+/**
+ * Describes the message nexus.v1.RelatedResponse.
+ * Use `create(RelatedResponseSchema)` to create a new message.
+ */
+export const RelatedResponseSchema: GenMessage<RelatedResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 47);
+
+/**
+ * @generated from message nexus.v1.Backlink
+ */
+export type Backlink = Message<"nexus.v1.Backlink"> & {
+  /**
+   * @generated from field: nexus.v1.NoteRef source = 1;
+   */
+  source?: NoteRef | undefined;
+
+  /**
+   * 1-based, 0 = frontmatter
+   *
+   * @generated from field: int32 line = 2;
+   */
+  line: number;
+
+  /**
+   * the line containing the link or mention
+   *
+   * @generated from field: string context = 3;
+   */
+  context: string;
+
+  /**
+   * @generated from field: string relation = 4;
+   */
+  relation: string;
+};
+
+/**
+ * Describes the message nexus.v1.Backlink.
+ * Use `create(BacklinkSchema)` to create a new message.
+ */
+export const BacklinkSchema: GenMessage<Backlink> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 48);
+
+/**
+ * @generated from message nexus.v1.BacklinksRequest
+ */
+export type BacklinksRequest = Message<"nexus.v1.BacklinksRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string path = 2;
+   */
+  path: string;
+
+  /**
+   * also return unlinked mentions
+   *
+   * @generated from field: bool include_unlinked = 3;
+   */
+  includeUnlinked: boolean;
+
+  /**
+   * @generated from field: int32 limit = 4;
+   */
+  limit: number;
+};
+
+/**
+ * Describes the message nexus.v1.BacklinksRequest.
+ * Use `create(BacklinksRequestSchema)` to create a new message.
+ */
+export const BacklinksRequestSchema: GenMessage<BacklinksRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 49);
+
+/**
+ * @generated from message nexus.v1.BacklinksResponse
+ */
+export type BacklinksResponse = Message<"nexus.v1.BacklinksResponse"> & {
+  /**
+   * @generated from field: repeated nexus.v1.Backlink backlinks = 1;
+   */
+  backlinks: Backlink[];
+
+  /**
+   * @generated from field: repeated nexus.v1.Backlink unlinked_mentions = 2;
+   */
+  unlinkedMentions: Backlink[];
+};
+
+/**
+ * Describes the message nexus.v1.BacklinksResponse.
+ * Use `create(BacklinksResponseSchema)` to create a new message.
+ */
+export const BacklinksResponseSchema: GenMessage<BacklinksResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 50);
+
+/**
+ * @generated from message nexus.v1.GraphHub
+ */
+export type GraphHub = Message<"nexus.v1.GraphHub"> & {
+  /**
+   * @generated from field: nexus.v1.NoteRef note = 1;
+   */
+  note?: NoteRef | undefined;
+
+  /**
+   * @generated from field: int32 in_degree = 2;
+   */
+  inDegree: number;
+
+  /**
+   * @generated from field: int32 out_degree = 3;
+   */
+  outDegree: number;
+};
+
+/**
+ * Describes the message nexus.v1.GraphHub.
+ * Use `create(GraphHubSchema)` to create a new message.
+ */
+export const GraphHubSchema: GenMessage<GraphHub> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 51);
+
+/**
+ * @generated from message nexus.v1.GraphStatsRequest
+ */
+export type GraphStatsRequest = Message<"nexus.v1.GraphStatsRequest"> & {
+  /**
+   * per list, default 20
+   *
+   * @generated from field: int32 limit = 1;
+   */
+  limit: number;
+};
+
+/**
+ * Describes the message nexus.v1.GraphStatsRequest.
+ * Use `create(GraphStatsRequestSchema)` to create a new message.
+ */
+export const GraphStatsRequestSchema: GenMessage<GraphStatsRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 52);
+
+/**
+ * @generated from message nexus.v1.GraphStatsResponse
+ */
+export type GraphStatsResponse = Message<"nexus.v1.GraphStatsResponse"> & {
+  /**
+   * @generated from field: int32 notes = 1;
+   */
+  notes: number;
+
+  /**
+   * @generated from field: int32 edges = 2;
+   */
+  edges: number;
+
+  /**
+   * @generated from field: int32 dangling_links = 3;
+   */
+  danglingLinks: number;
+
+  /**
+   * @generated from field: repeated nexus.v1.NoteRef orphans = 4;
+   */
+  orphans: NoteRef[];
+
+  /**
+   * @generated from field: repeated nexus.v1.GraphHub hubs = 5;
+   */
+  hubs: GraphHub[];
+
+  /**
+   * @generated from field: repeated string top_dangling = 6;
+   */
+  topDangling: string[];
+};
+
+/**
+ * Describes the message nexus.v1.GraphStatsResponse.
+ * Use `create(GraphStatsResponseSchema)` to create a new message.
+ */
+export const GraphStatsResponseSchema: GenMessage<GraphStatsResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 53);
+
+/**
+ * NoteTask is a Markdown checkbox, e.g. `- [ ] Call João 📅 2026-10-20 #work`.
+ *
+ * @generated from message nexus.v1.NoteTask
+ */
+export type NoteTask = Message<"nexus.v1.NoteTask"> & {
+  /**
+   * @generated from field: nexus.v1.NoteRef note = 1;
+   */
+  note?: NoteRef | undefined;
+
+  /**
+   * 1-based line in the file
+   *
+   * @generated from field: int32 line = 2;
+   */
+  line: number;
+
+  /**
+   * without checkbox, dates and priority markers
+   *
+   * @generated from field: string text = 3;
+   */
+  text: string;
+
+  /**
+   * @generated from field: bool done = 4;
+   */
+  done: boolean;
+
+  /**
+   * the checkbox character: " ", "x", "/", "-", ...
+   *
+   * @generated from field: string status = 5;
+   */
+  status: string;
+
+  /**
+   * YYYY-MM-DD (📅 or [due:: ])
+   *
+   * @generated from field: string due = 6;
+   */
+  due: string;
+
+  /**
+   * ⏳
+   *
+   * @generated from field: string scheduled = 7;
+   */
+  scheduled: string;
+
+  /**
+   * 🛫
+   *
+   * @generated from field: string start = 8;
+   */
+  start: string;
+
+  /**
+   * ✅
+   *
+   * @generated from field: string done_date = 9;
+   */
+  doneDate: string;
+
+  /**
+   * highest | high | medium | low | lowest | ""
+   *
+   * @generated from field: string priority = 10;
+   */
+  priority: string;
+
+  /**
+   * @generated from field: repeated string tags = 11;
+   */
+  tags: string[];
+
+  /**
+   * the full line
+   *
+   * @generated from field: string raw = 12;
+   */
+  raw: string;
+};
+
+/**
+ * Describes the message nexus.v1.NoteTask.
+ * Use `create(NoteTaskSchema)` to create a new message.
+ */
+export const NoteTaskSchema: GenMessage<NoteTask> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 54);
+
+/**
+ * @generated from message nexus.v1.ListNoteTasksRequest
+ */
+export type ListNoteTasksRequest = Message<"nexus.v1.ListNoteTasksRequest"> & {
+  /**
+   * open | done | all (default open)
+   *
+   * @generated from field: string status = 1;
+   */
+  status: string;
+
+  /**
+   * YYYY-MM-DD inclusive
+   *
+   * @generated from field: string due_before = 2;
+   */
+  dueBefore: string;
+
+  /**
+   * YYYY-MM-DD inclusive
+   *
+   * @generated from field: string due_after = 3;
+   */
+  dueAfter: string;
+
+  /**
+   * @generated from field: repeated string tags = 4;
+   */
+  tags: string[];
+
+  /**
+   * @generated from field: string path_prefix = 5;
+   */
+  pathPrefix: string;
+
+  /**
+   * id or path of one note
+   *
+   * @generated from field: string note_id = 6;
+   */
+  noteId: string;
+
+  /**
+   * substring match
+   *
+   * @generated from field: string text = 7;
+   */
+  text: string;
+
+  /**
+   * default 200
+   *
+   * @generated from field: int32 limit = 8;
+   */
+  limit: number;
+};
+
+/**
+ * Describes the message nexus.v1.ListNoteTasksRequest.
+ * Use `create(ListNoteTasksRequestSchema)` to create a new message.
+ */
+export const ListNoteTasksRequestSchema: GenMessage<ListNoteTasksRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 55);
+
+/**
+ * @generated from message nexus.v1.ListNoteTasksResponse
+ */
+export type ListNoteTasksResponse = Message<"nexus.v1.ListNoteTasksResponse"> & {
+  /**
+   * @generated from field: repeated nexus.v1.NoteTask tasks = 1;
+   */
+  tasks: NoteTask[];
+};
+
+/**
+ * Describes the message nexus.v1.ListNoteTasksResponse.
+ * Use `create(ListNoteTasksResponseSchema)` to create a new message.
+ */
+export const ListNoteTasksResponseSchema: GenMessage<ListNoteTasksResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 56);
+
+/**
+ * @generated from message nexus.v1.ToggleTaskRequest
+ */
+export type ToggleTaskRequest = Message<"nexus.v1.ToggleTaskRequest"> & {
+  /**
+   * note id or path
+   *
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string path = 2;
+   */
+  path: string;
+
+  /**
+   * @generated from field: int32 line = 3;
+   */
+  line: number;
+
+  /**
+   * raw is the line as last read; the toggle fails (ABORTED) when the line
+   * changed since. Empty = no check.
+   *
+   * @generated from field: string raw = 4;
+   */
+  raw: string;
+
+  /**
+   * done sets the state explicitly; unset = toggle.
+   *
+   * @generated from field: optional bool done = 5;
+   */
+  done?: boolean | undefined;
+};
+
+/**
+ * Describes the message nexus.v1.ToggleTaskRequest.
+ * Use `create(ToggleTaskRequestSchema)` to create a new message.
+ */
+export const ToggleTaskRequestSchema: GenMessage<ToggleTaskRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 57);
+
+/**
+ * @generated from message nexus.v1.ToggleTaskResponse
+ */
+export type ToggleTaskResponse = Message<"nexus.v1.ToggleTaskResponse"> & {
+  /**
+   * @generated from field: nexus.v1.NoteTask task = 1;
+   */
+  task?: NoteTask | undefined;
+
+  /**
+   * @generated from field: string commit = 2;
+   */
+  commit: string;
+};
+
+/**
+ * Describes the message nexus.v1.ToggleTaskResponse.
+ * Use `create(ToggleTaskResponseSchema)` to create a new message.
+ */
+export const ToggleTaskResponseSchema: GenMessage<ToggleTaskResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 58);
+
+/**
+ * @generated from message nexus.v1.NoteTemplate
+ */
+export type NoteTemplate = Message<"nexus.v1.NoteTemplate"> & {
+  /**
+   * @generated from field: string path = 1;
+   */
+  path: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * variables used by the template ({{title}}, {{date:YYYY-MM-DD}}, custom).
+   *
+   * @generated from field: repeated string variables = 3;
+   */
+  variables: string[];
+
+  /**
+   * prompts must be supplied in NewFromTemplateRequest.variables
+   * ({{prompt:Question}} / {{ask:name}}).
+   *
+   * @generated from field: repeated string prompts = 4;
+   */
+  prompts: string[];
+
+  /**
+   * frontmatter type of the template
+   *
+   * @generated from field: string type = 5;
+   */
+  type: string;
+};
+
+/**
+ * Describes the message nexus.v1.NoteTemplate.
+ * Use `create(NoteTemplateSchema)` to create a new message.
+ */
+export const NoteTemplateSchema: GenMessage<NoteTemplate> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 59);
+
+/**
+ * @generated from message nexus.v1.ListTemplatesRequest
+ */
+export type ListTemplatesRequest = Message<"nexus.v1.ListTemplatesRequest"> & {
+};
+
+/**
+ * Describes the message nexus.v1.ListTemplatesRequest.
+ * Use `create(ListTemplatesRequestSchema)` to create a new message.
+ */
+export const ListTemplatesRequestSchema: GenMessage<ListTemplatesRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 60);
+
+/**
+ * @generated from message nexus.v1.ListTemplatesResponse
+ */
+export type ListTemplatesResponse = Message<"nexus.v1.ListTemplatesResponse"> & {
+  /**
+   * @generated from field: repeated nexus.v1.NoteTemplate templates = 1;
+   */
+  templates: NoteTemplate[];
+};
+
+/**
+ * Describes the message nexus.v1.ListTemplatesResponse.
+ * Use `create(ListTemplatesResponseSchema)` to create a new message.
+ */
+export const ListTemplatesResponseSchema: GenMessage<ListTemplatesResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 61);
+
+/**
+ * @generated from message nexus.v1.NewFromTemplateRequest
+ */
+export type NewFromTemplateRequest = Message<"nexus.v1.NewFromTemplateRequest"> & {
+  /**
+   * path under templates/ or name
+   *
+   * @generated from field: string template = 1;
+   */
+  template: string;
+
+  /**
+   * destination; default <folder>/<title>.md
+   *
+   * @generated from field: string path = 2;
+   */
+  path: string;
+
+  /**
+   * @generated from field: string title = 3;
+   */
+  title: string;
+
+  /**
+   * @generated from field: map<string, string> variables = 4;
+   */
+  variables: { [key: string]: string };
+
+  /**
+   * @generated from field: string commit_message = 5;
+   */
+  commitMessage: string;
+};
+
+/**
+ * Describes the message nexus.v1.NewFromTemplateRequest.
+ * Use `create(NewFromTemplateRequestSchema)` to create a new message.
+ */
+export const NewFromTemplateRequestSchema: GenMessage<NewFromTemplateRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 62);
+
+/**
+ * @generated from message nexus.v1.NewFromTemplateResponse
+ */
+export type NewFromTemplateResponse = Message<"nexus.v1.NewFromTemplateResponse"> & {
+  /**
+   * @generated from field: nexus.v1.Note note = 1;
+   */
+  note?: Note | undefined;
+
+  /**
+   * @generated from field: repeated string missing_prompts = 2;
+   */
+  missingPrompts: string[];
+};
+
+/**
+ * Describes the message nexus.v1.NewFromTemplateResponse.
+ * Use `create(NewFromTemplateResponseSchema)` to create a new message.
+ */
+export const NewFromTemplateResponseSchema: GenMessage<NewFromTemplateResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 63);
+
+/**
+ * @generated from message nexus.v1.PeriodicNoteRequest
+ */
+export type PeriodicNoteRequest = Message<"nexus.v1.PeriodicNoteRequest"> & {
+  /**
+   * daily | weekly | monthly | yearly
+   *
+   * @generated from field: string period = 1;
+   */
+  period: string;
+
+  /**
+   * YYYY-MM-DD; default today
+   *
+   * @generated from field: string date = 2;
+   */
+  date: string;
+
+  /**
+   * create from the configured template when missing
+   *
+   * @generated from field: bool create = 3;
+   */
+  create: boolean;
+};
+
+/**
+ * Describes the message nexus.v1.PeriodicNoteRequest.
+ * Use `create(PeriodicNoteRequestSchema)` to create a new message.
+ */
+export const PeriodicNoteRequestSchema: GenMessage<PeriodicNoteRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 64);
+
+/**
+ * @generated from message nexus.v1.PeriodicNoteResponse
+ */
+export type PeriodicNoteResponse = Message<"nexus.v1.PeriodicNoteResponse"> & {
+  /**
+   * empty when missing and create=false
+   *
+   * @generated from field: nexus.v1.Note note = 1;
+   */
+  note?: Note | undefined;
+
+  /**
+   * @generated from field: bool created = 2;
+   */
+  created: boolean;
+
+  /**
+   * @generated from field: string path = 3;
+   */
+  path: string;
+};
+
+/**
+ * Describes the message nexus.v1.PeriodicNoteResponse.
+ * Use `create(PeriodicNoteResponseSchema)` to create a new message.
+ */
+export const PeriodicNoteResponseSchema: GenMessage<PeriodicNoteResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 65);
+
+/**
+ * @generated from message nexus.v1.IntegrityIssue
+ */
+export type IntegrityIssue = Message<"nexus.v1.IntegrityIssue"> & {
+  /**
+   * kind: index_missing | index_stale | index_orphan | broken_link |
+   * duplicate_id | missing_id | invalid_frontmatter | orphan_attachment |
+   * oversize | temp_file | conflict_copy | pending_journal | unreadable
+   *
+   * @generated from field: string kind = 1;
+   */
+  kind: string;
+
+  /**
+   * error | warning | info
+   *
+   * @generated from field: string severity = 2;
+   */
+  severity: string;
+
+  /**
+   * @generated from field: string path = 3;
+   */
+  path: string;
+
+  /**
+   * @generated from field: string detail = 4;
+   */
+  detail: string;
+
+  /**
+   * Repair can fix it
+   *
+   * @generated from field: bool fixable = 5;
+   */
+  fixable: boolean;
+
+  /**
+   * @generated from field: repeated string related_paths = 6;
+   */
+  relatedPaths: string[];
+};
+
+/**
+ * Describes the message nexus.v1.IntegrityIssue.
+ * Use `create(IntegrityIssueSchema)` to create a new message.
+ */
+export const IntegrityIssueSchema: GenMessage<IntegrityIssue> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 66);
+
+/**
+ * @generated from message nexus.v1.IntegrityReport
+ */
+export type IntegrityReport = Message<"nexus.v1.IntegrityReport"> & {
+  /**
+   * @generated from field: google.protobuf.Timestamp at = 1;
+   */
+  at?: Timestamp | undefined;
+
+  /**
+   * @generated from field: bool full = 2;
+   */
+  full: boolean;
+
+  /**
+   * @generated from field: int32 notes = 3;
+   */
+  notes: number;
+
+  /**
+   * @generated from field: int32 attachments = 4;
+   */
+  attachments: number;
+
+  /**
+   * @generated from field: repeated nexus.v1.IntegrityIssue issues = 5;
+   */
+  issues: IntegrityIssue[];
+
+  /**
+   * @generated from field: int64 duration_ms = 6;
+   */
+  durationMs: bigint;
+
+  /**
+   * issues by kind
+   *
+   * @generated from field: map<string, int32> counts = 7;
+   */
+  counts: { [key: string]: number };
+};
+
+/**
+ * Describes the message nexus.v1.IntegrityReport.
+ * Use `create(IntegrityReportSchema)` to create a new message.
+ */
+export const IntegrityReportSchema: GenMessage<IntegrityReport> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 67);
+
+/**
+ * @generated from message nexus.v1.CheckRequest
+ */
+export type CheckRequest = Message<"nexus.v1.CheckRequest"> & {
+  /**
+   * quick = index consistency + temp files + duplicate ids
+   *
+   * @generated from field: bool full = 1;
+   */
+  full: boolean;
+};
+
+/**
+ * Describes the message nexus.v1.CheckRequest.
+ * Use `create(CheckRequestSchema)` to create a new message.
+ */
+export const CheckRequestSchema: GenMessage<CheckRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 68);
+
+/**
+ * @generated from message nexus.v1.CheckResponse
+ */
+export type CheckResponse = Message<"nexus.v1.CheckResponse"> & {
+  /**
+   * @generated from field: nexus.v1.IntegrityReport report = 1;
+   */
+  report?: IntegrityReport | undefined;
+};
+
+/**
+ * Describes the message nexus.v1.CheckResponse.
+ * Use `create(CheckResponseSchema)` to create a new message.
+ */
+export const CheckResponseSchema: GenMessage<CheckResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 69);
+
+/**
+ * @generated from message nexus.v1.RepairRequest
+ */
+export type RepairRequest = Message<"nexus.v1.RepairRequest"> & {
+  /**
+   * @generated from field: bool dry_run = 1;
+   */
+  dryRun: boolean;
+};
+
+/**
+ * Describes the message nexus.v1.RepairRequest.
+ * Use `create(RepairRequestSchema)` to create a new message.
+ */
+export const RepairRequestSchema: GenMessage<RepairRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 70);
+
+/**
+ * @generated from message nexus.v1.RepairResponse
+ */
+export type RepairResponse = Message<"nexus.v1.RepairResponse"> & {
+  /**
+   * @generated from field: repeated string actions = 1;
+   */
+  actions: string[];
+
+  /**
+   * the check after repairing
+   *
+   * @generated from field: nexus.v1.IntegrityReport report = 2;
+   */
+  report?: IntegrityReport | undefined;
+};
+
+/**
+ * Describes the message nexus.v1.RepairResponse.
+ * Use `create(RepairResponseSchema)` to create a new message.
+ */
+export const RepairResponseSchema: GenMessage<RepairResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 71);
+
+/**
+ * @generated from message nexus.v1.BackupInfo
+ */
+export type BackupInfo = Message<"nexus.v1.BackupInfo"> & {
+  /**
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 2;
+   */
+  createdAt?: Timestamp | undefined;
+
+  /**
+   * @generated from field: int64 size_bytes = 3;
+   */
+  sizeBytes: bigint;
+
+  /**
+   * tar.gz | bundle
+   *
+   * @generated from field: string kind = 4;
+   */
+  kind: string;
+
+  /**
+   * @generated from field: string sha256 = 5;
+   */
+  sha256: string;
+};
+
+/**
+ * Describes the message nexus.v1.BackupInfo.
+ * Use `create(BackupInfoSchema)` to create a new message.
+ */
+export const BackupInfoSchema: GenMessage<BackupInfo> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 72);
+
+/**
+ * @generated from message nexus.v1.BackupRequest
+ */
+export type BackupRequest = Message<"nexus.v1.BackupRequest"> & {
+  /**
+   * also push to vault.backup.remote
+   *
+   * @generated from field: bool push_remote = 1;
+   */
+  pushRemote: boolean;
+};
+
+/**
+ * Describes the message nexus.v1.BackupRequest.
+ * Use `create(BackupRequestSchema)` to create a new message.
+ */
+export const BackupRequestSchema: GenMessage<BackupRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 73);
+
+/**
+ * @generated from message nexus.v1.BackupResponse
+ */
+export type BackupResponse = Message<"nexus.v1.BackupResponse"> & {
+  /**
+   * @generated from field: repeated nexus.v1.BackupInfo created = 1;
+   */
+  created: BackupInfo[];
+
+  /**
+   * @generated from field: repeated string pruned = 2;
+   */
+  pruned: string[];
+
+  /**
+   * @generated from field: string push_result = 3;
+   */
+  pushResult: string;
+};
+
+/**
+ * Describes the message nexus.v1.BackupResponse.
+ * Use `create(BackupResponseSchema)` to create a new message.
+ */
+export const BackupResponseSchema: GenMessage<BackupResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 74);
+
+/**
+ * @generated from message nexus.v1.ListBackupsRequest
+ */
+export type ListBackupsRequest = Message<"nexus.v1.ListBackupsRequest"> & {
+};
+
+/**
+ * Describes the message nexus.v1.ListBackupsRequest.
+ * Use `create(ListBackupsRequestSchema)` to create a new message.
+ */
+export const ListBackupsRequestSchema: GenMessage<ListBackupsRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 75);
+
+/**
+ * @generated from message nexus.v1.ListBackupsResponse
+ */
+export type ListBackupsResponse = Message<"nexus.v1.ListBackupsResponse"> & {
+  /**
+   * @generated from field: string dir = 1;
+   */
+  dir: string;
+
+  /**
+   * @generated from field: repeated nexus.v1.BackupInfo backups = 2;
+   */
+  backups: BackupInfo[];
+};
+
+/**
+ * Describes the message nexus.v1.ListBackupsResponse.
+ * Use `create(ListBackupsResponseSchema)` to create a new message.
+ */
+export const ListBackupsResponseSchema: GenMessage<ListBackupsResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 76);
+
+/**
+ * @generated from message nexus.v1.VerifyBackupRequest
+ */
+export type VerifyBackupRequest = Message<"nexus.v1.VerifyBackupRequest"> & {
+  /**
+   * @generated from field: string name = 1;
+   */
+  name: string;
+};
+
+/**
+ * Describes the message nexus.v1.VerifyBackupRequest.
+ * Use `create(VerifyBackupRequestSchema)` to create a new message.
+ */
+export const VerifyBackupRequestSchema: GenMessage<VerifyBackupRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 77);
+
+/**
+ * @generated from message nexus.v1.VerifyBackupResponse
+ */
+export type VerifyBackupResponse = Message<"nexus.v1.VerifyBackupResponse"> & {
+  /**
+   * @generated from field: bool ok = 1;
+   */
+  ok: boolean;
+
+  /**
+   * @generated from field: int32 files = 2;
+   */
+  files: number;
+
+  /**
+   * @generated from field: repeated string problems = 3;
+   */
+  problems: string[];
+};
+
+/**
+ * Describes the message nexus.v1.VerifyBackupResponse.
+ * Use `create(VerifyBackupResponseSchema)` to create a new message.
+ */
+export const VerifyBackupResponseSchema: GenMessage<VerifyBackupResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 78);
+
+/**
+ * @generated from message nexus.v1.VaultChange
+ */
+export type VaultChange = Message<"nexus.v1.VaultChange"> & {
+  /**
+   * increasing; resume with WatchVaultRequest.since_rev
+   *
+   * @generated from field: int64 rev = 1;
+   */
+  rev: bigint;
+
+  /**
+   * @generated from field: nexus.v1.VaultChangeKind kind = 2;
+   */
+  kind: VaultChangeKind;
+
+  /**
+   * @generated from field: string path = 3;
+   */
+  path: string;
+
+  /**
+   * RENAMED
+   *
+   * @generated from field: string old_path = 4;
+   */
+  oldPath: string;
+
+  /**
+   * @generated from field: string id = 5;
+   */
+  id: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp at = 6;
+   */
+  at?: Timestamp | undefined;
+
+  /**
+   * api | agent | external | system
+   *
+   * @generated from field: string origin = 7;
+   */
+  origin: string;
+};
+
+/**
+ * Describes the message nexus.v1.VaultChange.
+ * Use `create(VaultChangeSchema)` to create a new message.
+ */
+export const VaultChangeSchema: GenMessage<VaultChange> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 79);
+
+/**
+ * @generated from message nexus.v1.WatchVaultRequest
+ */
+export type WatchVaultRequest = Message<"nexus.v1.WatchVaultRequest"> & {
+  /**
+   * 0 = live only
+   *
+   * @generated from field: int64 since_rev = 1;
+   */
+  sinceRev: bigint;
+
+  /**
+   * @generated from field: string path_prefix = 2;
+   */
+  pathPrefix: string;
+};
+
+/**
+ * Describes the message nexus.v1.WatchVaultRequest.
+ * Use `create(WatchVaultRequestSchema)` to create a new message.
+ */
+export const WatchVaultRequestSchema: GenMessage<WatchVaultRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 80);
+
+/**
+ * @generated from message nexus.v1.WatchVaultResponse
+ */
+export type WatchVaultResponse = Message<"nexus.v1.WatchVaultResponse"> & {
+  /**
+   * @generated from field: nexus.v1.VaultChange change = 1;
+   */
+  change?: VaultChange | undefined;
+};
+
+/**
+ * Describes the message nexus.v1.WatchVaultResponse.
+ * Use `create(WatchVaultResponseSchema)` to create a new message.
+ */
+export const WatchVaultResponseSchema: GenMessage<WatchVaultResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 81);
+
+/**
+ * @generated from message nexus.v1.AttachmentInfo
+ */
+export type AttachmentInfo = Message<"nexus.v1.AttachmentInfo"> & {
+  /**
+   * @generated from field: string path = 1;
+   */
+  path: string;
+
+  /**
+   * @generated from field: string mime_type = 2;
+   */
+  mimeType: string;
+
+  /**
+   * @generated from field: int64 size_bytes = 3;
+   */
+  sizeBytes: bigint;
+
+  /**
+   * @generated from field: string sha256 = 4;
+   */
+  sha256: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp modified_at = 5;
+   */
+  modifiedAt?: Timestamp | undefined;
+
+  /**
+   * EXIF DateTimeOriginal
+   *
+   * @generated from field: google.protobuf.Timestamp taken_at = 6;
+   */
+  takenAt?: Timestamp | undefined;
+
+  /**
+   * text extracted (PDF, txt) and searchable
+   *
+   * @generated from field: bool has_text = 7;
+   */
+  hasText: boolean;
+
+  /**
+   * @generated from field: repeated nexus.v1.NoteRef referenced_by = 8;
+   */
+  referencedBy: NoteRef[];
+
+  /**
+   * @generated from field: string text_excerpt = 9;
+   */
+  textExcerpt: string;
+};
+
+/**
+ * Describes the message nexus.v1.AttachmentInfo.
+ * Use `create(AttachmentInfoSchema)` to create a new message.
+ */
+export const AttachmentInfoSchema: GenMessage<AttachmentInfo> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 82);
+
+/**
+ * @generated from message nexus.v1.ListAttachmentsRequest
+ */
+export type ListAttachmentsRequest = Message<"nexus.v1.ListAttachmentsRequest"> & {
+  /**
+   * @generated from field: string path_prefix = 1;
+   */
+  pathPrefix: string;
+
+  /**
+   * @generated from field: bool orphaned_only = 2;
+   */
+  orphanedOnly: boolean;
+
+  /**
+   * matches name and extracted text
+   *
+   * @generated from field: string query = 3;
+   */
+  query: string;
+
+  /**
+   * default 200
+   *
+   * @generated from field: int32 limit = 4;
+   */
+  limit: number;
+};
+
+/**
+ * Describes the message nexus.v1.ListAttachmentsRequest.
+ * Use `create(ListAttachmentsRequestSchema)` to create a new message.
+ */
+export const ListAttachmentsRequestSchema: GenMessage<ListAttachmentsRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 83);
+
+/**
+ * @generated from message nexus.v1.ListAttachmentsResponse
+ */
+export type ListAttachmentsResponse = Message<"nexus.v1.ListAttachmentsResponse"> & {
+  /**
+   * @generated from field: repeated nexus.v1.AttachmentInfo attachments = 1;
+   */
+  attachments: AttachmentInfo[];
+};
+
+/**
+ * Describes the message nexus.v1.ListAttachmentsResponse.
+ * Use `create(ListAttachmentsResponseSchema)` to create a new message.
+ */
+export const ListAttachmentsResponseSchema: GenMessage<ListAttachmentsResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 84);
+
+/**
+ * @generated from message nexus.v1.ImportNotesRequest
+ */
+export type ImportNotesRequest = Message<"nexus.v1.ImportNotesRequest"> & {
+  /**
+   * absolute path on the hub
+   *
+   * @generated from field: string source_dir = 1;
+   */
+  sourceDir: string;
+
+  /**
+   * vault folder, default "imported/<dir name>"
+   *
+   * @generated from field: string dest_folder = 2;
+   */
+  destFolder: string;
+
+  /**
+   * obsidian | markdown (default: detect .obsidian/)
+   *
+   * @generated from field: string kind = 3;
+   */
+  kind: string;
+
+  /**
+   * @generated from field: bool dry_run = 4;
+   */
+  dryRun: boolean;
+};
+
+/**
+ * Describes the message nexus.v1.ImportNotesRequest.
+ * Use `create(ImportNotesRequestSchema)` to create a new message.
+ */
+export const ImportNotesRequestSchema: GenMessage<ImportNotesRequest> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 85);
+
+/**
+ * @generated from message nexus.v1.ImportNotesResponse
+ */
+export type ImportNotesResponse = Message<"nexus.v1.ImportNotesResponse"> & {
+  /**
+   * @generated from field: int32 notes = 1;
+   */
+  notes: number;
+
+  /**
+   * @generated from field: int32 attachments = 2;
+   */
+  attachments: number;
+
+  /**
+   * @generated from field: int32 ids_assigned = 3;
+   */
+  idsAssigned: number;
+
+  /**
+   * duplicate ids given fresh ones
+   *
+   * @generated from field: int32 ids_replaced = 4;
+   */
+  idsReplaced: number;
+
+  /**
+   * @generated from field: repeated string skipped = 5;
+   */
+  skipped: string[];
+
+  /**
+   * @generated from field: repeated string warnings = 6;
+   */
+  warnings: string[];
+};
+
+/**
+ * Describes the message nexus.v1.ImportNotesResponse.
+ * Use `create(ImportNotesResponseSchema)` to create a new message.
+ */
+export const ImportNotesResponseSchema: GenMessage<ImportNotesResponse> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_vault, 86);
+
+/**
  * @generated from enum nexus.v1.FactStatus
  */
 export enum FactStatus {
@@ -589,6 +2669,49 @@ export enum FactStatus {
  */
 export const FactStatusSchema: GenEnum<FactStatus> = /*@__PURE__*/
   enumDesc(file_nexus_v1_vault, 0);
+
+/**
+ * @generated from enum nexus.v1.VaultChangeKind
+ */
+export enum VaultChangeKind {
+  /**
+   * @generated from enum value: VAULT_CHANGE_KIND_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: VAULT_CHANGE_KIND_CREATED = 1;
+   */
+  CREATED = 1,
+
+  /**
+   * @generated from enum value: VAULT_CHANGE_KIND_UPDATED = 2;
+   */
+  UPDATED = 2,
+
+  /**
+   * @generated from enum value: VAULT_CHANGE_KIND_DELETED = 3;
+   */
+  DELETED = 3,
+
+  /**
+   * @generated from enum value: VAULT_CHANGE_KIND_RENAMED = 4;
+   */
+  RENAMED = 4,
+
+  /**
+   * RESYNC: changes were missed (since_rev too old, full rescan); reload.
+   *
+   * @generated from enum value: VAULT_CHANGE_KIND_RESYNC = 5;
+   */
+  RESYNC = 5,
+}
+
+/**
+ * Describes the enum nexus.v1.VaultChangeKind.
+ */
+export const VaultChangeKindSchema: GenEnum<VaultChangeKind> = /*@__PURE__*/
+  enumDesc(file_nexus_v1_vault, 1);
 
 /**
  * VaultService reads/writes the knowledge vault and exposes search and graph.
@@ -661,6 +2784,264 @@ export const VaultService: GenService<{
     methodKind: "unary";
     input: typeof ReviewFactRequestSchema;
     output: typeof ReviewFactResponseSchema;
+  },
+  /**
+   * --- Versioning and undo -------------------------------------------------
+   * History lists the versions of a note, newest first (git log, or the
+   * local snapshot store when the vault is not a git repo).
+   *
+   * @generated from rpc nexus.v1.VaultService.History
+   */
+  history: {
+    methodKind: "unary";
+    input: typeof HistoryRequestSchema;
+    output: typeof HistoryResponseSchema;
+  },
+  /**
+   * GetVersion returns the Markdown of a note at a version.
+   *
+   * @generated from rpc nexus.v1.VaultService.GetVersion
+   */
+  getVersion: {
+    methodKind: "unary";
+    input: typeof GetVersionRequestSchema;
+    output: typeof GetVersionResponseSchema;
+  },
+  /**
+   * RestoreVersion writes an old version back as a new change.
+   *
+   * @generated from rpc nexus.v1.VaultService.RestoreVersion
+   */
+  restoreVersion: {
+    methodKind: "unary";
+    input: typeof RestoreVersionRequestSchema;
+    output: typeof RestoreVersionResponseSchema;
+  },
+  /**
+   * DeleteNote moves a note (or attachment) to the vault trash (.trash/).
+   *
+   * @generated from rpc nexus.v1.VaultService.DeleteNote
+   */
+  deleteNote: {
+    methodKind: "unary";
+    input: typeof DeleteNoteRequestSchema;
+    output: typeof DeleteNoteResponseSchema;
+  },
+  /**
+   * @generated from rpc nexus.v1.VaultService.ListTrash
+   */
+  listTrash: {
+    methodKind: "unary";
+    input: typeof ListTrashRequestSchema;
+    output: typeof ListTrashResponseSchema;
+  },
+  /**
+   * @generated from rpc nexus.v1.VaultService.RestoreFromTrash
+   */
+  restoreFromTrash: {
+    methodKind: "unary";
+    input: typeof RestoreFromTrashRequestSchema;
+    output: typeof RestoreFromTrashResponseSchema;
+  },
+  /**
+   * PurgeTrash permanently deletes trash items (one id, or older than N days).
+   *
+   * @generated from rpc nexus.v1.VaultService.PurgeTrash
+   */
+  purgeTrash: {
+    methodKind: "unary";
+    input: typeof PurgeTrashRequestSchema;
+    output: typeof PurgeTrashResponseSchema;
+  },
+  /**
+   * --- Refactoring -----------------------------------------------------------
+   * RenameNote moves a note and rewrites every link to it.
+   *
+   * @generated from rpc nexus.v1.VaultService.RenameNote
+   */
+  renameNote: {
+    methodKind: "unary";
+    input: typeof RenameNoteRequestSchema;
+    output: typeof RenameNoteResponseSchema;
+  },
+  /**
+   * MergeNotes appends source into target, redirects links, trashes source.
+   *
+   * @generated from rpc nexus.v1.VaultService.MergeNotes
+   */
+  mergeNotes: {
+    methodKind: "unary";
+    input: typeof MergeNotesRequestSchema;
+    output: typeof MergeNotesResponseSchema;
+  },
+  /**
+   * SplitNote moves each section at a heading level into its own note.
+   *
+   * @generated from rpc nexus.v1.VaultService.SplitNote
+   */
+  splitNote: {
+    methodKind: "unary";
+    input: typeof SplitNoteRequestSchema;
+    output: typeof SplitNoteResponseSchema;
+  },
+  /**
+   * --- Queries, search and graph analytics ----------------------------------
+   * Query runs the vault query language, e.g.
+   * `type:person tag:work updated:>2026-09-01 links:[[ACME]] sort:-updated limit:20`.
+   *
+   * @generated from rpc nexus.v1.VaultService.Query
+   */
+  query: {
+    methodKind: "unary";
+    input: typeof QueryRequestSchema;
+    output: typeof QueryResponseSchema;
+  },
+  /**
+   * Related returns notes related to a note (shared links + embeddings).
+   *
+   * @generated from rpc nexus.v1.VaultService.Related
+   */
+  related: {
+    methodKind: "unary";
+    input: typeof RelatedRequestSchema;
+    output: typeof RelatedResponseSchema;
+  },
+  /**
+   * Backlinks returns linking notes with context lines and unlinked mentions.
+   *
+   * @generated from rpc nexus.v1.VaultService.Backlinks
+   */
+  backlinks: {
+    methodKind: "unary";
+    input: typeof BacklinksRequestSchema;
+    output: typeof BacklinksResponseSchema;
+  },
+  /**
+   * GraphStats returns orphans, hubs and totals.
+   *
+   * @generated from rpc nexus.v1.VaultService.GraphStats
+   */
+  graphStats: {
+    methodKind: "unary";
+    input: typeof GraphStatsRequestSchema;
+    output: typeof GraphStatsResponseSchema;
+  },
+  /**
+   * --- Tasks in notes ---------------------------------------------------------
+   *
+   * @generated from rpc nexus.v1.VaultService.ListNoteTasks
+   */
+  listNoteTasks: {
+    methodKind: "unary";
+    input: typeof ListNoteTasksRequestSchema;
+    output: typeof ListNoteTasksResponseSchema;
+  },
+  /**
+   * @generated from rpc nexus.v1.VaultService.ToggleTask
+   */
+  toggleTask: {
+    methodKind: "unary";
+    input: typeof ToggleTaskRequestSchema;
+    output: typeof ToggleTaskResponseSchema;
+  },
+  /**
+   * --- Templates and periodic notes ------------------------------------------
+   *
+   * @generated from rpc nexus.v1.VaultService.ListTemplates
+   */
+  listTemplates: {
+    methodKind: "unary";
+    input: typeof ListTemplatesRequestSchema;
+    output: typeof ListTemplatesResponseSchema;
+  },
+  /**
+   * @generated from rpc nexus.v1.VaultService.NewFromTemplate
+   */
+  newFromTemplate: {
+    methodKind: "unary";
+    input: typeof NewFromTemplateRequestSchema;
+    output: typeof NewFromTemplateResponseSchema;
+  },
+  /**
+   * PeriodicNote returns (creating when asked) the daily/weekly/monthly note.
+   *
+   * @generated from rpc nexus.v1.VaultService.PeriodicNote
+   */
+  periodicNote: {
+    methodKind: "unary";
+    input: typeof PeriodicNoteRequestSchema;
+    output: typeof PeriodicNoteResponseSchema;
+  },
+  /**
+   * --- Integrity and backups -----------------------------------------------------
+   *
+   * @generated from rpc nexus.v1.VaultService.Check
+   */
+  check: {
+    methodKind: "unary";
+    input: typeof CheckRequestSchema;
+    output: typeof CheckResponseSchema;
+  },
+  /**
+   * @generated from rpc nexus.v1.VaultService.Repair
+   */
+  repair: {
+    methodKind: "unary";
+    input: typeof RepairRequestSchema;
+    output: typeof RepairResponseSchema;
+  },
+  /**
+   * @generated from rpc nexus.v1.VaultService.Backup
+   */
+  backup: {
+    methodKind: "unary";
+    input: typeof BackupRequestSchema;
+    output: typeof BackupResponseSchema;
+  },
+  /**
+   * @generated from rpc nexus.v1.VaultService.ListBackups
+   */
+  listBackups: {
+    methodKind: "unary";
+    input: typeof ListBackupsRequestSchema;
+    output: typeof ListBackupsResponseSchema;
+  },
+  /**
+   * @generated from rpc nexus.v1.VaultService.VerifyBackup
+   */
+  verifyBackup: {
+    methodKind: "unary";
+    input: typeof VerifyBackupRequestSchema;
+    output: typeof VerifyBackupResponseSchema;
+  },
+  /**
+   * --- Change feed, attachments, import ------------------------------------------
+   * WatchVault streams note changes (created/updated/deleted/renamed).
+   *
+   * @generated from rpc nexus.v1.VaultService.WatchVault
+   */
+  watchVault: {
+    methodKind: "server_streaming";
+    input: typeof WatchVaultRequestSchema;
+    output: typeof WatchVaultResponseSchema;
+  },
+  /**
+   * @generated from rpc nexus.v1.VaultService.ListAttachments
+   */
+  listAttachments: {
+    methodKind: "unary";
+    input: typeof ListAttachmentsRequestSchema;
+    output: typeof ListAttachmentsResponseSchema;
+  },
+  /**
+   * ImportNotes imports an Obsidian vault or a Markdown folder on the hub's disk.
+   *
+   * @generated from rpc nexus.v1.VaultService.ImportNotes
+   */
+  importNotes: {
+    methodKind: "unary";
+    input: typeof ImportNotesRequestSchema;
+    output: typeof ImportNotesResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_nexus_v1_vault, 0);

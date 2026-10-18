@@ -20,7 +20,7 @@ import type { JsonObject, Message } from "@bufbuild/protobuf";
  * Describes the file nexus/v1/event.proto.
  */
 export const file_nexus_v1_event: GenFile = /*@__PURE__*/
-  fileDesc("ChRuZXh1cy92MS9ldmVudC5wcm90bxIIbmV4dXMudjEiyQQKBUV2ZW50EgsKA3NlcRgBIAEoAxImCgJhdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDwoHdGFza19pZBgDIAEoCRIOCgZydW5faWQYBCABKAkSDQoFYWN0b3IYBSABKAkSLQoMdGFza191cGRhdGVkGAogASgLMhUubmV4dXMudjEuVGFza1VwZGF0ZWRIABIpCgpydW5fb3V0cHV0GAsgASgLMhMubmV4dXMudjEuUnVuT3V0cHV0SAASJwoJdG9vbF9jYWxsGAwgASgLMhIubmV4dXMudjEuVG9vbENhbGxIABIrCgt0b29sX3Jlc3VsdBgNIAEoCzIULm5leHVzLnYxLlRvb2xSZXN1bHRIABImCghxdWVzdGlvbhgOIAEoCzISLm5leHVzLnYxLlF1ZXN0aW9uSAASJgoIYXBwcm92YWwYDyABKAsyEi5uZXh1cy52MS5BcHByb3ZhbEgAEiYKBGNvc3QYECABKAsyFi5uZXh1cy52MS5Db3N0UmVjb3JkZWRIABIrCghhcnRpZmFjdBgRIAEoCzIXLm5leHVzLnYxLkFydGlmYWN0QWRkZWRIABIrCgtub2RlX3N0YXR1cxgSIAEoCzIULm5leHVzLnYxLk5vZGVTdGF0dXNIABIiCgZub3RpY2UYEyABKAsyEC5uZXh1cy52MS5Ob3RpY2VIABItCgx1c2VyX21lc3NhZ2UYFCABKAsyFS5uZXh1cy52MS5Vc2VyTWVzc2FnZUgAQgYKBGJvZHkiKwoLVGFza1VwZGF0ZWQSHAoEdGFzaxgBIAEoCzIOLm5leHVzLnYxLlRhc2siKwoJUnVuT3V0cHV0EgwKBHRleHQYASABKAkSEAoIaXNfZmluYWwYAiABKAgifgoIVG9vbENhbGwSDwoHY2FsbF9pZBgBIAEoCRIMCgR0b29sGAIgASgJEiYKBWlucHV0GAMgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdBIrCgxhY3Rpb25fY2xhc3MYBCABKA4yFS5uZXh1cy52MS5BY3Rpb25DbGFzcyJqCgpUb29sUmVzdWx0Eg8KB2NhbGxfaWQYASABKAkSJwoGb3V0cHV0GAIgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdBINCgVlcnJvchgDIAEoCRITCgtkdXJhdGlvbl9tcxgEIAEoAyJXCghRdWVzdGlvbhITCgtxdWVzdGlvbl9pZBgBIAEoCRIMCgR0ZXh0GAIgASgJEg8KB2Nob2ljZXMYAyADKAkSFwoPYWxsb3dfZnJlZV90ZXh0GAQgASgIIiwKDENvc3RSZWNvcmRlZBIcCgRjb3N0GAEgASgLMg4ubmV4dXMudjEuQ29zdCI5Cg1BcnRpZmFjdEFkZGVkEigKCmF0dGFjaG1lbnQYASABKAsyFC5uZXh1cy52MS5BdHRhY2htZW50IkYKC1VzZXJNZXNzYWdlEgwKBHRleHQYASABKAkSKQoLYXR0YWNobWVudHMYAiADKAsyFC5uZXh1cy52MS5BdHRhY2htZW50Ip4BCgZOb3RpY2USCgoCaWQYASABKAkSIgoEa2luZBgCIAEoDjIULm5leHVzLnYxLk5vdGljZUtpbmQSDQoFdGl0bGUYAyABKAkSDAoEYm9keRgEIAEoCRIlCgRkYXRhGAUgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdBIgCgVub3RlcxgGIAMoCzIRLm5leHVzLnYxLk5vdGVSZWYiSwoQU3Vic2NyaWJlUmVxdWVzdBIRCglzaW5jZV9zZXEYASABKAMSEAoIdGFza19pZHMYAiADKAkSEgoKaW5ib3hfb25seRgDIAEoCCIzChFTdWJzY3JpYmVSZXNwb25zZRIeCgVldmVudBgBIAEoCzIPLm5leHVzLnYxLkV2ZW50KqgBCgpOb3RpY2VLaW5kEhsKF05PVElDRV9LSU5EX1VOU1BFQ0lGSUVEEAASFgoSTk9USUNFX0tJTkRfUkVTVUxUEAESFQoRTk9USUNFX0tJTkRfQUxFUlQQAhIaChZOT1RJQ0VfS0lORF9TVUdHRVNUSU9OEAMSGwoXTk9USUNFX0tJTkRfRkFDVF9SRVZJRVcQBBIVChFOT1RJQ0VfS0lORF9CUklFRhAFMlYKDEV2ZW50U2VydmljZRJGCglTdWJzY3JpYmUSGi5uZXh1cy52MS5TdWJzY3JpYmVSZXF1ZXN0GhsubmV4dXMudjEuU3Vic2NyaWJlUmVzcG9uc2UwAUKWAQoMY29tLm5leHVzLnYxQgpFdmVudFByb3RvUAFaOWdpdGh1Yi5jb20vZGFuaWVscGluYTEvbmV4dXMvYmFja2VuZC9nZW4vbmV4dXMvdjE7bmV4dXN2MaICA05YWKoCCE5leHVzLlYxygIITmV4dXNcVjHiAhROZXh1c1xWMVxHUEJNZXRhZGF0YeoCCU5leHVzOjpWMWIGcHJvdG8z", [file_google_protobuf_struct, file_google_protobuf_timestamp, file_nexus_v1_approval, file_nexus_v1_common, file_nexus_v1_node, file_nexus_v1_task]);
+  fileDesc("ChRuZXh1cy92MS9ldmVudC5wcm90bxIIbmV4dXMudjEihAUKBUV2ZW50EgsKA3NlcRgBIAEoAxImCgJhdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDwoHdGFza19pZBgDIAEoCRIOCgZydW5faWQYBCABKAkSDQoFYWN0b3IYBSABKAkSFAoMcm9vdF90YXNrX2lkGAYgASgJEi0KDHRhc2tfdXBkYXRlZBgKIAEoCzIVLm5leHVzLnYxLlRhc2tVcGRhdGVkSAASKQoKcnVuX291dHB1dBgLIAEoCzITLm5leHVzLnYxLlJ1bk91dHB1dEgAEicKCXRvb2xfY2FsbBgMIAEoCzISLm5leHVzLnYxLlRvb2xDYWxsSAASKwoLdG9vbF9yZXN1bHQYDSABKAsyFC5uZXh1cy52MS5Ub29sUmVzdWx0SAASJgoIcXVlc3Rpb24YDiABKAsyEi5uZXh1cy52MS5RdWVzdGlvbkgAEiYKCGFwcHJvdmFsGA8gASgLMhIubmV4dXMudjEuQXBwcm92YWxIABImCgRjb3N0GBAgASgLMhYubmV4dXMudjEuQ29zdFJlY29yZGVkSAASKwoIYXJ0aWZhY3QYESABKAsyFy5uZXh1cy52MS5BcnRpZmFjdEFkZGVkSAASKwoLbm9kZV9zdGF0dXMYEiABKAsyFC5uZXh1cy52MS5Ob2RlU3RhdHVzSAASIgoGbm90aWNlGBMgASgLMhAubmV4dXMudjEuTm90aWNlSAASLQoMdXNlcl9tZXNzYWdlGBQgASgLMhUubmV4dXMudjEuVXNlck1lc3NhZ2VIABIjCgR0ZWFtGBUgASgLMhMubmV4dXMudjEuVGVhbUV2ZW50SABCBgoEYm9keSLMAQoJVGVhbUV2ZW50EiUKBGtpbmQYASABKA4yFy5uZXh1cy52MS5UZWFtRXZlbnRLaW5kEg8KB3RlYW1faWQYAiABKAkSFAoMcm9vdF90YXNrX2lkGAMgASgJEg8KB3Rhc2tfaWQYBCABKAkSDAoEcm9sZRgFIAEoCRIQCghhZ2VudF9pZBgGIAEoCRIMCgR0ZXh0GAcgASgJEgsKA2tleRgIIAEoCRIlCgRkYXRhGAkgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdCIrCgtUYXNrVXBkYXRlZBIcCgR0YXNrGAEgASgLMg4ubmV4dXMudjEuVGFzayIrCglSdW5PdXRwdXQSDAoEdGV4dBgBIAEoCRIQCghpc19maW5hbBgCIAEoCCJ+CghUb29sQ2FsbBIPCgdjYWxsX2lkGAEgASgJEgwKBHRvb2wYAiABKAkSJgoFaW5wdXQYAyABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0EisKDGFjdGlvbl9jbGFzcxgEIAEoDjIVLm5leHVzLnYxLkFjdGlvbkNsYXNzImoKClRvb2xSZXN1bHQSDwoHY2FsbF9pZBgBIAEoCRInCgZvdXRwdXQYAiABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0Eg0KBWVycm9yGAMgASgJEhMKC2R1cmF0aW9uX21zGAQgASgDIlcKCFF1ZXN0aW9uEhMKC3F1ZXN0aW9uX2lkGAEgASgJEgwKBHRleHQYAiABKAkSDwoHY2hvaWNlcxgDIAMoCRIXCg9hbGxvd19mcmVlX3RleHQYBCABKAgiLAoMQ29zdFJlY29yZGVkEhwKBGNvc3QYASABKAsyDi5uZXh1cy52MS5Db3N0IjkKDUFydGlmYWN0QWRkZWQSKAoKYXR0YWNobWVudBgBIAEoCzIULm5leHVzLnYxLkF0dGFjaG1lbnQiRgoLVXNlck1lc3NhZ2USDAoEdGV4dBgBIAEoCRIpCgthdHRhY2htZW50cxgCIAMoCzIULm5leHVzLnYxLkF0dGFjaG1lbnQingEKBk5vdGljZRIKCgJpZBgBIAEoCRIiCgRraW5kGAIgASgOMhQubmV4dXMudjEuTm90aWNlS2luZBINCgV0aXRsZRgDIAEoCRIMCgRib2R5GAQgASgJEiUKBGRhdGEYBSABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0EiAKBW5vdGVzGAYgAygLMhEubmV4dXMudjEuTm90ZVJlZiJiChBTdWJzY3JpYmVSZXF1ZXN0EhEKCXNpbmNlX3NlcRgBIAEoAxIQCgh0YXNrX2lkcxgCIAMoCRISCgppbmJveF9vbmx5GAMgASgIEhUKDXJvb3RfdGFza19pZHMYBCADKAkiMwoRU3Vic2NyaWJlUmVzcG9uc2USHgoFZXZlbnQYASABKAsyDy5uZXh1cy52MS5FdmVudCraAwoNVGVhbUV2ZW50S2luZBIfChtURUFNX0VWRU5UX0tJTkRfVU5TUEVDSUZJRUQQABIbChdURUFNX0VWRU5UX0tJTkRfU1RBUlRFRBABEh0KGVRFQU1fRVZFTlRfS0lORF9ERUxFR0FURUQQAhIbChdURUFNX0VWRU5UX0tJTkRfU1BBV05FRBADEiMKH1RFQU1fRVZFTlRfS0lORF9NRU1CRVJfRklOSVNIRUQQBBImCiJURUFNX0VWRU5UX0tJTkRfQkxBQ0tCT0FSRF9VUERBVEVEEAUSIAocVEVBTV9FVkVOVF9LSU5EX01FU1NBR0VfU0VOVBAGEhwKGFRFQU1fRVZFTlRfS0lORF9SRVBPUlRFRBAHEhwKGFRFQU1fRVZFTlRfS0lORF9BV0FJVElORxAIEiEKHVRFQU1fRVZFTlRfS0lORF9TVFJBVEVHWV9TVEVQEAkSGgoWVEVBTV9FVkVOVF9LSU5EX1JFVklFVxAKEiEKHVRFQU1fRVZFTlRfS0lORF9MSU1JVF9SRUFDSEVEEAsSJAogVEVBTV9FVkVOVF9LSU5EX0FQUFJPVkFMX1BFTkRJTkcQDBIcChhURUFNX0VWRU5UX0tJTkRfRklOSVNIRUQQDSqoAQoKTm90aWNlS2luZBIbChdOT1RJQ0VfS0lORF9VTlNQRUNJRklFRBAAEhYKEk5PVElDRV9LSU5EX1JFU1VMVBABEhUKEU5PVElDRV9LSU5EX0FMRVJUEAISGgoWTk9USUNFX0tJTkRfU1VHR0VTVElPThADEhsKF05PVElDRV9LSU5EX0ZBQ1RfUkVWSUVXEAQSFQoRTk9USUNFX0tJTkRfQlJJRUYQBTJWCgxFdmVudFNlcnZpY2USRgoJU3Vic2NyaWJlEhoubmV4dXMudjEuU3Vic2NyaWJlUmVxdWVzdBobLm5leHVzLnYxLlN1YnNjcmliZVJlc3BvbnNlMAFClgEKDGNvbS5uZXh1cy52MUIKRXZlbnRQcm90b1ABWjlnaXRodWIuY29tL2RhbmllbHBpbmExL25leHVzL2JhY2tlbmQvZ2VuL25leHVzL3YxO25leHVzdjGiAgNOWFiqAghOZXh1cy5WMcoCCE5leHVzXFYx4gIUTmV4dXNcVjFcR1BCTWV0YWRhdGHqAglOZXh1czo6VjFiBnByb3RvMw", [file_google_protobuf_struct, file_google_protobuf_timestamp, file_nexus_v1_approval, file_nexus_v1_common, file_nexus_v1_node, file_nexus_v1_task]);
 
 /**
  * Event is one entry of the Hub's ordered event log.
@@ -56,6 +56,14 @@ export type Event = Message<"nexus.v1.Event"> & {
    * @generated from field: string actor = 5;
    */
   actor: string;
+
+  /**
+   * Root of the task tree the event belongs to (set by the hub for task
+   * events), so a client can follow a whole team run.
+   *
+   * @generated from field: string root_task_id = 6;
+   */
+  rootTaskId: string;
 
   /**
    * @generated from oneof nexus.v1.Event.body
@@ -126,6 +134,12 @@ export type Event = Message<"nexus.v1.Event"> & {
      */
     value: UserMessage;
     case: "userMessage";
+  } | {
+    /**
+     * @generated from field: nexus.v1.TeamEvent team = 21;
+     */
+    value: TeamEvent;
+    case: "team";
   } | { case: undefined; value?: undefined };
 };
 
@@ -135,6 +149,68 @@ export type Event = Message<"nexus.v1.Event"> & {
  */
 export const EventSchema: GenMessage<Event> = /*@__PURE__*/
   messageDesc(file_nexus_v1_event, 0);
+
+/**
+ * TeamEvent is a team / task-tree lifecycle event. Event.task_id is the
+ * root task; task_id here is the task the event is about.
+ *
+ * @generated from message nexus.v1.TeamEvent
+ */
+export type TeamEvent = Message<"nexus.v1.TeamEvent"> & {
+  /**
+   * @generated from field: nexus.v1.TeamEventKind kind = 1;
+   */
+  kind: TeamEventKind;
+
+  /**
+   * @generated from field: string team_id = 2;
+   */
+  teamId: string;
+
+  /**
+   * @generated from field: string root_task_id = 3;
+   */
+  rootTaskId: string;
+
+  /**
+   * @generated from field: string task_id = 4;
+   */
+  taskId: string;
+
+  /**
+   * @generated from field: string role = 5;
+   */
+  role: string;
+
+  /**
+   * @generated from field: string agent_id = 6;
+   */
+  agentId: string;
+
+  /**
+   * @generated from field: string text = 7;
+   */
+  text: string;
+
+  /**
+   * blackboard key
+   *
+   * @generated from field: string key = 8;
+   */
+  key: string;
+
+  /**
+   * @generated from field: google.protobuf.Struct data = 9;
+   */
+  data?: JsonObject | undefined;
+};
+
+/**
+ * Describes the message nexus.v1.TeamEvent.
+ * Use `create(TeamEventSchema)` to create a new message.
+ */
+export const TeamEventSchema: GenMessage<TeamEvent> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_event, 1);
 
 /**
  * @generated from message nexus.v1.TaskUpdated
@@ -151,7 +227,7 @@ export type TaskUpdated = Message<"nexus.v1.TaskUpdated"> & {
  * Use `create(TaskUpdatedSchema)` to create a new message.
  */
 export const TaskUpdatedSchema: GenMessage<TaskUpdated> = /*@__PURE__*/
-  messageDesc(file_nexus_v1_event, 1);
+  messageDesc(file_nexus_v1_event, 2);
 
 /**
  * RunOutput is a streamed chunk of agent text.
@@ -175,7 +251,7 @@ export type RunOutput = Message<"nexus.v1.RunOutput"> & {
  * Use `create(RunOutputSchema)` to create a new message.
  */
 export const RunOutputSchema: GenMessage<RunOutput> = /*@__PURE__*/
-  messageDesc(file_nexus_v1_event, 2);
+  messageDesc(file_nexus_v1_event, 3);
 
 /**
  * @generated from message nexus.v1.ToolCall
@@ -207,7 +283,7 @@ export type ToolCall = Message<"nexus.v1.ToolCall"> & {
  * Use `create(ToolCallSchema)` to create a new message.
  */
 export const ToolCallSchema: GenMessage<ToolCall> = /*@__PURE__*/
-  messageDesc(file_nexus_v1_event, 3);
+  messageDesc(file_nexus_v1_event, 4);
 
 /**
  * @generated from message nexus.v1.ToolResult
@@ -239,7 +315,7 @@ export type ToolResult = Message<"nexus.v1.ToolResult"> & {
  * Use `create(ToolResultSchema)` to create a new message.
  */
 export const ToolResultSchema: GenMessage<ToolResult> = /*@__PURE__*/
-  messageDesc(file_nexus_v1_event, 4);
+  messageDesc(file_nexus_v1_event, 5);
 
 /**
  * Question is an ask_user request.
@@ -273,7 +349,7 @@ export type Question = Message<"nexus.v1.Question"> & {
  * Use `create(QuestionSchema)` to create a new message.
  */
 export const QuestionSchema: GenMessage<Question> = /*@__PURE__*/
-  messageDesc(file_nexus_v1_event, 5);
+  messageDesc(file_nexus_v1_event, 6);
 
 /**
  * @generated from message nexus.v1.CostRecorded
@@ -290,7 +366,7 @@ export type CostRecorded = Message<"nexus.v1.CostRecorded"> & {
  * Use `create(CostRecordedSchema)` to create a new message.
  */
 export const CostRecordedSchema: GenMessage<CostRecorded> = /*@__PURE__*/
-  messageDesc(file_nexus_v1_event, 6);
+  messageDesc(file_nexus_v1_event, 7);
 
 /**
  * @generated from message nexus.v1.ArtifactAdded
@@ -307,7 +383,7 @@ export type ArtifactAdded = Message<"nexus.v1.ArtifactAdded"> & {
  * Use `create(ArtifactAddedSchema)` to create a new message.
  */
 export const ArtifactAddedSchema: GenMessage<ArtifactAdded> = /*@__PURE__*/
-  messageDesc(file_nexus_v1_event, 7);
+  messageDesc(file_nexus_v1_event, 8);
 
 /**
  * @generated from message nexus.v1.UserMessage
@@ -329,7 +405,7 @@ export type UserMessage = Message<"nexus.v1.UserMessage"> & {
  * Use `create(UserMessageSchema)` to create a new message.
  */
 export const UserMessageSchema: GenMessage<UserMessage> = /*@__PURE__*/
-  messageDesc(file_nexus_v1_event, 8);
+  messageDesc(file_nexus_v1_event, 9);
 
 /**
  * Notice is an Inbox card that needs no immediate response.
@@ -373,7 +449,7 @@ export type Notice = Message<"nexus.v1.Notice"> & {
  * Use `create(NoticeSchema)` to create a new message.
  */
 export const NoticeSchema: GenMessage<Notice> = /*@__PURE__*/
-  messageDesc(file_nexus_v1_event, 9);
+  messageDesc(file_nexus_v1_event, 10);
 
 /**
  * @generated from message nexus.v1.SubscribeRequest
@@ -395,6 +471,13 @@ export type SubscribeRequest = Message<"nexus.v1.SubscribeRequest"> & {
    * @generated from field: bool inbox_only = 3;
    */
   inboxOnly: boolean;
+
+  /**
+   * Only events of these task trees (Event.root_task_id).
+   *
+   * @generated from field: repeated string root_task_ids = 4;
+   */
+  rootTaskIds: string[];
 };
 
 /**
@@ -402,7 +485,7 @@ export type SubscribeRequest = Message<"nexus.v1.SubscribeRequest"> & {
  * Use `create(SubscribeRequestSchema)` to create a new message.
  */
 export const SubscribeRequestSchema: GenMessage<SubscribeRequest> = /*@__PURE__*/
-  messageDesc(file_nexus_v1_event, 10);
+  messageDesc(file_nexus_v1_event, 11);
 
 /**
  * @generated from message nexus.v1.SubscribeResponse
@@ -419,7 +502,114 @@ export type SubscribeResponse = Message<"nexus.v1.SubscribeResponse"> & {
  * Use `create(SubscribeResponseSchema)` to create a new message.
  */
 export const SubscribeResponseSchema: GenMessage<SubscribeResponse> = /*@__PURE__*/
-  messageDesc(file_nexus_v1_event, 11);
+  messageDesc(file_nexus_v1_event, 12);
+
+/**
+ * @generated from enum nexus.v1.TeamEventKind
+ */
+export enum TeamEventKind {
+  /**
+   * @generated from enum value: TEAM_EVENT_KIND_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * team run started (task_id = root)
+   *
+   * @generated from enum value: TEAM_EVENT_KIND_STARTED = 1;
+   */
+  STARTED = 1,
+
+  /**
+   * a member task was created (task_id = child)
+   *
+   * @generated from enum value: TEAM_EVENT_KIND_DELEGATED = 2;
+   */
+  DELEGATED = 2,
+
+  /**
+   * an ephemeral specialist was created
+   *
+   * @generated from enum value: TEAM_EVENT_KIND_SPAWNED = 3;
+   */
+  SPAWNED = 3,
+
+  /**
+   * a member task ended (data.state)
+   *
+   * @generated from enum value: TEAM_EVENT_KIND_MEMBER_FINISHED = 4;
+   */
+  MEMBER_FINISHED = 4,
+
+  /**
+   * key, data.value
+   *
+   * @generated from enum value: TEAM_EVENT_KIND_BLACKBOARD_UPDATED = 5;
+   */
+  BLACKBOARD_UPDATED = 5,
+
+  /**
+   * text, data.to, data.delivered_to
+   *
+   * @generated from enum value: TEAM_EVENT_KIND_MESSAGE_SENT = 6;
+   */
+  MESSAGE_SENT = 6,
+
+  /**
+   * a member reported a structured result
+   *
+   * @generated from enum value: TEAM_EVENT_KIND_REPORTED = 7;
+   */
+  REPORTED = 7,
+
+  /**
+   * the orchestrator waits for data.task_ids
+   *
+   * @generated from enum value: TEAM_EVENT_KIND_AWAITING = 8;
+   */
+  AWAITING = 8,
+
+  /**
+   * hub-driven strategy progress (text)
+   *
+   * @generated from enum value: TEAM_EVENT_KIND_STRATEGY_STEP = 9;
+   */
+  STRATEGY_STEP = 9,
+
+  /**
+   * critic verdict (data.approved, data.feedback, data.round)
+   *
+   * @generated from enum value: TEAM_EVENT_KIND_REVIEW = 10;
+   */
+  REVIEW = 10,
+
+  /**
+   * a tree limit stopped something (text)
+   *
+   * @generated from enum value: TEAM_EVENT_KIND_LIMIT_REACHED = 11;
+   */
+  LIMIT_REACHED = 11,
+
+  /**
+   * a member waits for an approval (data.approval_id)
+   *
+   * @generated from enum value: TEAM_EVENT_KIND_APPROVAL_PENDING = 12;
+   */
+  APPROVAL_PENDING = 12,
+
+  /**
+   * the team run ended (data.state)
+   *
+   * @generated from enum value: TEAM_EVENT_KIND_FINISHED = 13;
+   */
+  FINISHED = 13,
+}
+
+/**
+ * Describes the enum nexus.v1.TeamEventKind.
+ */
+export const TeamEventKindSchema: GenEnum<TeamEventKind> = /*@__PURE__*/
+  enumDesc(file_nexus_v1_event, 0);
 
 /**
  * @generated from enum nexus.v1.NoticeKind
@@ -460,7 +650,7 @@ export enum NoticeKind {
  * Describes the enum nexus.v1.NoticeKind.
  */
 export const NoticeKindSchema: GenEnum<NoticeKind> = /*@__PURE__*/
-  enumDesc(file_nexus_v1_event, 0);
+  enumDesc(file_nexus_v1_event, 1);
 
 /**
  * EventService streams the event log to clients.

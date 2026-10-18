@@ -75,6 +75,20 @@ func jsonSafe(v any) any {
 			out[i] = jsonSafe(e)
 		}
 		return out
+	case []string:
+		out := make([]any, len(t))
+		for i, e := range t {
+			out[i] = e
+		}
+		return out
+	case []map[string]any:
+		out := make([]any, len(t))
+		for i, e := range t {
+			out[i] = jsonSafe(e)
+		}
+		return out
+	case int32:
+		return float64(t)
 	case int:
 		return float64(t)
 	case int64:

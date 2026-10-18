@@ -27,7 +27,7 @@ export function CommandBar({ autoFocus, className, onSent, suggestions = true }:
           e.preventDefault();
           submit(text);
         }}
-        className="group flex items-center gap-2 rounded-2xl border border-border bg-surface p-1.5 pl-3.5 shadow-card transition-shadow focus-within:border-accent/50 focus-within:ring-4 focus-within:ring-[var(--ring)]/30"
+        className="group flex items-center gap-2 rounded-2xl border border-border bg-surface p-1.5 pl-3.5 shadow-card transition-shadow focus-within:border-accent/50 focus-within:ring-4 focus-within:ring-ring/15"
       >
         <Sparkles className="size-4 shrink-0 text-accent" />
         <input

@@ -16,6 +16,9 @@ message Event {
   string task_id = 3;
   string run_id = 4;
   string actor = 5; // device:<id> | agent:<id> | node:<id> | hub
+  // Root of the task tree the event belongs to (set by the hub for task
+  // events), so a client can follow a whole team run.
+  string root_task_id = 6;
 
   oneof body {
     TaskUpdated task_updated = 10;
@@ -29,7 +32,39 @@ message Event {
     NodeStatus node_status = 18;
     Notice notice = 19;
     UserMessage user_message = 20;
+    TeamEvent team = 21;
   }
+}
+
+enum TeamEventKind {
+  TEAM_EVENT_KIND_UNSPECIFIED = 0;
+  TEAM_EVENT_KIND_STARTED = 1; // team run started (task_id = root)
+  TEAM_EVENT_KIND_DELEGATED = 2; // a member task was created (task_id = child)
+  TEAM_EVENT_KIND_SPAWNED = 3; // an ephemeral specialist was created
+  TEAM_EVENT_KIND_MEMBER_FINISHED = 4; // a member task ended (data.state)
+  TEAM_EVENT_KIND_BLACKBOARD_UPDATED = 5; // key, data.value
+  TEAM_EVENT_KIND_MESSAGE_SENT = 6; // text, data.to, data.delivered_to
+  TEAM_EVENT_KIND_REPORTED = 7; // a member reported a structured result
+  TEAM_EVENT_KIND_AWAITING = 8; // the orchestrator waits for data.task_ids
+  TEAM_EVENT_KIND_STRATEGY_STEP = 9; // hub-driven strategy progress (text)
+  TEAM_EVENT_KIND_REVIEW = 10; // critic verdict (data.approved, data.feedback, data.round)
+  TEAM_EVENT_KIND_LIMIT_REACHED = 11; // a tree limit stopped something (text)
+  TEAM_EVENT_KIND_APPROVAL_PENDING = 12; // a member waits for an approval (data.approval_id)
+  TEAM_EVENT_KIND_FINISHED = 13; // the team run ended (data.state)
+}
+
+// TeamEvent is a team / task-tree lifecycle event. Event.task_id is the
+// root task; task_id here is the task the event is about.
+message TeamEvent {
+  TeamEventKind kind = 1;
+  string team_id = 2;
+  string root_task_id = 3;
+  string task_id = 4;
+  string role = 5;
+  string agent_id = 6;
+  string text = 7;
+  string key = 8; // blackboard key
+  google.protobuf.Struct data = 9;
 }
 
 message TaskUpdated {
@@ -107,6 +142,8 @@ message SubscribeRequest {
   // Optional filters; empty = everything the device may see.
   repeated string task_ids = 2;
   bool inbox_only = 3;
+  // Only events of these task trees (Event.root_task_id).
+  repeated string root_task_ids = 4;
 }
 
 message SubscribeResponse {

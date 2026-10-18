@@ -24,8 +24,9 @@ type Service struct {
 // from the last seq they processed.
 func (s *Service) Subscribe(ctx context.Context, req *connect.Request[nexusv1.SubscribeRequest], stream *connect.ServerStream[nexusv1.SubscribeResponse]) error {
 	ch, err := s.Bus.Subscribe(ctx, req.Msg.GetSinceSeq(), kernel.EventFilter{
-		TaskIDs:   req.Msg.GetTaskIds(),
-		InboxOnly: req.Msg.GetInboxOnly(),
+		TaskIDs:     req.Msg.GetTaskIds(),
+		RootTaskIDs: req.Msg.GetRootTaskIds(),
+		InboxOnly:   req.Msg.GetInboxOnly(),
 	})
 	if errors.Is(err, ErrClosed) {
 		return connect.NewError(connect.CodeUnavailable, err)

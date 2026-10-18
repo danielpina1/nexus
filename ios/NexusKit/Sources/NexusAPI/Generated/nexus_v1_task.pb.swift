@@ -217,6 +217,44 @@ public nonisolated struct Nexus_V1_Task: @unchecked Sendable {
     set {_uniqueStorage()._source = newValue}
   }
 
+  /// Team (vault teams/<id>.md) this task belongs to; set on the whole tree.
+  public var teamID: String {
+    get {_storage._teamID}
+    set {_uniqueStorage()._teamID = newValue}
+  }
+
+  /// Role in the team: "orchestrator" for the root, the member role for
+  /// delegated tasks, "critic" for review tasks, the spawn role for ephemeral agents.
+  public var role: String {
+    get {_storage._role}
+    set {_uniqueStorage()._role = newValue}
+  }
+
+  /// Depth in the task tree (root = 0).
+  public var depth: Int32 {
+    get {_storage._depth}
+    set {_uniqueStorage()._depth = newValue}
+  }
+
+  /// Hub-side phase while the state alone does not say it: "waiting_slot"
+  /// (queued until max_parallel allows), "strategy" (team strategy running),
+  /// "reviewing" (critic checking the result), "revising", "repairing"
+  /// (output did not match the schema).
+  public var phase: String {
+    get {_storage._phase}
+    set {_uniqueStorage()._phase = newValue}
+  }
+
+  /// Root tasks: LLM cost of the whole tree (root + all sub-tasks).
+  public var treeCost: Nexus_V1_Cost {
+    get {_storage._treeCost ?? Nexus_V1_Cost()}
+    set {_uniqueStorage()._treeCost = newValue}
+  }
+  /// Returns true if `treeCost` has been explicitly set.
+  public var hasTreeCost: Bool {_storage._treeCost != nil}
+  /// Clears the value of `treeCost`. Subsequent reads from it will return its default value.
+  public mutating func clearTreeCost() {_uniqueStorage()._treeCost = nil}
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
@@ -250,6 +288,10 @@ public nonisolated struct Nexus_V1_CreateTaskRequest: Sendable {
   public var dryRun: Bool = false
 
   public var source: String = String()
+
+  /// Start a team run (vault teams/<id>.md): the task becomes the team's
+  /// root, handled by the team's orchestrator. Mutually exclusive with agent_id.
+  public var teamID: String = String()
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -337,6 +379,12 @@ public nonisolated struct Nexus_V1_ListTasksRequest: Sendable {
   public var nodeID: String = String()
 
   public var rootsOnly: Bool = false
+
+  /// tasks of one tree (root included)
+  public var rootID: String = String()
+
+  /// tasks of one team (with roots_only: its runs)
+  public var teamID: String = String()
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -511,7 +559,7 @@ nonisolated extension Nexus_V1_TaskState: SwiftProtobuf._ProtoNameProviding {
 
 nonisolated extension Nexus_V1_Task: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Task"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{3}parent_id\0\u{3}root_id\0\u{1}title\0\u{1}prompt\0\u{3}agent_id\0\u{3}workflow_id\0\u{1}state\0\u{1}tier\0\u{3}current_run_id\0\u{3}node_id\0\u{1}summary\0\u{1}result\0\u{1}cost\0\u{1}episode\0\u{3}created_at\0\u{3}updated_at\0\u{1}source\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{3}parent_id\0\u{3}root_id\0\u{1}title\0\u{1}prompt\0\u{3}agent_id\0\u{3}workflow_id\0\u{1}state\0\u{1}tier\0\u{3}current_run_id\0\u{3}node_id\0\u{1}summary\0\u{1}result\0\u{1}cost\0\u{1}episode\0\u{3}created_at\0\u{3}updated_at\0\u{1}source\0\u{3}team_id\0\u{1}role\0\u{1}depth\0\u{1}phase\0\u{3}tree_cost\0")
 
   fileprivate class _StorageClass {
     var _id: String = String()
@@ -532,6 +580,11 @@ nonisolated extension Nexus_V1_Task: SwiftProtobuf.Message, SwiftProtobuf._Messa
     var _createdAt: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
     var _updatedAt: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
     var _source: String = String()
+    var _teamID: String = String()
+    var _role: String = String()
+    var _depth: Int32 = 0
+    var _phase: String = String()
+    var _treeCost: Nexus_V1_Cost? = nil
 
       // This property is used as the initial default value for new instances of the type.
       // The type itself is protecting the reference to its storage via CoW semantics.
@@ -560,6 +613,11 @@ nonisolated extension Nexus_V1_Task: SwiftProtobuf.Message, SwiftProtobuf._Messa
       _createdAt = source._createdAt
       _updatedAt = source._updatedAt
       _source = source._source
+      _teamID = source._teamID
+      _role = source._role
+      _depth = source._depth
+      _phase = source._phase
+      _treeCost = source._treeCost
     }
   }
 
@@ -596,6 +654,11 @@ nonisolated extension Nexus_V1_Task: SwiftProtobuf.Message, SwiftProtobuf._Messa
         case 16: try { try decoder.decodeSingularMessageField(value: &_storage._createdAt) }()
         case 17: try { try decoder.decodeSingularMessageField(value: &_storage._updatedAt) }()
         case 18: try { try decoder.decodeSingularStringField(value: &_storage._source) }()
+        case 19: try { try decoder.decodeSingularStringField(value: &_storage._teamID) }()
+        case 20: try { try decoder.decodeSingularStringField(value: &_storage._role) }()
+        case 21: try { try decoder.decodeSingularInt32Field(value: &_storage._depth) }()
+        case 22: try { try decoder.decodeSingularStringField(value: &_storage._phase) }()
+        case 23: try { try decoder.decodeSingularMessageField(value: &_storage._treeCost) }()
         default: break
         }
       }
@@ -662,6 +725,21 @@ nonisolated extension Nexus_V1_Task: SwiftProtobuf.Message, SwiftProtobuf._Messa
       if !_storage._source.isEmpty {
         try visitor.visitSingularStringField(value: _storage._source, fieldNumber: 18)
       }
+      if !_storage._teamID.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._teamID, fieldNumber: 19)
+      }
+      if !_storage._role.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._role, fieldNumber: 20)
+      }
+      if _storage._depth != 0 {
+        try visitor.visitSingularInt32Field(value: _storage._depth, fieldNumber: 21)
+      }
+      if !_storage._phase.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._phase, fieldNumber: 22)
+      }
+      try { if let v = _storage._treeCost {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 23)
+      } }()
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -689,6 +767,11 @@ nonisolated extension Nexus_V1_Task: SwiftProtobuf.Message, SwiftProtobuf._Messa
         if _storage._createdAt != rhs_storage._createdAt {return false}
         if _storage._updatedAt != rhs_storage._updatedAt {return false}
         if _storage._source != rhs_storage._source {return false}
+        if _storage._teamID != rhs_storage._teamID {return false}
+        if _storage._role != rhs_storage._role {return false}
+        if _storage._depth != rhs_storage._depth {return false}
+        if _storage._phase != rhs_storage._phase {return false}
+        if _storage._treeCost != rhs_storage._treeCost {return false}
         return true
       }
       if !storagesAreEqual {return false}
@@ -700,7 +783,7 @@ nonisolated extension Nexus_V1_Task: SwiftProtobuf.Message, SwiftProtobuf._Messa
 
 nonisolated extension Nexus_V1_CreateTaskRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".CreateTaskRequest"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}prompt\0\u{3}agent_id\0\u{1}attachments\0\u{1}params\0\u{3}idempotency_key\0\u{3}dry_run\0\u{1}source\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}prompt\0\u{3}agent_id\0\u{1}attachments\0\u{1}params\0\u{3}idempotency_key\0\u{3}dry_run\0\u{1}source\0\u{3}team_id\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -715,6 +798,7 @@ nonisolated extension Nexus_V1_CreateTaskRequest: SwiftProtobuf.Message, SwiftPr
       case 5: try { try decoder.decodeSingularStringField(value: &self.idempotencyKey) }()
       case 6: try { try decoder.decodeSingularBoolField(value: &self.dryRun) }()
       case 7: try { try decoder.decodeSingularStringField(value: &self.source) }()
+      case 8: try { try decoder.decodeSingularStringField(value: &self.teamID) }()
       default: break
       }
     }
@@ -746,6 +830,9 @@ nonisolated extension Nexus_V1_CreateTaskRequest: SwiftProtobuf.Message, SwiftPr
     if !self.source.isEmpty {
       try visitor.visitSingularStringField(value: self.source, fieldNumber: 7)
     }
+    if !self.teamID.isEmpty {
+      try visitor.visitSingularStringField(value: self.teamID, fieldNumber: 8)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -757,6 +844,7 @@ nonisolated extension Nexus_V1_CreateTaskRequest: SwiftProtobuf.Message, SwiftPr
     if lhs.idempotencyKey != rhs.idempotencyKey {return false}
     if lhs.dryRun != rhs.dryRun {return false}
     if lhs.source != rhs.source {return false}
+    if lhs.teamID != rhs.teamID {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -872,7 +960,7 @@ nonisolated extension Nexus_V1_GetTaskResponse: SwiftProtobuf.Message, SwiftProt
 
 nonisolated extension Nexus_V1_ListTasksRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".ListTasksRequest"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}page\0\u{1}states\0\u{3}agent_id\0\u{3}node_id\0\u{3}roots_only\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}page\0\u{1}states\0\u{3}agent_id\0\u{3}node_id\0\u{3}roots_only\0\u{3}root_id\0\u{3}team_id\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -885,6 +973,8 @@ nonisolated extension Nexus_V1_ListTasksRequest: SwiftProtobuf.Message, SwiftPro
       case 3: try { try decoder.decodeSingularStringField(value: &self.agentID) }()
       case 4: try { try decoder.decodeSingularStringField(value: &self.nodeID) }()
       case 5: try { try decoder.decodeSingularBoolField(value: &self.rootsOnly) }()
+      case 6: try { try decoder.decodeSingularStringField(value: &self.rootID) }()
+      case 7: try { try decoder.decodeSingularStringField(value: &self.teamID) }()
       default: break
       }
     }
@@ -910,6 +1000,12 @@ nonisolated extension Nexus_V1_ListTasksRequest: SwiftProtobuf.Message, SwiftPro
     if self.rootsOnly != false {
       try visitor.visitSingularBoolField(value: self.rootsOnly, fieldNumber: 5)
     }
+    if !self.rootID.isEmpty {
+      try visitor.visitSingularStringField(value: self.rootID, fieldNumber: 6)
+    }
+    if !self.teamID.isEmpty {
+      try visitor.visitSingularStringField(value: self.teamID, fieldNumber: 7)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -919,6 +1015,8 @@ nonisolated extension Nexus_V1_ListTasksRequest: SwiftProtobuf.Message, SwiftPro
     if lhs.agentID != rhs.agentID {return false}
     if lhs.nodeID != rhs.nodeID {return false}
     if lhs.rootsOnly != rhs.rootsOnly {return false}
+    if lhs.rootID != rhs.rootID {return false}
+    if lhs.teamID != rhs.teamID {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

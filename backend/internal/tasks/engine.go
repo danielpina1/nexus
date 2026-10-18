@@ -48,6 +48,19 @@ type Engine struct {
 
 	mu       sync.Mutex
 	rtPolicy runtimePolicy
+
+	// Task trees and teams (tree.go, team.go).
+	extMu   sync.Mutex // task_ext read-modify-write
+	slotMu  sync.Mutex // slot accounting (pump); taken before mu
+	bbMu    sync.Mutex // blackboard read-modify-write
+	sigMu   sync.Mutex
+	sig     chan struct{} // closed at every task end (waitTasks)
+	timerMu sync.Mutex
+	timers  map[string]*time.Timer // team run deadlines by root id
+	// bg lives as long as the engine (strategy drivers, timers).
+	bg       context.Context
+	bgCancel context.CancelFunc
+	wg       sync.WaitGroup
 }
 
 var _ kernel.TaskEngine = (*Engine)(nil)
@@ -59,7 +72,35 @@ func NewEngine(h kernel.Host, st kernel.Store, bus kernel.EventBus, cfg Config) 
 		return nil, fmt.Errorf("tasks: migrate: %w", err)
 	}
 	cfg.defaults()
-	return &Engine{h: h, log: h.Logger(), db: st.DB(), bus: bus, cfg: cfg, now: time.Now}, nil
+	e := &Engine{h: h, log: h.Logger(), db: st.DB(), bus: bus, cfg: cfg, now: time.Now}
+	e.bg, e.bgCancel = context.WithCancel(context.Background())
+	return e, nil
+}
+
+// Close stops background work (strategy drivers, deadline timers).
+func (e *Engine) Close() {
+	e.bgCancel()
+	e.timerMu.Lock()
+	for id, t := range e.timers {
+		t.Stop()
+		delete(e.timers, id)
+	}
+	e.timerMu.Unlock()
+	e.wg.Wait()
+}
+
+// goBG runs fn in the background with the engine's context.
+func (e *Engine) goBG(fn func(ctx context.Context)) {
+	e.wg.Add(1)
+	go func() {
+		defer e.wg.Done()
+		defer func() {
+			if p := recover(); p != nil {
+				e.log.Error("tasks: background job panicked", "panic", p)
+			}
+		}()
+		fn(e.bg)
+	}()
 }
 
 func newID(prefix string) string { return prefix + ulid.Make().String() }
@@ -87,7 +128,30 @@ func (e *Engine) approvals() (kernel.ApprovalBroker, bool) {
 // mutate loads a task under the engine lock, applies fn, persists it and
 // publishes one TaskUpdated per state change (plus fn's extra events).
 // fn must not call other services.
+//
+// Actions queued in r.post run after the lock is released, followed by
+// onTerminal when the task reached a final state.
 func (e *Engine) mutate(ctx context.Context, id, actor string, fn func(r *taskRec) error) (*taskRec, error) {
+	r, err := e.mutateLocked(ctx, id, actor, fn)
+	if err != nil {
+		return nil, err
+	}
+	posts := r.post
+	r.post = nil
+	if n := len(r.path); n > 0 && IsTerminal(r.path[n-1]) {
+		snap := proto.Clone(r.task).(*nexusv1.Task)
+		posts = append(posts, func(ctx context.Context) { e.onTerminal(ctx, snap) })
+	}
+	if len(posts) > 0 {
+		pctx := context.WithoutCancel(ctx)
+		for _, p := range posts {
+			p(pctx)
+		}
+	}
+	return r, nil
+}
+
+func (e *Engine) mutateLocked(ctx context.Context, id, actor string, fn func(r *taskRec) error) (*taskRec, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	r, err := e.loadTask(ctx, id)
@@ -116,7 +180,7 @@ func (e *Engine) publishRec(ctx context.Context, r *taskRec, actor string) {
 	for _, s := range states {
 		snap := proto.Clone(r.task).(*nexusv1.Task)
 		snap.State = s
-		e.publish(ctx, &nexusv1.Event{TaskId: r.task.Id, RunId: r.task.CurrentRunId, Actor: actor,
+		e.publish(ctx, &nexusv1.Event{TaskId: r.task.Id, RunId: r.task.CurrentRunId, Actor: actor, RootTaskId: r.task.RootId,
 			Body: &nexusv1.Event_TaskUpdated{TaskUpdated: &nexusv1.TaskUpdated{Task: snap}}})
 	}
 	for _, ev := range r.extra {
@@ -126,11 +190,21 @@ func (e *Engine) publishRec(ctx context.Context, r *taskRec, actor string) {
 		if ev.Actor == "" {
 			ev.Actor = actor
 		}
+		if ev.RootTaskId == "" && ev.TaskId == r.task.Id {
+			ev.RootTaskId = r.task.RootId
+		}
 		e.publish(ctx, ev)
 	}
+	r.extra = nil
 }
 
 func (e *Engine) publish(ctx context.Context, ev *nexusv1.Event) {
+	if ev.RootTaskId == "" && ev.TaskId != "" {
+		var root string
+		if err := e.db.QueryRowContext(ctx, `SELECT root_id FROM tasks WHERE id = ?`, ev.TaskId).Scan(&root); err == nil {
+			ev.RootTaskId = root
+		}
+	}
 	if _, err := e.bus.Publish(ctx, ev); err != nil {
 		e.log.Error("publish event", "task", ev.TaskId, "err", err)
 	}
@@ -144,6 +218,7 @@ func (e *Engine) fail(ctx context.Context, id, summary string) (*nexusv1.Task, e
 			return nil
 		}
 		r.task.Summary = summary
+		r.task.Phase = ""
 		if err := e.setRunState(ctx, r.task.CurrentRunId, runFailed, summary); err != nil {
 			return err
 		}
@@ -178,32 +253,85 @@ func (e *Engine) create(ctx context.Context, req *nexusv1.CreateTaskRequest, par
 	if req == nil || (strings.TrimSpace(req.Prompt) == "" && len(req.Attachments) == 0) {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("prompt or attachments required"))
 	}
+	req = proto.Clone(req).(*nexusv1.CreateTaskRequest)
+	if id, ok := strings.CutPrefix(req.AgentId, TeamPrefix); ok { // "team:<id>" choices / routes
+		if req.TeamId != "" && req.TeamId != id {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("agent_id and team_id disagree"))
+		}
+		req.TeamId, req.AgentId = id, ""
+	}
+	if req.TeamId != "" && req.AgentId != "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("set agent_id or team_id, not both"))
+	}
 	if req.DryRun {
 		return e.dryRun(ctx, req)
 	}
-	req = proto.Clone(req).(*nexusv1.CreateTaskRequest)
-	now := e.now()
+	if req.TeamId != "" {
+		if parent != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("a team run cannot be started as a sub-task"))
+		}
+		return e.createTeamRun(ctx, req)
+	}
+	if parent != nil {
+		return e.createChild(ctx, req, parent, createOpts{role: req.AgentId})
+	}
+	r, existing, err := e.insertNew(ctx, req, nil, createOpts{})
+	if err != nil || existing {
+		if r == nil {
+			return nil, err
+		}
+		return r.task, err
+	}
+	if req.AgentId != "" {
+		return e.assign(ctx, r.task.Id, req.AgentId, assignOpts{})
+	}
+	return e.route(ctx, r.task.Id, req.Prompt)
+}
 
+// TeamPrefix marks team ids where an agent id is expected (router choices,
+// CreateTaskRequest.agent_id "team:research-squad").
+const TeamPrefix = "team:"
+
+// createOpts are the hub-side attributes of a new task.
+type createOpts struct {
+	role    string
+	teamID  string
+	agentID string // overrides req.AgentId (ephemeral agents)
+	ext     *taskExt
+	phase   string
+}
+
+// insertNew persists a new task (queued) and publishes it. existing is true
+// when the idempotency key matched an earlier task (returned instead).
+func (e *Engine) insertNew(ctx context.Context, req *nexusv1.CreateTaskRequest, parent *taskRec, o createOpts) (*taskRec, bool, error) {
+	now := e.now()
 	e.mu.Lock()
+	defer e.mu.Unlock()
 	if req.IdempotencyKey != "" {
 		existing, err := e.taskByIdempotencyKey(ctx, req.IdempotencyKey)
-		if err != nil || existing != nil {
-			e.mu.Unlock()
-			if existing != nil {
-				return existing.task, nil
-			}
-			return nil, err
+		if err != nil {
+			return nil, false, err
+		}
+		if existing != nil {
+			return existing, true, nil
 		}
 	}
 	id := newID("tsk_")
+	agentID := req.AgentId
+	if o.agentID != "" {
+		agentID = o.agentID
+	}
 	r := &taskRec{req: req, task: &nexusv1.Task{
 		Id:        id,
 		RootId:    id,
 		Title:     titleOf(req.Prompt),
 		Prompt:    req.Prompt,
-		AgentId:   req.AgentId,
+		AgentId:   agentID,
 		State:     stQueued,
 		Source:    req.Source,
+		TeamId:    o.teamID,
+		Role:      o.role,
+		Phase:     o.phase,
 		CreatedAt: timestamppb.New(now),
 		UpdatedAt: timestamppb.New(now),
 	}}
@@ -211,25 +339,70 @@ func (e *Engine) create(ctx context.Context, req *nexusv1.CreateTaskRequest, par
 		r.task.ParentId = parent.task.Id
 		r.task.RootId = parent.task.RootId
 		r.depth = parent.depth + 1
+		r.task.Depth = int32(r.depth)
 	}
 	if err := e.insertTask(ctx, r, req.IdempotencyKey); err != nil {
-		e.mu.Unlock()
-		return nil, err
+		return nil, false, err
+	}
+	if o.ext != nil {
+		if err := e.saveExt(ctx, id, o.ext); err != nil {
+			return nil, false, err
+		}
 	}
 	r.notify = true
 	e.publishRec(ctx, r, actorHub)
-	e.mu.Unlock()
+	return r, false, nil
+}
 
-	if req.AgentId != "" {
-		return e.assign(ctx, id, req.AgentId, assignOpts{})
+// createChild creates a sub-task of parent under the tree's rules: depth and
+// task-count limits are checked, the child is held queued (phase
+// waiting_slot) and started by pump as soon as max_parallel and its member
+// pool allow.
+func (e *Engine) createChild(ctx context.Context, req *nexusv1.CreateTaskRequest, parent *taskRec, o createOpts) (*nexusv1.Task, error) {
+	root, err := e.loadTask(ctx, parent.task.RootId)
+	if err != nil {
+		return nil, err
 	}
-	return e.route(ctx, id, req.Prompt)
+	tree, err := e.ensureTree(ctx, root)
+	if err != nil {
+		return nil, err
+	}
+	if err := e.checkChild(ctx, parent, tree); err != nil {
+		if tree != nil && tree.team != nil {
+			e.teamEvent(ctx, tree, nexusv1.TeamEventKind_TEAM_EVENT_KIND_LIMIT_REACHED, parent.task, err.Error(), nil)
+		}
+		return nil, err
+	}
+	if o.teamID == "" {
+		o.teamID = parent.task.TeamId
+	}
+	o.phase = phaseWaitingSlot
+	r, existing, err := e.insertNew(ctx, req, parent, o)
+	if err != nil {
+		return nil, err
+	}
+	if !existing {
+		e.pump(ctx, root.task.Id)
+	}
+	return e.GetTask(ctx, r.task.Id)
 }
 
 // dryRun resolves the agent without persisting anything or publishing events.
 func (e *Engine) dryRun(ctx context.Context, req *nexusv1.CreateTaskRequest) (*nexusv1.Task, error) {
 	t := &nexusv1.Task{Title: titleOf(req.Prompt), Prompt: req.Prompt, AgentId: req.AgentId,
-		State: stQueued, Source: req.Source, CreatedAt: timestamppb.New(e.now())}
+		State: stQueued, Source: req.Source, CreatedAt: timestamppb.New(e.now()), TeamId: req.TeamId}
+	if t.TeamId != "" {
+		cat, ok := e.teams()
+		if !ok {
+			return nil, connect.NewError(connect.CodeUnavailable, errors.New("no team catalog available"))
+		}
+		team, _, _, err := cat.GetTeam(ctx, t.TeamId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
+		t.Role, t.AgentId = RoleOrchestrator, team.OrchestratorAgentId
+		return t, nil
+	}
 	if t.AgentId == "" {
 		if rt, ok := e.router(); ok {
 			route, err := rt.Route(ctx, req.Prompt, req.Attachments, &nexusv1.CommandContext{Source: req.Source})
@@ -368,16 +541,31 @@ type assignOpts struct {
 // automatic retry when a node connects later; the user can escalate or
 // re-create the task).
 func (e *Engine) assign(ctx context.Context, id, agentID string, o assignOpts) (*nexusv1.Task, error) {
-	cat, ok := e.agents()
-	if !ok {
-		return e.fail(ctx, id, "no agent catalog available (is the vault/agents module enabled?)")
+	if teamID, ok := strings.CutPrefix(agentID, TeamPrefix); ok {
+		return e.routeToTeam(ctx, id, teamID)
 	}
-	agent, instructions, markdown, err := cat.GetAgent(ctx, agentID)
+	cur, err := e.loadTask(ctx, id)
 	if err != nil {
+		return nil, err
+	}
+	ra, err := e.resolveAgent(ctx, id, agentID)
+	if err != nil {
+		if IsEphemeral(agentID) || errors.Is(err, errNoCatalog) {
+			return e.fail(ctx, id, err.Error())
+		}
 		return e.fail(ctx, id, fmt.Sprintf("unknown agent %q: %v", agentID, err))
 	}
+	agent := ra.agent
 	if !agent.Enabled {
 		return e.fail(ctx, id, fmt.Sprintf("agent %q is disabled", agentID))
+	}
+	// Tree limits (runs, budget, deadline) are checked before every run.
+	budget, err := e.checkRun(ctx, cur.task.RootId)
+	if err != nil {
+		if tree, _ := e.loadTree(ctx, cur.task.RootId); tree != nil && tree.team != nil {
+			e.teamEvent(ctx, tree, nexusv1.TeamEventKind_TEAM_EVENT_KIND_LIMIT_REACHED, cur.task, err.Error(), nil)
+		}
+		return e.fail(ctx, id, err.Error())
 	}
 	tier := o.tier
 	if tier == nexusv1.Tier_TIER_UNSPECIFIED {
@@ -401,27 +589,29 @@ func (e *Engine) assign(ctx context.Context, id, agentID string, o assignOpts) (
 		}
 		r.task.AgentId, r.task.Tier, r.task.CurrentRunId, r.task.NodeId = agentID, tier, runID, ""
 		r.questionID, r.approvalID = "", ""
+		if r.task.Phase == phaseWaitingSlot || r.task.Phase == phaseStrategy {
+			r.task.Phase = ""
+		}
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	runCtx, err := e.assignmentContext(r, tier, o)
+	prep, err := e.prepare(ctx, r, ra, tier, o, budget)
 	if err != nil {
-		return nil, err
+		return e.fail(ctx, id, err.Error())
 	}
-	if err := mergeAgentConfig(runCtx, markdown); err != nil {
-		e.log.Warn("agent note config not forwarded", "agent", agentID, "err", err)
-	}
+	agent = prep.agent
+	markdown := ra.markdown
 	a := &nexusv1.RunAssignment{
 		RunId:        runID,
 		TaskId:       id,
 		Agent:        agent,
-		Instructions: instructions,
+		Instructions: prep.instructions,
 		Prompt:       r.task.Prompt,
 		Attachments:  r.req.Attachments,
-		Context:      runCtx,
+		Context:      prep.context,
 		RunToken:     token,
 	}
 	disp, ok := e.dispatcher()

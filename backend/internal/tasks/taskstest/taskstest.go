@@ -124,20 +124,7 @@ func (b *Bus) Publish(_ context.Context, ev *nexusv1.Event) (*nexusv1.Event, err
 	return e, nil
 }
 
-func match(e *nexusv1.Event, f kernel.EventFilter) bool {
-	if f.InboxOnly && e.GetApproval() == nil && e.GetQuestion() == nil && e.GetNotice() == nil {
-		return false
-	}
-	if len(f.TaskIDs) == 0 {
-		return true
-	}
-	for _, id := range f.TaskIDs {
-		if id == e.TaskId {
-			return true
-		}
-	}
-	return false
-}
+func match(e *nexusv1.Event, f kernel.EventFilter) bool { return f.Match(e) }
 
 func (b *Bus) Subscribe(ctx context.Context, since int64, f kernel.EventFilter) (<-chan *nexusv1.Event, error) {
 	b.mu.Lock()

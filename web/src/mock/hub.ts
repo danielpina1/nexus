@@ -883,6 +883,26 @@ export class MockHub {
       return;
     }
 
+    // "stress [n]": streams n output chunks as fast as possible (perf testing; see README).
+    const stress = /^stress\b\s*(\d+)?/i.exec(prompt.trim());
+    if (stress) {
+      const total = Math.min(50_000, Number(stress[1] ?? 5000));
+      const t0 = performance.now();
+      for (let i = 0; i < total; i++) {
+        if (!ok()) return;
+        const chunk =
+          i % 40 === 0
+            ? `\n\n### Section ${i / 40 + 1}\n\n`
+            : i % 7 === 0
+              ? `- item **${i}** with \`code\` and a [[Ana]] link\n`
+              : `token${i} `;
+        this.out(id, chunk, undefined, i === total - 1);
+        if (i % 20 === 19) await sleep(4);
+      }
+      this.setTask(id, { state: TaskState.SUCCEEDED, summary: `Streamed ${total} chunks in ${Math.round(performance.now() - t0)} ms` });
+      return;
+    }
+
     // assistant / librarian / default
     const c = this.tool(id, "memory.search", { query: prompt.slice(0, 80) }, ActionClass.READ);
     await sleep(1100);

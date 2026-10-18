@@ -79,15 +79,17 @@ func (CommandKind) EnumDescriptor() ([]byte, []int) {
 
 // Route is the router's decision.
 type Route struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Kind          CommandKind            `protobuf:"varint,1,opt,name=kind,proto3,enum=nexus.v1.CommandKind" json:"kind,omitempty"`
-	AgentId       string                 `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	WorkflowId    string                 `protobuf:"bytes,3,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
-	Tier          Tier                   `protobuf:"varint,4,opt,name=tier,proto3,enum=nexus.v1.Tier" json:"tier,omitempty"`
-	Confidence    float32                `protobuf:"fixed32,5,opt,name=confidence,proto3" json:"confidence,omitempty"`
-	Params        *structpb.Struct       `protobuf:"bytes,6,opt,name=params,proto3" json:"params,omitempty"`
-	Reason        string                 `protobuf:"bytes,7,opt,name=reason,proto3" json:"reason,omitempty"`
-	Alternatives  []string               `protobuf:"bytes,8,rep,name=alternatives,proto3" json:"alternatives,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Kind         CommandKind            `protobuf:"varint,1,opt,name=kind,proto3,enum=nexus.v1.CommandKind" json:"kind,omitempty"`
+	AgentId      string                 `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	WorkflowId   string                 `protobuf:"bytes,3,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	Tier         Tier                   `protobuf:"varint,4,opt,name=tier,proto3,enum=nexus.v1.Tier" json:"tier,omitempty"`
+	Confidence   float32                `protobuf:"fixed32,5,opt,name=confidence,proto3" json:"confidence,omitempty"`
+	Params       *structpb.Struct       `protobuf:"bytes,6,opt,name=params,proto3" json:"params,omitempty"`
+	Reason       string                 `protobuf:"bytes,7,opt,name=reason,proto3" json:"reason,omitempty"`
+	Alternatives []string               `protobuf:"bytes,8,rep,name=alternatives,proto3" json:"alternatives,omitempty"`
+	// Set instead of agent_id when the router picked a team (teams/<id>.md).
+	TeamId        string `protobuf:"bytes,9,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -176,6 +178,13 @@ func (x *Route) GetAlternatives() []string {
 		return x.Alternatives
 	}
 	return nil
+}
+
+func (x *Route) GetTeamId() string {
+	if x != nil {
+		return x.TeamId
+	}
+	return ""
 }
 
 // CommandContext gives the router hints about where the command came from.
@@ -636,7 +645,7 @@ var File_nexus_v1_command_proto protoreflect.FileDescriptor
 
 const file_nexus_v1_command_proto_rawDesc = "" +
 	"\n" +
-	"\x16nexus/v1/command.proto\x12\bnexus.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x15nexus/v1/common.proto\x1a\x13nexus/v1/task.proto\"\x9f\x02\n" +
+	"\x16nexus/v1/command.proto\x12\bnexus.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x15nexus/v1/common.proto\x1a\x13nexus/v1/task.proto\"\xb8\x02\n" +
 	"\x05Route\x12)\n" +
 	"\x04kind\x18\x01 \x01(\x0e2\x15.nexus.v1.CommandKindR\x04kind\x12\x19\n" +
 	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x1f\n" +
@@ -648,7 +657,8 @@ const file_nexus_v1_command_proto_rawDesc = "" +
 	"confidence\x12/\n" +
 	"\x06params\x18\x06 \x01(\v2\x17.google.protobuf.StructR\x06params\x12\x16\n" +
 	"\x06reason\x18\a \x01(\tR\x06reason\x12\"\n" +
-	"\falternatives\x18\b \x03(\tR\falternatives\"\x97\x01\n" +
+	"\falternatives\x18\b \x03(\tR\falternatives\x12\x17\n" +
+	"\ateam_id\x18\t \x01(\tR\x06teamId\"\x97\x01\n" +
 	"\x0eCommandContext\x12\x16\n" +
 	"\x06source\x18\x01 \x01(\tR\x06source\x12\x14\n" +
 	"\x05focus\x18\x02 \x01(\tR\x05focus\x12\x1a\n" +

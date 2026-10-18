@@ -30,10 +30,14 @@ const (
 //     without needing the answer);
 //   - assigned / waiting_* / succeeded / failed may go to escalating ("Try
 //     harder"): escalation is a new run on the same task, so it is the only
-//     way out of a finished task. cancelled is final.
+//     way out of a finished task. cancelled is final;
+//   - routing may go back to queued when the router picked a team (the task
+//     becomes the team run's root);
+//   - queued may end in succeeded when a team run without orchestrator was
+//     completed by a hub-driven strategy (parallel / pipeline / debate).
 var transitions = map[nexusv1.TaskState][]nexusv1.TaskState{
-	stQueued:          {stRouting, stAssigned, stCancelled, stFailed},
-	stRouting:         {stNeedsInput, stAssigned, stCancelled, stFailed},
+	stQueued:          {stRouting, stAssigned, stCancelled, stFailed, stSucceeded},
+	stRouting:         {stNeedsInput, stAssigned, stCancelled, stFailed, stQueued},
 	stNeedsInput:      {stRouting, stCancelled, stFailed},
 	stAssigned:        {stRunning, stEscalating, stCancelled, stFailed},
 	stRunning:         {stWaitingApproval, stWaitingInput, stEscalating, stSucceeded, stFailed, stCancelled},

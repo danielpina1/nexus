@@ -30,6 +30,9 @@ var Migrations = []string{
 	)`,
 	`CREATE INDEX events_task ON events (task_id, seq)`,
 	`CREATE INDEX events_inbox ON events (inbox, seq)`,
+	// Root of the task tree (team runs), for EventFilter.RootTaskIDs.
+	`ALTER TABLE events ADD COLUMN root_task_id TEXT NOT NULL DEFAULT ''`,
+	`CREATE INDEX events_root ON events (root_task_id, seq)`,
 }
 
 // ErrClosed is returned by Publish and Subscribe after Close.
@@ -126,8 +129,8 @@ func (b *Bus) Publish(ctx context.Context, ev *nexusv1.Event) (*nexusv1.Event, e
 		return nil, fmt.Errorf("events: marshal: %w", err)
 	}
 	res, err := b.db.ExecContext(ctx,
-		`INSERT INTO events (task_id, run_id, kind, inbox, body, at) VALUES (?, ?, ?, ?, ?, ?)`,
-		out.TaskId, out.RunId, Kind(out), IsInbox(out), body, now.UnixNano())
+		`INSERT INTO events (task_id, run_id, kind, inbox, body, at, root_task_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		out.TaskId, out.RunId, Kind(out), IsInbox(out), body, now.UnixNano(), out.RootTaskId)
 	if err != nil {
 		return nil, fmt.Errorf("events: insert: %w", err)
 	}
@@ -274,11 +277,24 @@ func (b *Bus) replay(ctx context.Context, after, head int64, f kernel.EventFilte
 	if f.InboxOnly {
 		where = append(where, "inbox = 1")
 	}
+	var ors []string
 	if len(f.TaskIDs) > 0 {
-		where = append(where, "task_id IN (?"+strings.Repeat(",?", len(f.TaskIDs)-1)+")")
+		ors = append(ors, "task_id IN (?"+strings.Repeat(",?", len(f.TaskIDs)-1)+")")
 		for _, id := range f.TaskIDs {
 			args = append(args, id)
 		}
+	}
+	if len(f.RootTaskIDs) > 0 {
+		in := "(?" + strings.Repeat(",?", len(f.RootTaskIDs)-1) + ")"
+		ors = append(ors, "root_task_id IN "+in, "task_id IN "+in)
+		for range 2 {
+			for _, id := range f.RootTaskIDs {
+				args = append(args, id)
+			}
+		}
+	}
+	if len(ors) > 0 {
+		where = append(where, "("+strings.Join(ors, " OR ")+")")
 	}
 	args = append(args, b.opts.ReplayBatch)
 	rows, err := b.db.QueryContext(ctx,

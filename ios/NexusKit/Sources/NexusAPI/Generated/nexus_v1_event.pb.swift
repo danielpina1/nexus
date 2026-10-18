@@ -20,6 +20,114 @@ fileprivate nonisolated struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobu
   typealias Version = _2
 }
 
+public nonisolated enum Nexus_V1_TeamEventKind: SwiftProtobuf.Enum, Swift.CaseIterable {
+  public typealias RawValue = Int
+  case unspecified // = 0
+
+  /// team run started (task_id = root)
+  case started // = 1
+
+  /// a member task was created (task_id = child)
+  case delegated // = 2
+
+  /// an ephemeral specialist was created
+  case spawned // = 3
+
+  /// a member task ended (data.state)
+  case memberFinished // = 4
+
+  /// key, data.value
+  case blackboardUpdated // = 5
+
+  /// text, data.to, data.delivered_to
+  case messageSent // = 6
+
+  /// a member reported a structured result
+  case reported // = 7
+
+  /// the orchestrator waits for data.task_ids
+  case awaiting // = 8
+
+  /// hub-driven strategy progress (text)
+  case strategyStep // = 9
+
+  /// critic verdict (data.approved, data.feedback, data.round)
+  case review // = 10
+
+  /// a tree limit stopped something (text)
+  case limitReached // = 11
+
+  /// a member waits for an approval (data.approval_id)
+  case approvalPending // = 12
+
+  /// the team run ended (data.state)
+  case finished // = 13
+  case UNRECOGNIZED(Int)
+
+  public init() {
+    self = .unspecified
+  }
+
+  public init?(rawValue: Int) {
+    switch rawValue {
+    case 0: self = .unspecified
+    case 1: self = .started
+    case 2: self = .delegated
+    case 3: self = .spawned
+    case 4: self = .memberFinished
+    case 5: self = .blackboardUpdated
+    case 6: self = .messageSent
+    case 7: self = .reported
+    case 8: self = .awaiting
+    case 9: self = .strategyStep
+    case 10: self = .review
+    case 11: self = .limitReached
+    case 12: self = .approvalPending
+    case 13: self = .finished
+    default: self = .UNRECOGNIZED(rawValue)
+    }
+  }
+
+  public var rawValue: Int {
+    switch self {
+    case .unspecified: return 0
+    case .started: return 1
+    case .delegated: return 2
+    case .spawned: return 3
+    case .memberFinished: return 4
+    case .blackboardUpdated: return 5
+    case .messageSent: return 6
+    case .reported: return 7
+    case .awaiting: return 8
+    case .strategyStep: return 9
+    case .review: return 10
+    case .limitReached: return 11
+    case .approvalPending: return 12
+    case .finished: return 13
+    case .UNRECOGNIZED(let i): return i
+    }
+  }
+
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  public static let allCases: [Nexus_V1_TeamEventKind] = [
+    .unspecified,
+    .started,
+    .delegated,
+    .spawned,
+    .memberFinished,
+    .blackboardUpdated,
+    .messageSent,
+    .reported,
+    .awaiting,
+    .strategyStep,
+    .review,
+    .limitReached,
+    .approvalPending,
+    .finished,
+  ]
+
+}
+
 public nonisolated enum Nexus_V1_NoticeKind: SwiftProtobuf.Enum, Swift.CaseIterable {
   public typealias RawValue = Int
   case unspecified // = 0
@@ -94,6 +202,10 @@ public nonisolated struct Nexus_V1_Event: Sendable {
 
   /// device:<id> | agent:<id> | node:<id> | hub
   public var actor: String = String()
+
+  /// Root of the task tree the event belongs to (set by the hub for task
+  /// events), so a client can follow a whole team run.
+  public var rootTaskID: String = String()
 
   public var body: Nexus_V1_Event.OneOf_Body? = nil
 
@@ -185,6 +297,14 @@ public nonisolated struct Nexus_V1_Event: Sendable {
     set {body = .userMessage(newValue)}
   }
 
+  public var team: Nexus_V1_TeamEvent {
+    get {
+      if case .team(let v)? = body {return v}
+      return Nexus_V1_TeamEvent()
+    }
+    set {body = .team(newValue)}
+  }
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public nonisolated enum OneOf_Body: Equatable, Sendable {
@@ -199,12 +319,53 @@ public nonisolated struct Nexus_V1_Event: Sendable {
     case nodeStatus(Nexus_V1_NodeStatus)
     case notice(Nexus_V1_Notice)
     case userMessage(Nexus_V1_UserMessage)
+    case team(Nexus_V1_TeamEvent)
 
   }
 
   public init() {}
 
   fileprivate var _at: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+}
+
+/// TeamEvent is a team / task-tree lifecycle event. Event.task_id is the
+/// root task; task_id here is the task the event is about.
+public nonisolated struct Nexus_V1_TeamEvent: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var kind: Nexus_V1_TeamEventKind = .unspecified
+
+  public var teamID: String = String()
+
+  public var rootTaskID: String = String()
+
+  public var taskID: String = String()
+
+  public var role: String = String()
+
+  public var agentID: String = String()
+
+  public var text: String = String()
+
+  /// blackboard key
+  public var key: String = String()
+
+  public var data: SwiftProtobuf.Google_Protobuf_Struct {
+    get {_data ?? SwiftProtobuf.Google_Protobuf_Struct()}
+    set {_data = newValue}
+  }
+  /// Returns true if `data` has been explicitly set.
+  public var hasData: Bool {self._data != nil}
+  /// Clears the value of `data`. Subsequent reads from it will return its default value.
+  public mutating func clearData() {self._data = nil}
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+
+  fileprivate var _data: SwiftProtobuf.Google_Protobuf_Struct? = nil
 }
 
 public nonisolated struct Nexus_V1_TaskUpdated: Sendable {
@@ -416,6 +577,9 @@ public nonisolated struct Nexus_V1_SubscribeRequest: Sendable {
 
   public var inboxOnly: Bool = false
 
+  /// Only events of these task trees (Event.root_task_id).
+  public var rootTaskIds: [String] = []
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
@@ -446,13 +610,17 @@ public nonisolated struct Nexus_V1_SubscribeResponse: Sendable {
 
 fileprivate nonisolated let _protobuf_package = "nexus.v1"
 
+nonisolated extension Nexus_V1_TeamEventKind: SwiftProtobuf._ProtoNameProviding {
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0TEAM_EVENT_KIND_UNSPECIFIED\0\u{1}TEAM_EVENT_KIND_STARTED\0\u{1}TEAM_EVENT_KIND_DELEGATED\0\u{1}TEAM_EVENT_KIND_SPAWNED\0\u{1}TEAM_EVENT_KIND_MEMBER_FINISHED\0\u{1}TEAM_EVENT_KIND_BLACKBOARD_UPDATED\0\u{1}TEAM_EVENT_KIND_MESSAGE_SENT\0\u{1}TEAM_EVENT_KIND_REPORTED\0\u{1}TEAM_EVENT_KIND_AWAITING\0\u{1}TEAM_EVENT_KIND_STRATEGY_STEP\0\u{1}TEAM_EVENT_KIND_REVIEW\0\u{1}TEAM_EVENT_KIND_LIMIT_REACHED\0\u{1}TEAM_EVENT_KIND_APPROVAL_PENDING\0\u{1}TEAM_EVENT_KIND_FINISHED\0")
+}
+
 nonisolated extension Nexus_V1_NoticeKind: SwiftProtobuf._ProtoNameProviding {
   public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0NOTICE_KIND_UNSPECIFIED\0\u{1}NOTICE_KIND_RESULT\0\u{1}NOTICE_KIND_ALERT\0\u{1}NOTICE_KIND_SUGGESTION\0\u{1}NOTICE_KIND_FACT_REVIEW\0\u{1}NOTICE_KIND_BRIEF\0")
 }
 
 nonisolated extension Nexus_V1_Event: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Event"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}seq\0\u{1}at\0\u{3}task_id\0\u{3}run_id\0\u{1}actor\0\u{4}\u{5}task_updated\0\u{3}run_output\0\u{3}tool_call\0\u{3}tool_result\0\u{1}question\0\u{1}approval\0\u{1}cost\0\u{1}artifact\0\u{3}node_status\0\u{1}notice\0\u{3}user_message\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}seq\0\u{1}at\0\u{3}task_id\0\u{3}run_id\0\u{1}actor\0\u{3}root_task_id\0\u{4}\u{4}task_updated\0\u{3}run_output\0\u{3}tool_call\0\u{3}tool_result\0\u{1}question\0\u{1}approval\0\u{1}cost\0\u{1}artifact\0\u{3}node_status\0\u{1}notice\0\u{3}user_message\0\u{1}team\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -465,6 +633,7 @@ nonisolated extension Nexus_V1_Event: SwiftProtobuf.Message, SwiftProtobuf._Mess
       case 3: try { try decoder.decodeSingularStringField(value: &self.taskID) }()
       case 4: try { try decoder.decodeSingularStringField(value: &self.runID) }()
       case 5: try { try decoder.decodeSingularStringField(value: &self.actor) }()
+      case 6: try { try decoder.decodeSingularStringField(value: &self.rootTaskID) }()
       case 10: try {
         var v: Nexus_V1_TaskUpdated?
         var hadOneofValue = false
@@ -608,6 +777,19 @@ nonisolated extension Nexus_V1_Event: SwiftProtobuf.Message, SwiftProtobuf._Mess
           self.body = .userMessage(v)
         }
       }()
+      case 21: try {
+        var v: Nexus_V1_TeamEvent?
+        var hadOneofValue = false
+        if let current = self.body {
+          hadOneofValue = true
+          if case .team(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.body = .team(v)
+        }
+      }()
       default: break
       }
     }
@@ -632,6 +814,9 @@ nonisolated extension Nexus_V1_Event: SwiftProtobuf.Message, SwiftProtobuf._Mess
     }
     if !self.actor.isEmpty {
       try visitor.visitSingularStringField(value: self.actor, fieldNumber: 5)
+    }
+    if !self.rootTaskID.isEmpty {
+      try visitor.visitSingularStringField(value: self.rootTaskID, fieldNumber: 6)
     }
     switch self.body {
     case .taskUpdated?: try {
@@ -678,6 +863,10 @@ nonisolated extension Nexus_V1_Event: SwiftProtobuf.Message, SwiftProtobuf._Mess
       guard case .userMessage(let v)? = self.body else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 20)
     }()
+    case .team?: try {
+      guard case .team(let v)? = self.body else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 21)
+    }()
     case nil: break
     }
     try unknownFields.traverse(visitor: &visitor)
@@ -689,7 +878,82 @@ nonisolated extension Nexus_V1_Event: SwiftProtobuf.Message, SwiftProtobuf._Mess
     if lhs.taskID != rhs.taskID {return false}
     if lhs.runID != rhs.runID {return false}
     if lhs.actor != rhs.actor {return false}
+    if lhs.rootTaskID != rhs.rootTaskID {return false}
     if lhs.body != rhs.body {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Nexus_V1_TeamEvent: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".TeamEvent"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}kind\0\u{3}team_id\0\u{3}root_task_id\0\u{3}task_id\0\u{1}role\0\u{3}agent_id\0\u{1}text\0\u{1}key\0\u{1}data\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularEnumField(value: &self.kind) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.teamID) }()
+      case 3: try { try decoder.decodeSingularStringField(value: &self.rootTaskID) }()
+      case 4: try { try decoder.decodeSingularStringField(value: &self.taskID) }()
+      case 5: try { try decoder.decodeSingularStringField(value: &self.role) }()
+      case 6: try { try decoder.decodeSingularStringField(value: &self.agentID) }()
+      case 7: try { try decoder.decodeSingularStringField(value: &self.text) }()
+      case 8: try { try decoder.decodeSingularStringField(value: &self.key) }()
+      case 9: try { try decoder.decodeSingularMessageField(value: &self._data) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    if self.kind != .unspecified {
+      try visitor.visitSingularEnumField(value: self.kind, fieldNumber: 1)
+    }
+    if !self.teamID.isEmpty {
+      try visitor.visitSingularStringField(value: self.teamID, fieldNumber: 2)
+    }
+    if !self.rootTaskID.isEmpty {
+      try visitor.visitSingularStringField(value: self.rootTaskID, fieldNumber: 3)
+    }
+    if !self.taskID.isEmpty {
+      try visitor.visitSingularStringField(value: self.taskID, fieldNumber: 4)
+    }
+    if !self.role.isEmpty {
+      try visitor.visitSingularStringField(value: self.role, fieldNumber: 5)
+    }
+    if !self.agentID.isEmpty {
+      try visitor.visitSingularStringField(value: self.agentID, fieldNumber: 6)
+    }
+    if !self.text.isEmpty {
+      try visitor.visitSingularStringField(value: self.text, fieldNumber: 7)
+    }
+    if !self.key.isEmpty {
+      try visitor.visitSingularStringField(value: self.key, fieldNumber: 8)
+    }
+    try { if let v = self._data {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 9)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Nexus_V1_TeamEvent, rhs: Nexus_V1_TeamEvent) -> Bool {
+    if lhs.kind != rhs.kind {return false}
+    if lhs.teamID != rhs.teamID {return false}
+    if lhs.rootTaskID != rhs.rootTaskID {return false}
+    if lhs.taskID != rhs.taskID {return false}
+    if lhs.role != rhs.role {return false}
+    if lhs.agentID != rhs.agentID {return false}
+    if lhs.text != rhs.text {return false}
+    if lhs.key != rhs.key {return false}
+    if lhs._data != rhs._data {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -1071,7 +1335,7 @@ nonisolated extension Nexus_V1_Notice: SwiftProtobuf.Message, SwiftProtobuf._Mes
 
 nonisolated extension Nexus_V1_SubscribeRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".SubscribeRequest"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}since_seq\0\u{3}task_ids\0\u{3}inbox_only\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}since_seq\0\u{3}task_ids\0\u{3}inbox_only\0\u{3}root_task_ids\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -1082,6 +1346,7 @@ nonisolated extension Nexus_V1_SubscribeRequest: SwiftProtobuf.Message, SwiftPro
       case 1: try { try decoder.decodeSingularInt64Field(value: &self.sinceSeq) }()
       case 2: try { try decoder.decodeRepeatedStringField(value: &self.taskIds) }()
       case 3: try { try decoder.decodeSingularBoolField(value: &self.inboxOnly) }()
+      case 4: try { try decoder.decodeRepeatedStringField(value: &self.rootTaskIds) }()
       default: break
       }
     }
@@ -1097,6 +1362,9 @@ nonisolated extension Nexus_V1_SubscribeRequest: SwiftProtobuf.Message, SwiftPro
     if self.inboxOnly != false {
       try visitor.visitSingularBoolField(value: self.inboxOnly, fieldNumber: 3)
     }
+    if !self.rootTaskIds.isEmpty {
+      try visitor.visitRepeatedStringField(value: self.rootTaskIds, fieldNumber: 4)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1104,6 +1372,7 @@ nonisolated extension Nexus_V1_SubscribeRequest: SwiftProtobuf.Message, SwiftPro
     if lhs.sinceSeq != rhs.sinceSeq {return false}
     if lhs.taskIds != rhs.taskIds {return false}
     if lhs.inboxOnly != rhs.inboxOnly {return false}
+    if lhs.rootTaskIds != rhs.rootTaskIds {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

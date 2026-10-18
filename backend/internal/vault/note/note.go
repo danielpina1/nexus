@@ -67,6 +67,17 @@ type Note struct {
 	Fields map[string][]string
 	// Headings in document order (text only).
 	Headings []string
+	// HeadingLines are the 1-based line numbers and levels of Headings.
+	HeadingLines []HeadingPos
+	// Tasks are the checkbox items outside code blocks.
+	Tasks []Task
+}
+
+// HeadingPos locates a heading.
+type HeadingPos struct {
+	Line  int
+	Level int
+	Text  string
 }
 
 // Parse parses a note. p is the vault-relative path (used for the
@@ -204,9 +215,14 @@ func (n *Note) scanBody(tags *orderedSet) (h1 string) {
 		}
 		line = reInlineCode.ReplaceAllStringFunc(line, blank)
 
+		if t, ok := ParseTaskLine(raw); ok {
+			t.Line = lineNo
+			n.Tasks = append(n.Tasks, t)
+		}
 		if m := reHeading.FindStringSubmatch(line); m != nil {
 			text := strings.TrimSpace(m[2])
 			n.Headings = append(n.Headings, text)
+			n.HeadingLines = append(n.HeadingLines, HeadingPos{Line: lineNo, Level: len(m[1]), Text: text})
 			if len(m[1]) == 1 && h1 == "" {
 				h1 = stripMarkup(text)
 			}

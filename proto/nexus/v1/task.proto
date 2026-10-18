@@ -41,6 +41,20 @@ message Task {
   google.protobuf.Timestamp created_at = 16;
   google.protobuf.Timestamp updated_at = 17;
   string source = 18; // ios-chat | ios-share | siri | web | cli | workflow | trigger
+  // Team (vault teams/<id>.md) this task belongs to; set on the whole tree.
+  string team_id = 19;
+  // Role in the team: "orchestrator" for the root, the member role for
+  // delegated tasks, "critic" for review tasks, the spawn role for ephemeral agents.
+  string role = 20;
+  // Depth in the task tree (root = 0).
+  int32 depth = 21;
+  // Hub-side phase while the state alone does not say it: "waiting_slot"
+  // (queued until max_parallel allows), "strategy" (team strategy running),
+  // "reviewing" (critic checking the result), "revising", "repairing"
+  // (output did not match the schema).
+  string phase = 22;
+  // Root tasks: LLM cost of the whole tree (root + all sub-tasks).
+  Cost tree_cost = 23;
 }
 
 // TaskService creates and steers tasks.
@@ -67,6 +81,9 @@ message CreateTaskRequest {
   string idempotency_key = 5;
   bool dry_run = 6;
   string source = 7;
+  // Start a team run (vault teams/<id>.md): the task becomes the team's
+  // root, handled by the team's orchestrator. Mutually exclusive with agent_id.
+  string team_id = 8;
 }
 
 message CreateTaskResponse {
@@ -89,6 +106,8 @@ message ListTasksRequest {
   string agent_id = 3;
   string node_id = 4;
   bool roots_only = 5;
+  string root_id = 6; // tasks of one tree (root included)
+  string team_id = 7; // tasks of one team (with roots_only: its runs)
 }
 
 message ListTasksResponse {

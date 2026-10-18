@@ -102,6 +102,14 @@ type Approval struct {
 	// recomputes action hash from it (what you see is what you sign).
 	SealedPreview *SealedEnvelope `protobuf:"bytes,16,opt,name=sealed_preview,json=sealedPreview,proto3" json:"sealed_preview,omitempty"`
 	NodeId        string          `protobuf:"bytes,17,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	// Grouping metadata for task trees and teams: the root of the task's
+	// tree, the team and the member role. Clients group approvals with the
+	// same root_task_id; `bundle` is set when the team asks for bundled
+	// approvals (one card listing all pending items of the run).
+	RootTaskId    string `protobuf:"bytes,18,opt,name=root_task_id,json=rootTaskId,proto3" json:"root_task_id,omitempty"`
+	TeamId        string `protobuf:"bytes,19,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
+	Role          string `protobuf:"bytes,20,opt,name=role,proto3" json:"role,omitempty"`
+	Bundle        bool   `protobuf:"varint,21,opt,name=bundle,proto3" json:"bundle,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -253,6 +261,34 @@ func (x *Approval) GetNodeId() string {
 		return x.NodeId
 	}
 	return ""
+}
+
+func (x *Approval) GetRootTaskId() string {
+	if x != nil {
+		return x.RootTaskId
+	}
+	return ""
+}
+
+func (x *Approval) GetTeamId() string {
+	if x != nil {
+		return x.TeamId
+	}
+	return ""
+}
+
+func (x *Approval) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *Approval) GetBundle() bool {
+	if x != nil {
+		return x.Bundle
+	}
+	return false
 }
 
 type ListApprovalsRequest struct {
@@ -453,7 +489,7 @@ var File_nexus_v1_approval_proto protoreflect.FileDescriptor
 
 const file_nexus_v1_approval_proto_rawDesc = "" +
 	"\n" +
-	"\x17nexus/v1/approval.proto\x12\bnexus.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x15nexus/v1/common.proto\x1a\x17nexus/v1/security.proto\"\xa0\x05\n" +
+	"\x17nexus/v1/approval.proto\x12\bnexus.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x15nexus/v1/common.proto\x1a\x17nexus/v1/security.proto\"\x87\x06\n" +
 	"\bApproval\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x15\n" +
@@ -474,7 +510,12 @@ const file_nexus_v1_approval_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12?\n" +
 	"\x0esealed_preview\x18\x10 \x01(\v2\x18.nexus.v1.SealedEnvelopeR\rsealedPreview\x12\x17\n" +
-	"\anode_id\x18\x11 \x01(\tR\x06nodeId\"G\n" +
+	"\anode_id\x18\x11 \x01(\tR\x06nodeId\x12 \n" +
+	"\froot_task_id\x18\x12 \x01(\tR\n" +
+	"rootTaskId\x12\x17\n" +
+	"\ateam_id\x18\x13 \x01(\tR\x06teamId\x12\x12\n" +
+	"\x04role\x18\x14 \x01(\tR\x04role\x12\x16\n" +
+	"\x06bundle\x18\x15 \x01(\bR\x06bundle\"G\n" +
 	"\x14ListApprovalsRequest\x12/\n" +
 	"\x06states\x18\x01 \x03(\x0e2\x17.nexus.v1.ApprovalStateR\x06states\"I\n" +
 	"\x15ListApprovalsResponse\x120\n" +

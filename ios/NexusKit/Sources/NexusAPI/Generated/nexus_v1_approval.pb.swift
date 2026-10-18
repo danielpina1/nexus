@@ -185,6 +185,30 @@ public nonisolated struct Nexus_V1_Approval: @unchecked Sendable {
     set {_uniqueStorage()._nodeID = newValue}
   }
 
+  /// Grouping metadata for task trees and teams: the root of the task's
+  /// tree, the team and the member role. Clients group approvals with the
+  /// same root_task_id; `bundle` is set when the team asks for bundled
+  /// approvals (one card listing all pending items of the run).
+  public var rootTaskID: String {
+    get {_storage._rootTaskID}
+    set {_uniqueStorage()._rootTaskID = newValue}
+  }
+
+  public var teamID: String {
+    get {_storage._teamID}
+    set {_uniqueStorage()._teamID = newValue}
+  }
+
+  public var role: String {
+    get {_storage._role}
+    set {_uniqueStorage()._role = newValue}
+  }
+
+  public var bundle: Bool {
+    get {_storage._bundle}
+    set {_uniqueStorage()._bundle = newValue}
+  }
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
@@ -274,7 +298,7 @@ nonisolated extension Nexus_V1_ApprovalState: SwiftProtobuf._ProtoNameProviding 
 
 nonisolated extension Nexus_V1_Approval: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Approval"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{3}task_id\0\u{3}run_id\0\u{3}agent_id\0\u{3}action_class\0\u{1}level\0\u{1}title\0\u{1}summary\0\u{1}payload\0\u{1}previews\0\u{3}payload_hash\0\u{1}challenge\0\u{1}state\0\u{3}expires_at\0\u{3}created_at\0\u{3}sealed_preview\0\u{3}node_id\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{3}task_id\0\u{3}run_id\0\u{3}agent_id\0\u{3}action_class\0\u{1}level\0\u{1}title\0\u{1}summary\0\u{1}payload\0\u{1}previews\0\u{3}payload_hash\0\u{1}challenge\0\u{1}state\0\u{3}expires_at\0\u{3}created_at\0\u{3}sealed_preview\0\u{3}node_id\0\u{3}root_task_id\0\u{3}team_id\0\u{1}role\0\u{1}bundle\0")
 
   fileprivate class _StorageClass {
     var _id: String = String()
@@ -294,6 +318,10 @@ nonisolated extension Nexus_V1_Approval: SwiftProtobuf.Message, SwiftProtobuf._M
     var _createdAt: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
     var _sealedPreview: Nexus_V1_SealedEnvelope? = nil
     var _nodeID: String = String()
+    var _rootTaskID: String = String()
+    var _teamID: String = String()
+    var _role: String = String()
+    var _bundle: Bool = false
 
       // This property is used as the initial default value for new instances of the type.
       // The type itself is protecting the reference to its storage via CoW semantics.
@@ -321,6 +349,10 @@ nonisolated extension Nexus_V1_Approval: SwiftProtobuf.Message, SwiftProtobuf._M
       _createdAt = source._createdAt
       _sealedPreview = source._sealedPreview
       _nodeID = source._nodeID
+      _rootTaskID = source._rootTaskID
+      _teamID = source._teamID
+      _role = source._role
+      _bundle = source._bundle
     }
   }
 
@@ -356,6 +388,10 @@ nonisolated extension Nexus_V1_Approval: SwiftProtobuf.Message, SwiftProtobuf._M
         case 15: try { try decoder.decodeSingularMessageField(value: &_storage._createdAt) }()
         case 16: try { try decoder.decodeSingularMessageField(value: &_storage._sealedPreview) }()
         case 17: try { try decoder.decodeSingularStringField(value: &_storage._nodeID) }()
+        case 18: try { try decoder.decodeSingularStringField(value: &_storage._rootTaskID) }()
+        case 19: try { try decoder.decodeSingularStringField(value: &_storage._teamID) }()
+        case 20: try { try decoder.decodeSingularStringField(value: &_storage._role) }()
+        case 21: try { try decoder.decodeSingularBoolField(value: &_storage._bundle) }()
         default: break
         }
       }
@@ -419,6 +455,18 @@ nonisolated extension Nexus_V1_Approval: SwiftProtobuf.Message, SwiftProtobuf._M
       if !_storage._nodeID.isEmpty {
         try visitor.visitSingularStringField(value: _storage._nodeID, fieldNumber: 17)
       }
+      if !_storage._rootTaskID.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._rootTaskID, fieldNumber: 18)
+      }
+      if !_storage._teamID.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._teamID, fieldNumber: 19)
+      }
+      if !_storage._role.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._role, fieldNumber: 20)
+      }
+      if _storage._bundle != false {
+        try visitor.visitSingularBoolField(value: _storage._bundle, fieldNumber: 21)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -445,6 +493,10 @@ nonisolated extension Nexus_V1_Approval: SwiftProtobuf.Message, SwiftProtobuf._M
         if _storage._createdAt != rhs_storage._createdAt {return false}
         if _storage._sealedPreview != rhs_storage._sealedPreview {return false}
         if _storage._nodeID != rhs_storage._nodeID {return false}
+        if _storage._rootTaskID != rhs_storage._rootTaskID {return false}
+        if _storage._teamID != rhs_storage._teamID {return false}
+        if _storage._role != rhs_storage._role {return false}
+        if _storage._bundle != rhs_storage._bundle {return false}
         return true
       }
       if !storagesAreEqual {return false}

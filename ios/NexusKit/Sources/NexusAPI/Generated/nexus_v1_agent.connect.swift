@@ -21,6 +21,16 @@ public protocol Nexus_V1_AgentServiceClientInterface: Sendable {
     /// UpsertAgent writes the agent note (raw Markdown) and returns the parsed agent.
     @available(iOS 13, *)
     func `upsertAgent`(request: Nexus_V1_UpsertAgentRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_UpsertAgentResponse>
+
+    /// Skills (vault skills/*.md).
+    @available(iOS 13, *)
+    func `listSkills`(request: Nexus_V1_ListSkillsRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_ListSkillsResponse>
+
+    @available(iOS 13, *)
+    func `getSkill`(request: Nexus_V1_GetSkillRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_GetSkillResponse>
+
+    @available(iOS 13, *)
+    func `upsertSkill`(request: Nexus_V1_UpsertSkillRequest, headers: Connect.Headers) async -> ResponseMessage<Nexus_V1_UpsertSkillResponse>
 }
 
 /// Concrete implementation of `Nexus_V1_AgentServiceClientInterface`.
@@ -46,11 +56,29 @@ public final class Nexus_V1_AgentServiceClient: Nexus_V1_AgentServiceClientInter
         return await self.client.unary(path: "/nexus.v1.AgentService/UpsertAgent", idempotencyLevel: .unknown, request: request, headers: headers)
     }
 
+    @available(iOS 13, *)
+    public func `listSkills`(request: Nexus_V1_ListSkillsRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_ListSkillsResponse> {
+        return await self.client.unary(path: "/nexus.v1.AgentService/ListSkills", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `getSkill`(request: Nexus_V1_GetSkillRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_GetSkillResponse> {
+        return await self.client.unary(path: "/nexus.v1.AgentService/GetSkill", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `upsertSkill`(request: Nexus_V1_UpsertSkillRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Nexus_V1_UpsertSkillResponse> {
+        return await self.client.unary(path: "/nexus.v1.AgentService/UpsertSkill", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
     public enum Metadata {
         public enum Methods {
             public static let listAgents = Connect.MethodSpec(name: "ListAgents", service: "nexus.v1.AgentService", type: .unary)
             public static let getAgent = Connect.MethodSpec(name: "GetAgent", service: "nexus.v1.AgentService", type: .unary)
             public static let upsertAgent = Connect.MethodSpec(name: "UpsertAgent", service: "nexus.v1.AgentService", type: .unary)
+            public static let listSkills = Connect.MethodSpec(name: "ListSkills", service: "nexus.v1.AgentService", type: .unary)
+            public static let getSkill = Connect.MethodSpec(name: "GetSkill", service: "nexus.v1.AgentService", type: .unary)
+            public static let upsertSkill = Connect.MethodSpec(name: "UpsertSkill", service: "nexus.v1.AgentService", type: .unary)
         }
     }
 }

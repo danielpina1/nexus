@@ -61,6 +61,50 @@ var migrations = []string{
 	)`,
 	// The runtime the run was dispatched to (runtime selection / fallback).
 	`ALTER TABLE runs ADD COLUMN runtime TEXT NOT NULL DEFAULT ''`,
+	// Teams and task trees (docs/SWARMS.md).
+	`ALTER TABLE tasks ADD COLUMN team_id TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE tasks ADD COLUMN role TEXT NOT NULL DEFAULT ''`,
+	`CREATE INDEX tasks_root ON tasks(root_id)`,
+	`CREATE INDEX tasks_team ON tasks(team_id)`,
+	// Engine-internal per-task state (ephemeral agent, queue hold, repair /
+	// review counters, reported result…) as JSON.
+	`CREATE TABLE task_ext (
+		task_id TEXT PRIMARY KEY,
+		data    TEXT NOT NULL
+	)`,
+	// One row per task tree with limits (team runs, or roots whose agent has
+	// tree limits): effective limits, team snapshot, stop reason, deadline.
+	`CREATE TABLE task_trees (
+		root_id  TEXT PRIMARY KEY,
+		team_id  TEXT NOT NULL DEFAULT '',
+		limits   BLOB,
+		team     BLOB,
+		mission  TEXT NOT NULL DEFAULT '',
+		stopped  TEXT NOT NULL DEFAULT '',
+		deadline INTEGER NOT NULL DEFAULT 0,
+		created_at INTEGER NOT NULL
+	)`,
+	`CREATE TABLE team_blackboard (
+		root_id    TEXT NOT NULL,
+		key        TEXT NOT NULL,
+		value      TEXT NOT NULL,
+		task_id    TEXT NOT NULL DEFAULT '',
+		role       TEXT NOT NULL DEFAULT '',
+		version    INTEGER NOT NULL DEFAULT 1,
+		updated_at INTEGER NOT NULL,
+		PRIMARY KEY (root_id, key)
+	)`,
+	`CREATE TABLE team_messages (
+		id           TEXT PRIMARY KEY,
+		root_id      TEXT NOT NULL,
+		from_task    TEXT NOT NULL DEFAULT '',
+		from_role    TEXT NOT NULL DEFAULT '',
+		to_spec      TEXT NOT NULL,
+		text         TEXT NOT NULL,
+		delivered_to TEXT NOT NULL DEFAULT '[]',
+		created_at   INTEGER NOT NULL
+	)`,
+	`CREATE INDEX team_messages_root ON team_messages(root_id, created_at)`,
 }
 
 // Run states stored in runs.state.
@@ -87,6 +131,8 @@ type taskRec struct {
 	path   []nexusv1.TaskState // state changes applied in this mutation
 	notify bool                // publish a TaskUpdated even without a state change
 	extra  []*nexusv1.Event    // events published after the TaskUpdated ones
+	// post runs after the engine lock is released (service calls allowed).
+	post []func(ctx context.Context)
 }
 
 // to changes the state, validating it against the transition table.
@@ -132,9 +178,9 @@ func (e *Engine) insertTask(ctx context.Context, r *taskRec, idemKey string) err
 	}
 	now := ms(r.task.CreatedAt.AsTime())
 	_, err = e.db.ExecContext(ctx, `INSERT INTO tasks
-		(id, parent_id, root_id, depth, state, agent_id, node_id, current_run_id, idempotency_key, task, request, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, '', '', ?, ?, ?, ?, ?)`,
-		r.task.Id, r.task.ParentId, r.task.RootId, r.depth, int32(r.task.State), r.task.AgentId, key, tb, rb, now, now)
+		(id, parent_id, root_id, depth, state, agent_id, node_id, current_run_id, idempotency_key, task, request, created_at, updated_at, team_id, role)
+		VALUES (?, ?, ?, ?, ?, ?, '', '', ?, ?, ?, ?, ?, ?, ?)`,
+		r.task.Id, r.task.ParentId, r.task.RootId, r.depth, int32(r.task.State), r.task.AgentId, key, tb, rb, now, now, r.task.TeamId, r.task.Role)
 	return err
 }
 
@@ -144,9 +190,9 @@ func (e *Engine) saveTask(ctx context.Context, r *taskRec) error {
 		return err
 	}
 	_, err = e.db.ExecContext(ctx, `UPDATE tasks SET state = ?, agent_id = ?, node_id = ?, current_run_id = ?,
-		question_id = ?, approval_id = ?, task = ?, updated_at = ? WHERE id = ?`,
+		question_id = ?, approval_id = ?, task = ?, updated_at = ?, team_id = ?, role = ? WHERE id = ?`,
 		int32(r.task.State), r.task.AgentId, r.task.NodeId, r.task.CurrentRunId,
-		r.questionID, r.approvalID, tb, ms(r.task.UpdatedAt.AsTime()), r.task.Id)
+		r.questionID, r.approvalID, tb, ms(r.task.UpdatedAt.AsTime()), r.task.TeamId, r.task.Role, r.task.Id)
 	return err
 }
 
@@ -346,6 +392,14 @@ func listWhere(req *nexusv1.ListTasksRequest, after string) (string, []any) {
 	}
 	if req.GetRootsOnly() {
 		conds = append(conds, "parent_id = ''")
+	}
+	if req.GetRootId() != "" {
+		conds = append(conds, "root_id = ?")
+		args = append(args, req.RootId)
+	}
+	if req.GetTeamId() != "" {
+		conds = append(conds, "team_id = ?")
+		args = append(args, req.TeamId)
 	}
 	if after != "" {
 		conds = append(conds, "id < ?")

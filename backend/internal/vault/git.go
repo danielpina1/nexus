@@ -213,3 +213,59 @@ func contains(s []string, v string) bool {
 	}
 	return false
 }
+
+// show returns the bytes of rel at commit (rel relative to the vault root).
+func (g *gitRepo) show(ctx context.Context, commit, rel string) ([]byte, error) {
+	if strings.HasPrefix(commit, "-") {
+		return nil, fmt.Errorf("bad commit %q", commit)
+	}
+	out, err := g.run(ctx, "show", commit+":./"+rel)
+	if err != nil {
+		return nil, err
+	}
+	return []byte(out), nil
+}
+
+// gitVersion is one commit touching a file.
+type gitVersion struct {
+	Commit, Author, Message, Path, Status string
+	At                                    time.Time
+}
+
+// log lists commits touching rel (following renames), newest first. Paths
+// are relative to the vault root.
+func (g *gitRepo) logFile(ctx context.Context, rel string, limit int) ([]gitVersion, error) {
+	args := []string{"log", "--follow", "--relative", "--name-status", "--format=%x1e%H%x1f%aI%x1f%an%x1f%B%x1f"}
+	if limit > 0 {
+		args = append(args, fmt.Sprintf("-n%d", limit))
+	}
+	out, err := g.run(ctx, append(args, "--", rel)...)
+	if err != nil {
+		if strings.Contains(err.Error(), "does not have any commits") || strings.Contains(err.Error(), "unknown revision") {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var vs []gitVersion
+	for _, rec := range strings.Split(out, "\x1e") {
+		if strings.TrimSpace(rec) == "" {
+			continue
+		}
+		f := strings.SplitN(rec, "\x1f", 5)
+		if len(f) < 5 {
+			continue
+		}
+		gv := gitVersion{Commit: f[0], Author: f[2], Message: strings.TrimSpace(f[3]), Path: rel}
+		gv.At, _ = time.Parse(time.RFC3339, f[1])
+		for _, line := range strings.Split(strings.TrimSpace(f[4]), "\n") {
+			parts := strings.Split(line, "\t")
+			if len(parts) < 2 {
+				continue
+			}
+			gv.Status = parts[0][:1]
+			gv.Path = parts[len(parts)-1]
+		}
+		vs = append(vs, gv)
+	}
+	return vs, nil
+}

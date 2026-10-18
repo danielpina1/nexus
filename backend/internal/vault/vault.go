@@ -44,6 +44,13 @@ var (
 	ErrInvalidPath = errors.New("vault: invalid path")
 	ErrConflict    = errors.New("vault: note changed since base_commit")
 	ErrInvalid     = errors.New("vault: invalid input")
+	ErrTooLarge    = errors.New("vault: file too large")
+)
+
+// Default limits.
+const (
+	DefaultMaxNoteBytes       = 5 << 20
+	DefaultMaxAttachmentBytes = 100 << 20
 )
 
 // HashPrefix marks content-hash revisions in Note.commit (see WriteNote).
@@ -63,6 +70,22 @@ type Options struct {
 	Logger      *slog.Logger
 	// Now overrides the clock (tests).
 	Now func() time.Time
+
+	// StateDir holds local state outside the vault (the snapshot store used
+	// for undo when the vault is not a git repo). Empty = no snapshots.
+	StateDir string
+	// SnapshotKeep is the number of versions kept per note (default 50).
+	SnapshotKeep int
+	// NoLock skips the single-writer lock (read-only tools, tests).
+	NoLock bool
+	// KeepConflicts writes "<note> (conflict YYYY-MM-DD HHMM).md" copies for
+	// stale writes that cannot be merged, instead of only failing.
+	KeepConflicts bool
+	// Encryption enables encryption at rest for some folders.
+	Encryption *EncryptionOptions
+	// MaxNoteBytes / MaxAttachmentBytes limit writes (0 = defaults).
+	MaxNoteBytes       int64
+	MaxAttachmentBytes int64
 }
 
 // Vault is the knowledge base. It implements kernel.Vault.
@@ -80,6 +103,49 @@ type Vault struct {
 
 	// LLM, when set, returns the LLM service (resolved lazily by the module).
 	LLM func() (kernel.LLM, bool)
+
+	lock          *writerLock
+	snaps         *snapStore
+	feed          *feed
+	crypt         *crypter
+	recent        *recentCache
+	keepConflicts bool
+	maxNote       int64
+	maxAttach     int64
+	// journalCrashAfter is a test hook (see runJournal); -1 = off.
+	journalCrashAfter int
+
+	nmu     sync.RWMutex
+	notices func(Notice)
+	// Fetch, when set, fetches a URL as readable text (web clips).
+	Fetch func(ctx context.Context, url string) (*Clip, error)
+}
+
+// Notice is an inbox card raised by the vault (conflicts, integrity
+// problems, backup failures). The module publishes them on the event bus.
+type Notice struct {
+	Kind  nexusv1.NoticeKind
+	Title string
+	Body  string
+	Paths []string
+	Data  map[string]any
+}
+
+// SetNoticeSink sets where vault notices go (nil = log only).
+func (v *Vault) SetNoticeSink(fn func(Notice)) {
+	v.nmu.Lock()
+	v.notices = fn
+	v.nmu.Unlock()
+}
+
+func (v *Vault) notice(n Notice) {
+	v.nmu.RLock()
+	fn := v.notices
+	v.nmu.RUnlock()
+	v.log.Warn("vault: "+n.Title, "detail", n.Body, "paths", n.Paths)
+	if fn != nil {
+		fn(n)
+	}
 }
 
 var _ kernel.Vault = (*Vault)(nil)
@@ -106,6 +172,16 @@ func Open(o Options) (*Vault, error) {
 	if abs, err = filepath.EvalSymlinks(abs); err != nil {
 		return nil, err
 	}
+	crypt, err := newCrypter(o.Encryption)
+	if err != nil {
+		return nil, err
+	}
+	var lock *writerLock
+	if !o.NoLock {
+		if lock, err = acquireLock(abs); err != nil {
+			return nil, err
+		}
+	}
 	var ix *index.Index
 	if o.IndexPath == "" {
 		ix, err = index.OpenMemory()
@@ -113,19 +189,50 @@ func Open(o Options) (*Vault, error) {
 		ix, err = index.Open(o.IndexPath)
 	}
 	if err != nil {
+		lock.release()
 		return nil, fmt.Errorf("vault index: %w", err)
 	}
-	v := &Vault{root: abs, ix: ix, log: o.Logger, now: o.Now}
+	v := &Vault{
+		root: abs, ix: ix, log: o.Logger, now: o.Now, lock: lock, crypt: crypt,
+		feed: newFeed(o.Now()), recent: newRecentCache(256, 8<<20),
+		keepConflicts: o.KeepConflicts, maxNote: o.MaxNoteBytes, maxAttach: o.MaxAttachmentBytes,
+		journalCrashAfter: -1,
+	}
+	if v.maxNote <= 0 {
+		v.maxNote = DefaultMaxNoteBytes
+	}
+	if v.maxAttach <= 0 {
+		v.maxAttach = DefaultMaxAttachmentBytes
+	}
+	ix.SetDecoder(func(_ string, raw []byte) ([]byte, error) { return v.decode(raw) })
+	ix.SetPrivate(func(rel string) bool { return v.crypt.covers(rel) && !v.crypt.searchable })
+	ix.SetAttachmentExtractor(extractAttachment)
 	if o.Git {
 		v.git = detectGit(abs, o.CommitDelay, o.Logger)
+	}
+	if v.git == nil && o.StateDir != "" {
+		if v.snaps, err = openSnapStore(filepath.Join(o.StateDir, "snapshots"), o.SnapshotKeep); err != nil {
+			v.log.Warn("vault: snapshot store unavailable; undo limited to the trash", "err", err)
+		}
+	}
+	if !o.NoLock {
+		touched, err := v.recoverJournal()
+		if err != nil {
+			v.log.Error("vault: journal recovery incomplete", "err", err)
+		}
+		if len(touched) > 0 && v.git != nil {
+			v.git.schedule(touched, "vault: complete interrupted operation", "")
+		}
 	}
 	return v, nil
 }
 
-// Close flushes pending commits and closes the index.
+// Close flushes pending commits, closes the index and releases the lock.
 func (v *Vault) Close() error {
 	v.Flush()
-	return v.ix.Close()
+	err := v.ix.Close()
+	v.lock.release()
+	return err
 }
 
 // Flush commits pending git changes now.
@@ -237,34 +344,6 @@ func (v *Vault) abs(rel string) (string, error) {
 	return p, nil
 }
 
-// writeAtomic writes data via a temp file + rename in the same directory.
-func writeAtomic(p string, data []byte) error {
-	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
-		return err
-	}
-	f, err := os.CreateTemp(filepath.Dir(p), ".nexus-tmp-*")
-	if err != nil {
-		return err
-	}
-	tmp := f.Name()
-	defer os.Remove(tmp)
-	if _, err := f.Write(data); err != nil {
-		f.Close()
-		return err
-	}
-	if err := f.Sync(); err != nil {
-		f.Close()
-		return err
-	}
-	if err := f.Close(); err != nil {
-		return err
-	}
-	if err := os.Chmod(tmp, 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, p)
-}
-
 // ---------------------------------------------------------------------------
 // Run ids
 
@@ -304,6 +383,10 @@ func (v *Vault) ReadRaw(ctx context.Context, rel string) ([]byte, string, error)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, c, fmt.Errorf("%w: %s", ErrNotFound, c)
 	}
+	if err != nil {
+		return nil, c, err
+	}
+	b, err = v.decode(b)
 	return b, c, err
 }
 
@@ -350,18 +433,39 @@ func (v *Vault) Write(ctx context.Context, rel, markdown, commitMessage string) 
 //
 // A missing file matches a revision in which it did not exist.
 func (v *Vault) WriteNote(ctx context.Context, rel string, markdown []byte, commitMessage, baseCommit string) (*nexusv1.Note, error) {
+	r, err := v.WriteNoteEx(ctx, rel, markdown, commitMessage, baseCommit)
+	return r.Note, err
+}
+
+// WriteResult is the outcome of WriteNoteEx.
+type WriteResult struct {
+	Note *nexusv1.Note
+	// Merged is true when a stale base was three-way merged cleanly.
+	Merged bool
+}
+
+// WriteNoteEx is WriteNote with conflict handling: when baseCommit is stale
+// the change is three-way merged with the current version (line based);
+// if that fails the write is rejected with a *ConflictError (ErrConflict)
+// and, with KeepConflicts, the incoming content is saved as a conflict copy
+// next to the note and a Notice is raised.
+func (v *Vault) WriteNoteEx(ctx context.Context, rel string, markdown []byte, commitMessage, baseCommit string) (WriteResult, error) {
 	c, err := notePath(rel)
 	if err != nil {
-		return nil, err
+		return WriteResult{}, err
 	}
 	v.wmu.Lock()
 	defer v.wmu.Unlock()
 	if baseCommit != "" {
 		if err := v.checkBase(ctx, c, baseCommit); err != nil {
-			return nil, err
+			if errors.Is(err, ErrConflict) {
+				return v.resolveConflictLocked(ctx, c, markdown, commitMessage, baseCommit, err)
+			}
+			return WriteResult{}, err
 		}
 	}
-	return v.writeLocked(ctx, c, markdown, commitMessage)
+	n, err := v.writeLocked(ctx, c, markdown, commitMessage)
+	return WriteResult{Note: n}, err
 }
 
 // Update applies fn to the current content of a note (nil when missing)
@@ -389,8 +493,24 @@ func (v *Vault) writeLocked(ctx context.Context, rel string, markdown []byte, ms
 	if err != nil {
 		return nil, err
 	}
+	if int64(len(markdown)) > v.maxNote {
+		return nil, fmt.Errorf("%w: %s is %d bytes (limit %d)", ErrTooLarge, rel, len(markdown), v.maxNote)
+	}
 	markdown, _, _ = note.EnsureID(markdown, NewID)
-	if err := writeAtomic(p, markdown); err != nil {
+	if msg == "" {
+		msg = "vault: update " + rel
+	}
+	old, rerr := os.ReadFile(p)
+	existed := rerr == nil
+	if v.snaps != nil && existed && !v.snaps.has(rel) {
+		// First Nexus change to a file that existed before: keep the original.
+		_ = v.snaps.record(snapEntry{Path: rel, At: v.now().Add(-time.Millisecond).UnixMilli(), Message: "(before first Nexus change)", PH: v.plainHash(old)}, old)
+	}
+	raw, err := v.encode(rel, markdown)
+	if err != nil {
+		return nil, fmt.Errorf("vault: encrypt %s: %w", rel, err)
+	}
+	if err := writeAtomic(p, raw); err != nil {
 		return nil, fmt.Errorf("vault: write %s: %w", rel, err)
 	}
 	if fi, err := os.Stat(p); err == nil {
@@ -398,15 +518,36 @@ func (v *Vault) writeLocked(ctx context.Context, rel string, markdown []byte, ms
 			v.log.Warn("vault: index update failed", "path", rel, "err", err)
 		}
 	}
-	if msg == "" {
-		msg = "vault: update " + rel
+	v.recent.put(index.Hash(markdown), markdown)
+	if v.snaps != nil {
+		if err := v.snaps.record(snapEntry{Path: rel, At: v.now().UnixMilli(), Message: msg, Run: runID(ctx), PH: index.Hash(markdown)}, raw); err != nil {
+			v.log.Warn("vault: snapshot failed", "path", rel, "err", err)
+		}
 	}
 	if v.git != nil {
 		v.git.schedule([]string{rel}, msg, runID(ctx))
 	}
 	v.notify([]string{rel})
-	return v.toNote(ctx, rel, markdown)
+	kind := nexusv1.VaultChangeKind_VAULT_CHANGE_KIND_UPDATED
+	if !existed {
+		kind = nexusv1.VaultChangeKind_VAULT_CHANGE_KIND_CREATED
+	}
+	n, err := v.toNote(ctx, rel, markdown)
+	if err == nil {
+		v.emit(ctx, kind, rel, "", n.GetRef().GetId())
+	}
+	return n, err
 }
+
+// plainHash hashes the decrypted content of on-disk bytes.
+func (v *Vault) plainHash(raw []byte) string {
+	if p, err := v.decode(raw); err == nil {
+		return index.Hash(p)
+	}
+	return ""
+}
+
+func timestampOf(t time.Time) *timestamppb.Timestamp { return timestamppb.New(t) }
 
 // writeFile writes a non-note file (attachments) inside the vault.
 func (v *Vault) writeFile(ctx context.Context, rel string, data []byte, msg string) error {
@@ -418,12 +559,26 @@ func (v *Vault) writeFile(ctx context.Context, rel string, data []byte, msg stri
 	if err != nil {
 		return err
 	}
+	if int64(len(data)) > v.maxAttach {
+		return fmt.Errorf("%w: %s is %d bytes (limit %d)", ErrTooLarge, c, len(data), v.maxAttach)
+	}
+	existed := fileExists(p)
 	if err := writeAtomic(p, data); err != nil {
 		return err
+	}
+	if index.IsAttachmentPath(c) {
+		if _, err := v.ix.UpsertAttachmentFile(ctx, v.root, c); err != nil {
+			v.log.Warn("vault: attachment index", "path", c, "err", err)
+		}
 	}
 	if v.git != nil {
 		v.git.schedule([]string{c}, msg, runID(ctx))
 	}
+	kind := nexusv1.VaultChangeKind_VAULT_CHANGE_KIND_UPDATED
+	if !existed {
+		kind = nexusv1.VaultChangeKind_VAULT_CHANGE_KIND_CREATED
+	}
+	v.emit(ctx, kind, c, "", "")
 	return nil
 }
 
@@ -473,8 +628,9 @@ func (v *Vault) toNote(ctx context.Context, rel string, content []byte) (*nexusv
 		Ref:    &nexusv1.NoteRef{Id: noteKey(n.ID, rel), Path: rel, Title: n.Title},
 		Type:   n.Type,
 		Tags:   n.Tags,
-		Body:   n.Body,
-		Commit: v.revision(ctx, rel, content),
+		Body:      n.Body,
+		Commit:    v.revision(ctx, rel, content),
+		Encrypted: v.crypt.covers(rel),
 	}
 	if fm, err := toStruct(n.Frontmatter); err == nil {
 		out.Frontmatter = fm

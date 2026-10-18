@@ -11,10 +11,16 @@ import (
 )
 
 // VaultHandler implements nexusv1connect.VaultServiceHandler.
-type VaultHandler struct{ V *Vault }
+type VaultHandler struct {
+	V *Vault
+	nexusv1connect.UnimplementedVaultServiceHandler
+}
 
 // AgentHandler implements nexusv1connect.AgentServiceHandler.
-type AgentHandler struct{ C *Catalog }
+type AgentHandler struct {
+	C *Catalog
+	S *SkillCatalog
+}
 
 var (
 	_ nexusv1connect.VaultServiceHandler = VaultHandler{}

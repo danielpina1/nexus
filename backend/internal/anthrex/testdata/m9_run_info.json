@@ -1,0 +1,333 @@
+{
+  "run_id": "run-a1b2",
+  "goal": "Add password reset",
+  "project": "/tmp/p",
+  "root": "/tmp/x",
+  "state": "running",
+  "paused_from": null,
+  "halted_reason": null,
+  "approved_by": "user",
+  "base_branch": "main",
+  "base_sha": "0000000000000000000000000000000000000a",
+  "run_branch": "anthrex/run-a1b2/integration",
+  "run_head": "1111111111111111111111111111111111111b",
+  "base_moved": {
+    "from": "0000000000000000000000000000000000000a",
+    "to": "2222222222222222222222222222222222222c",
+    "commits": [
+      "abc1234 alice: fix the thing"
+    ],
+    "total": 3
+  },
+  "revision": 42,
+  "max_writers": 4,
+  "max_readers": 2,
+  "max_bounces": 3,
+  "writers_busy": 1,
+  "readers_busy": 0,
+  "unverified": false,
+  "worker_sandbox": true,
+  "unconfined_checks": true,
+  "trusted_project": [
+    ".codex/config.toml"
+  ],
+  "rate_limits": {
+    "claude": 2,
+    "codex": 0
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "title": "Reset token model",
+      "epic": "auth",
+      "kind": "code",
+      "size": "M",
+      "hub": false,
+      "test_mode": "tdd",
+      "test_mode_reason": null,
+      "notes": [
+        "size raised from S to M: owns spans 2 modules (rule 7.2.1)"
+      ],
+      "owns": [
+        "crates/auth/src/token.rs"
+      ],
+      "deps": [
+        "t0"
+      ],
+      "implicit_deps": [
+        "t0a"
+      ],
+      "priority": 3,
+      "route": {
+        "runtime": "claude",
+        "model": "claude-sonnet-5",
+        "strength": "standard",
+        "effort": "high"
+      },
+      "review_route": {
+        "runtime": "codex",
+        "model": "",
+        "strength": "frontier",
+        "effort": "medium"
+      },
+      "budget": {
+        "tool_calls": 120,
+        "minutes": 45,
+        "tokens": 3000000
+      },
+      "spent_session": {
+        "tool_calls": 4,
+        "secs": 90,
+        "tokens": 1200
+      },
+      "spent_total": {
+        "tool_calls": 11,
+        "secs": 400,
+        "tokens": 5600
+      },
+      "state": "review",
+      "block": {
+        "reason": "question",
+        "text": "waiting on an answer about the token TTL"
+      },
+      "rung": 3,
+      "failures": 5,
+      "bounces": {
+        "done": 1,
+        "proof": 0,
+        "check": 4,
+        "review": 2,
+        "merge": 3
+      },
+      "stalls": 2,
+      "budget_exceeded": 0,
+      "conflicts": 4,
+      "branch": "anthrex/run-a1b2/t1",
+      "worktree": "/tmp/wt/runs/run-a1b2/t1",
+      "start_commit": "aaaa1111",
+      "head": "bbbb2222",
+      "test": "token::expires_after_one_hour",
+      "red": "cccc3333",
+      "done_signal": "task_done",
+      "rounds": [
+        {
+          "role": "worker",
+          "session": 1,
+          "round": 6,
+          "window_id": 9,
+          "route": {
+            "runtime": "claude",
+            "model": "claude-sonnet-5",
+            "strength": "standard",
+            "effort": "high"
+          },
+          "session_id": "claude-session-abc",
+          "started_at": 1700000100,
+          "ended_at": 1700000400,
+          "tool_calls": 7,
+          "last_event": 1700000390,
+          "turn_open": false,
+          "turns": 3,
+          "rate_limited": false,
+          "open_subagents": 4,
+          "denials": 5,
+          "usage": {
+            "input": 111,
+            "output": 222,
+            "cache_read": 4000,
+            "cache_write": 333
+          },
+          "rate_limited_since": 1700000120,
+          "rate_limited_until": 1700000420,
+          "sent_back_at": [
+            1700000150,
+            1700000250
+          ]
+        }
+      ],
+      "reviews": [
+        {
+          "round": 1,
+          "route": {
+            "runtime": "codex",
+            "model": "",
+            "strength": "frontier",
+            "effort": "medium"
+          },
+          "verdict": "changes",
+          "summary": "one blocking finding",
+          "findings": [
+            {
+              "severity": "important",
+              "file": "crates/auth/src/token.rs",
+              "line": 42,
+              "input": "token::expires_after_one_hour",
+              "text": "off by one on the expiry check"
+            }
+          ],
+          "blocking": true
+        }
+      ],
+      "last_check": null,
+      "last_proof": null,
+      "merge_commit": null,
+      "merged_without_approval": null,
+      "salvage_refs": [
+        "refs/anthrex/salvage/run-a1b2/t1/1"
+      ],
+      "on_critical_path": true,
+      "wave": 2,
+      "history": [
+        {
+          "at": 1700000500,
+          "text": "review round 1 requested changes"
+        },
+        {
+          "at": 1700000400,
+          "text": "dispatched"
+        }
+      ],
+      "decider_usage": null,
+      "size_check": null,
+      "diff": null,
+      "phases": null,
+      "block_source": null,
+      "brief": "Add the reset token model.",
+      "acceptance": [
+        "tokens expire after one hour"
+      ],
+      "route_spec": {
+        "runtime": "codex",
+        "model": "gpt-5-codex",
+        "strength": null,
+        "effort": "low"
+      },
+      "hold": "h1",
+      "review_target": "main..feature",
+      "research_bytes": 4096,
+      "message_count": 3,
+      "last_message_kind": "change",
+      "last_message_line": "the schema moved",
+      "task_notes": [
+        {
+          "task_id": "t1",
+          "kind": "risk",
+          "text": "shared parser",
+          "at": 1700000600
+        }
+      ]
+    }
+  ],
+  "critical_path": [
+    "t1"
+  ],
+  "attention": [
+    "base main moved from 0000000 to 2222222 (3 new commits); accept will list them"
+  ],
+  "report_path": "/tmp/data/runs/run-a1b2/REPORT.md",
+  "outcome": null,
+  "created_at": 1700000000,
+  "path": null,
+  "triage": null,
+  "promote_requested_at": null,
+  "profile_source": null,
+  "usage": null,
+  "scouts": [],
+  "approved_at": 1700000010,
+  "plan_edits": [
+    {
+      "at": 1700000300,
+      "text": "split t2",
+      "source": "orchestrator",
+      "accepted": false,
+      "error": "t9 owns overlap t2",
+      "recipients": [
+        "t1"
+      ]
+    },
+    {
+      "at": 1700000200,
+      "text": "amend t1",
+      "source": "user",
+      "accepted": true,
+      "error": null,
+      "recipients": []
+    }
+  ],
+  "plan_edits_since_approval": 2,
+  "planners": [
+    {
+      "epic": "A",
+      "title": "daemon",
+      "area": [
+        "crates/daemon/**"
+      ],
+      "route": {
+        "runtime": "claude",
+        "model": "",
+        "strength": "frontier",
+        "effort": "high"
+      },
+      "window_id": 12,
+      "state": "finished",
+      "started_at": 1700000050,
+      "ended_at": 1700000900,
+      "edits_accepted": 3,
+      "edits_rejected": 1,
+      "last_rejection": "t9 owns overlap t2",
+      "replans": [
+        "split t4"
+      ],
+      "note": "replanned once"
+    }
+  ],
+  "estimate_left_secs": 1800,
+  "bound_ratio_permille": 1250,
+  "orchestrator": {
+    "route": {
+      "runtime": "claude",
+      "model": "claude-opus-5",
+      "strength": "frontier",
+      "effort": "high"
+    },
+    "window_id": 21,
+    "live": true,
+    "started_at": 1700000020,
+    "plan_submitted": true,
+    "summary": null,
+    "notes": [
+      "t1 is blocked"
+    ],
+    "wakes": 2
+  },
+  "holds": [
+    {
+      "id": "h1",
+      "kind": {
+        "kind": "promotion"
+      },
+      "state": "awaiting",
+      "tasks": [
+        "t1"
+      ],
+      "created_at": 1700000030,
+      "decided_at": null,
+      "decided_by": null
+    }
+  ],
+  "integration": [
+    {
+      "epic": "A",
+      "state": "reviewing",
+      "base": "abc1234",
+      "merges": [
+        "def5678"
+      ],
+      "tasks": [
+        "A-int1"
+      ]
+    }
+  ],
+  "digest_revision": 17,
+  "research_report": "/tmp/report.md"
+}

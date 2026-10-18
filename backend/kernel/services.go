@@ -24,12 +24,38 @@ const (
 	SvcLLM        = "llm"        // LLM
 	SvcSecurity   = "security"   // Security
 	SvcHubTools   = "hubtools"   // HubToolClient (node side: call hub tools)
+	SvcTeams      = "teams"      // TeamCatalog
+	SvcSkills     = "skills"     // SkillCatalog
 )
 
 // EventFilter narrows a subscription.
 type EventFilter struct {
-	TaskIDs   []string
-	InboxOnly bool
+	TaskIDs []string
+	// RootTaskIDs keeps events whose root_task_id is one of these (task trees / team runs).
+	RootTaskIDs []string
+	InboxOnly   bool
+}
+
+// Match reports whether an event passes the filter. TaskIDs and
+// RootTaskIDs are alternatives: an event matching either passes.
+func (f EventFilter) Match(e *nexusv1.Event) bool {
+	if f.InboxOnly && e.GetApproval() == nil && e.GetQuestion() == nil && e.GetNotice() == nil {
+		return false
+	}
+	if len(f.TaskIDs) == 0 && len(f.RootTaskIDs) == 0 {
+		return true
+	}
+	for _, id := range f.TaskIDs {
+		if id == e.GetTaskId() {
+			return true
+		}
+	}
+	for _, id := range f.RootTaskIDs {
+		if id != "" && (id == e.GetRootTaskId() || id == e.GetTaskId()) {
+			return true
+		}
+	}
+	return false
 }
 
 // EventBus is the ordered, persistent event log with live fan-out.
@@ -49,6 +75,22 @@ type AgentCatalog interface {
 	// GetAgent returns the parsed agent, its instructions (note body) and raw markdown.
 	GetAgent(ctx context.Context, id string) (agent *nexusv1.Agent, instructions, markdown string, err error)
 	UpsertAgent(ctx context.Context, markdown, commitMessage string) (*nexusv1.Agent, error)
+}
+
+// TeamCatalog exposes team definitions (vault teams/*.md, docs/SWARMS.md).
+type TeamCatalog interface {
+	ListTeams(ctx context.Context, includeDisabled bool) ([]*nexusv1.Team, error)
+	// GetTeam returns the parsed team, its mission (note body) and raw markdown.
+	GetTeam(ctx context.Context, id string) (team *nexusv1.Team, mission, markdown string, err error)
+	// UpsertTeam validates and (unless validateOnly) writes teams/<id>.md.
+	UpsertTeam(ctx context.Context, markdown, commitMessage string, validateOnly bool) (*nexusv1.Team, error)
+}
+
+// SkillCatalog exposes skill notes (vault skills/*.md).
+type SkillCatalog interface {
+	ListSkills(ctx context.Context, includeDisabled bool) ([]*nexusv1.Skill, error)
+	GetSkill(ctx context.Context, id string) (skill *nexusv1.Skill, markdown string, err error)
+	UpsertSkill(ctx context.Context, markdown, commitMessage string) (*nexusv1.Skill, error)
 }
 
 // TaskEngine owns tasks and runs.

@@ -75,18 +75,80 @@ func (FactStatus) EnumDescriptor() ([]byte, []int) {
 	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{0}
 }
 
+type VaultChangeKind int32
+
+const (
+	VaultChangeKind_VAULT_CHANGE_KIND_UNSPECIFIED VaultChangeKind = 0
+	VaultChangeKind_VAULT_CHANGE_KIND_CREATED     VaultChangeKind = 1
+	VaultChangeKind_VAULT_CHANGE_KIND_UPDATED     VaultChangeKind = 2
+	VaultChangeKind_VAULT_CHANGE_KIND_DELETED     VaultChangeKind = 3
+	VaultChangeKind_VAULT_CHANGE_KIND_RENAMED     VaultChangeKind = 4
+	// RESYNC: changes were missed (since_rev too old, full rescan); reload.
+	VaultChangeKind_VAULT_CHANGE_KIND_RESYNC VaultChangeKind = 5
+)
+
+// Enum value maps for VaultChangeKind.
+var (
+	VaultChangeKind_name = map[int32]string{
+		0: "VAULT_CHANGE_KIND_UNSPECIFIED",
+		1: "VAULT_CHANGE_KIND_CREATED",
+		2: "VAULT_CHANGE_KIND_UPDATED",
+		3: "VAULT_CHANGE_KIND_DELETED",
+		4: "VAULT_CHANGE_KIND_RENAMED",
+		5: "VAULT_CHANGE_KIND_RESYNC",
+	}
+	VaultChangeKind_value = map[string]int32{
+		"VAULT_CHANGE_KIND_UNSPECIFIED": 0,
+		"VAULT_CHANGE_KIND_CREATED":     1,
+		"VAULT_CHANGE_KIND_UPDATED":     2,
+		"VAULT_CHANGE_KIND_DELETED":     3,
+		"VAULT_CHANGE_KIND_RENAMED":     4,
+		"VAULT_CHANGE_KIND_RESYNC":      5,
+	}
+)
+
+func (x VaultChangeKind) Enum() *VaultChangeKind {
+	p := new(VaultChangeKind)
+	*p = x
+	return p
+}
+
+func (x VaultChangeKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (VaultChangeKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_nexus_v1_vault_proto_enumTypes[1].Descriptor()
+}
+
+func (VaultChangeKind) Type() protoreflect.EnumType {
+	return &file_nexus_v1_vault_proto_enumTypes[1]
+}
+
+func (x VaultChangeKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use VaultChangeKind.Descriptor instead.
+func (VaultChangeKind) EnumDescriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{1}
+}
+
 // Note is a vault note.
 type Note struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Ref           *NoteRef               `protobuf:"bytes,1,opt,name=ref,proto3" json:"ref,omitempty"`
-	Type          string                 `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
-	Tags          []string               `protobuf:"bytes,3,rep,name=tags,proto3" json:"tags,omitempty"`
-	Frontmatter   *structpb.Struct       `protobuf:"bytes,4,opt,name=frontmatter,proto3" json:"frontmatter,omitempty"`
-	Body          string                 `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
-	Links         []*NoteRef             `protobuf:"bytes,6,rep,name=links,proto3" json:"links,omitempty"`
-	Backlinks     []*NoteRef             `protobuf:"bytes,7,rep,name=backlinks,proto3" json:"backlinks,omitempty"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	Commit        string                 `protobuf:"bytes,9,opt,name=commit,proto3" json:"commit,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Ref         *NoteRef               `protobuf:"bytes,1,opt,name=ref,proto3" json:"ref,omitempty"`
+	Type        string                 `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
+	Tags        []string               `protobuf:"bytes,3,rep,name=tags,proto3" json:"tags,omitempty"`
+	Frontmatter *structpb.Struct       `protobuf:"bytes,4,opt,name=frontmatter,proto3" json:"frontmatter,omitempty"`
+	Body        string                 `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
+	Links       []*NoteRef             `protobuf:"bytes,6,rep,name=links,proto3" json:"links,omitempty"`
+	Backlinks   []*NoteRef             `protobuf:"bytes,7,rep,name=backlinks,proto3" json:"backlinks,omitempty"`
+	UpdatedAt   *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	Commit      string                 `protobuf:"bytes,9,opt,name=commit,proto3" json:"commit,omitempty"`
+	// encrypted is true when the note is stored encrypted at rest
+	// (vault.encryption.folders); the body here is the decrypted text.
+	Encrypted     bool `protobuf:"varint,10,opt,name=encrypted,proto3" json:"encrypted,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -182,6 +244,13 @@ func (x *Note) GetCommit() string {
 		return x.Commit
 	}
 	return ""
+}
+
+func (x *Note) GetEncrypted() bool {
+	if x != nil {
+		return x.Encrypted
+	}
+	return false
 }
 
 type SearchHit struct {
@@ -669,8 +738,11 @@ func (x *WriteNoteRequest) GetCommitMessage() string {
 }
 
 type WriteNoteResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Note          *Note                  `protobuf:"bytes,1,opt,name=note,proto3" json:"note,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Note  *Note                  `protobuf:"bytes,1,opt,name=note,proto3" json:"note,omitempty"`
+	// merged is true when base_commit was stale and the change was merged
+	// (three-way, line based) with the newer version without conflicts.
+	Merged        bool `protobuf:"varint,2,opt,name=merged,proto3" json:"merged,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -712,6 +784,13 @@ func (x *WriteNoteResponse) GetNote() *Note {
 	return nil
 }
 
+func (x *WriteNoteResponse) GetMerged() bool {
+	if x != nil {
+		return x.Merged
+	}
+	return false
+}
+
 type CaptureRequest struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	Text           string                 `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
@@ -719,8 +798,11 @@ type CaptureRequest struct {
 	Attachments    []*Attachment          `protobuf:"bytes,3,rep,name=attachments,proto3" json:"attachments,omitempty"`
 	Source         string                 `protobuf:"bytes,4,opt,name=source,proto3" json:"source,omitempty"`
 	IdempotencyKey string                 `protobuf:"bytes,5,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// clip fetches url and stores the readable page text as Markdown
+	// (needs the web tools module; falls back to a plain link capture).
+	Clip          bool `protobuf:"varint,6,opt,name=clip,proto3" json:"clip,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CaptureRequest) Reset() {
@@ -788,6 +870,13 @@ func (x *CaptureRequest) GetIdempotencyKey() string {
 	return ""
 }
 
+func (x *CaptureRequest) GetClip() bool {
+	if x != nil {
+		return x.Clip
+	}
+	return false
+}
+
 type CaptureResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Note          *NoteRef               `protobuf:"bytes,1,opt,name=note,proto3" json:"note,omitempty"`
@@ -833,11 +922,21 @@ func (x *CaptureResponse) GetNote() *NoteRef {
 }
 
 type GraphRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	CenterId      string                 `protobuf:"bytes,1,opt,name=center_id,json=centerId,proto3" json:"center_id,omitempty"` // empty = whole graph (filtered)
-	Depth         int32                  `protobuf:"varint,2,opt,name=depth,proto3" json:"depth,omitempty"`
-	Types         []string               `protobuf:"bytes,3,rep,name=types,proto3" json:"types,omitempty"`
-	Limit         int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	CenterId string                 `protobuf:"bytes,1,opt,name=center_id,json=centerId,proto3" json:"center_id,omitempty"` // empty = whole graph (filtered)
+	Depth    int32                  `protobuf:"varint,2,opt,name=depth,proto3" json:"depth,omitempty"`
+	Types    []string               `protobuf:"bytes,3,rep,name=types,proto3" json:"types,omitempty"`
+	Limit    int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
+	// relations keeps only edges with these relations (e.g. links_to, works_at).
+	Relations []string `protobuf:"bytes,5,rep,name=relations,proto3" json:"relations,omitempty"`
+	// tags keeps only notes with any of these tags (the center is always kept).
+	Tags []string `protobuf:"bytes,6,rep,name=tags,proto3" json:"tags,omitempty"`
+	// path_prefix keeps only notes under a folder, e.g. "people/".
+	PathPrefix string `protobuf:"bytes,7,opt,name=path_prefix,json=pathPrefix,proto3" json:"path_prefix,omitempty"`
+	// hide_dangling drops unresolved link targets.
+	HideDangling bool `protobuf:"varint,8,opt,name=hide_dangling,json=hideDangling,proto3" json:"hide_dangling,omitempty"`
+	// hide_orphans drops notes without links (whole-graph view).
+	HideOrphans   bool `protobuf:"varint,9,opt,name=hide_orphans,json=hideOrphans,proto3" json:"hide_orphans,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -898,6 +997,41 @@ func (x *GraphRequest) GetLimit() int32 {
 		return x.Limit
 	}
 	return 0
+}
+
+func (x *GraphRequest) GetRelations() []string {
+	if x != nil {
+		return x.Relations
+	}
+	return nil
+}
+
+func (x *GraphRequest) GetTags() []string {
+	if x != nil {
+		return x.Tags
+	}
+	return nil
+}
+
+func (x *GraphRequest) GetPathPrefix() string {
+	if x != nil {
+		return x.PathPrefix
+	}
+	return ""
+}
+
+func (x *GraphRequest) GetHideDangling() bool {
+	if x != nil {
+		return x.HideDangling
+	}
+	return false
+}
+
+func (x *GraphRequest) GetHideOrphans() bool {
+	if x != nil {
+		return x.HideOrphans
+	}
+	return false
 }
 
 type GraphResponse struct {
@@ -1268,11 +1402,4139 @@ func (x *ReviewFactResponse) GetFact() *Fact {
 	return nil
 }
 
+// NoteVersion is one version of a note. commit is a git commit hash, or
+// "snap:<sha256>" for the local snapshot store (vaults without git).
+type NoteVersion struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Commit  string                 `protobuf:"bytes,1,opt,name=commit,proto3" json:"commit,omitempty"`
+	Path    string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	At      *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=at,proto3" json:"at,omitempty"`
+	Message string                 `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
+	Author  string                 `protobuf:"bytes,5,opt,name=author,proto3" json:"author,omitempty"`
+	// diff is a unified diff against the previous version (include_diff).
+	Diff string `protobuf:"bytes,6,opt,name=diff,proto3" json:"diff,omitempty"`
+	// run_id is the Nexus-Run trailer of the commit (agent writes).
+	RunId string `protobuf:"bytes,7,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
+	// deleted is true when this version removed the note.
+	Deleted       bool `protobuf:"varint,8,opt,name=deleted,proto3" json:"deleted,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NoteVersion) Reset() {
+	*x = NoteVersion{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NoteVersion) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NoteVersion) ProtoMessage() {}
+
+func (x *NoteVersion) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NoteVersion.ProtoReflect.Descriptor instead.
+func (*NoteVersion) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *NoteVersion) GetCommit() string {
+	if x != nil {
+		return x.Commit
+	}
+	return ""
+}
+
+func (x *NoteVersion) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *NoteVersion) GetAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.At
+	}
+	return nil
+}
+
+func (x *NoteVersion) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *NoteVersion) GetAuthor() string {
+	if x != nil {
+		return x.Author
+	}
+	return ""
+}
+
+func (x *NoteVersion) GetDiff() string {
+	if x != nil {
+		return x.Diff
+	}
+	return ""
+}
+
+func (x *NoteVersion) GetRunId() string {
+	if x != nil {
+		return x.RunId
+	}
+	return ""
+}
+
+func (x *NoteVersion) GetDeleted() bool {
+	if x != nil {
+		return x.Deleted
+	}
+	return false
+}
+
+type HistoryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	Limit         int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"` // default 50
+	IncludeDiff   bool                   `protobuf:"varint,4,opt,name=include_diff,json=includeDiff,proto3" json:"include_diff,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HistoryRequest) Reset() {
+	*x = HistoryRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HistoryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HistoryRequest) ProtoMessage() {}
+
+func (x *HistoryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HistoryRequest.ProtoReflect.Descriptor instead.
+func (*HistoryRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *HistoryRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *HistoryRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *HistoryRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *HistoryRequest) GetIncludeDiff() bool {
+	if x != nil {
+		return x.IncludeDiff
+	}
+	return false
+}
+
+type HistoryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Versions      []*NoteVersion         `protobuf:"bytes,1,rep,name=versions,proto3" json:"versions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HistoryResponse) Reset() {
+	*x = HistoryResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HistoryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HistoryResponse) ProtoMessage() {}
+
+func (x *HistoryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HistoryResponse.ProtoReflect.Descriptor instead.
+func (*HistoryResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *HistoryResponse) GetVersions() []*NoteVersion {
+	if x != nil {
+		return x.Versions
+	}
+	return nil
+}
+
+type GetVersionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	Commit        string                 `protobuf:"bytes,3,opt,name=commit,proto3" json:"commit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetVersionRequest) Reset() {
+	*x = GetVersionRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetVersionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetVersionRequest) ProtoMessage() {}
+
+func (x *GetVersionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetVersionRequest.ProtoReflect.Descriptor instead.
+func (*GetVersionRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *GetVersionRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *GetVersionRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *GetVersionRequest) GetCommit() string {
+	if x != nil {
+		return x.Commit
+	}
+	return ""
+}
+
+type GetVersionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Markdown      string                 `protobuf:"bytes,1,opt,name=markdown,proto3" json:"markdown,omitempty"`
+	Version       *NoteVersion           `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetVersionResponse) Reset() {
+	*x = GetVersionResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetVersionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetVersionResponse) ProtoMessage() {}
+
+func (x *GetVersionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetVersionResponse.ProtoReflect.Descriptor instead.
+func (*GetVersionResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *GetVersionResponse) GetMarkdown() string {
+	if x != nil {
+		return x.Markdown
+	}
+	return ""
+}
+
+func (x *GetVersionResponse) GetVersion() *NoteVersion {
+	if x != nil {
+		return x.Version
+	}
+	return nil
+}
+
+type RestoreVersionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	Commit        string                 `protobuf:"bytes,3,opt,name=commit,proto3" json:"commit,omitempty"`
+	CommitMessage string                 `protobuf:"bytes,4,opt,name=commit_message,json=commitMessage,proto3" json:"commit_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RestoreVersionRequest) Reset() {
+	*x = RestoreVersionRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RestoreVersionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RestoreVersionRequest) ProtoMessage() {}
+
+func (x *RestoreVersionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RestoreVersionRequest.ProtoReflect.Descriptor instead.
+func (*RestoreVersionRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *RestoreVersionRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *RestoreVersionRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *RestoreVersionRequest) GetCommit() string {
+	if x != nil {
+		return x.Commit
+	}
+	return ""
+}
+
+func (x *RestoreVersionRequest) GetCommitMessage() string {
+	if x != nil {
+		return x.CommitMessage
+	}
+	return ""
+}
+
+type RestoreVersionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Note          *Note                  `protobuf:"bytes,1,opt,name=note,proto3" json:"note,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RestoreVersionResponse) Reset() {
+	*x = RestoreVersionResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RestoreVersionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RestoreVersionResponse) ProtoMessage() {}
+
+func (x *RestoreVersionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RestoreVersionResponse.ProtoReflect.Descriptor instead.
+func (*RestoreVersionResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *RestoreVersionResponse) GetNote() *Note {
+	if x != nil {
+		return x.Note
+	}
+	return nil
+}
+
+// TrashItem is a deleted file kept under .trash/ until purged.
+type TrashItem struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"` // original vault path
+	Title         string                 `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
+	DeletedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=deleted_at,json=deletedAt,proto3" json:"deleted_at,omitempty"`
+	SizeBytes     int64                  `protobuf:"varint,5,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TrashItem) Reset() {
+	*x = TrashItem{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TrashItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TrashItem) ProtoMessage() {}
+
+func (x *TrashItem) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TrashItem.ProtoReflect.Descriptor instead.
+func (*TrashItem) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *TrashItem) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *TrashItem) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *TrashItem) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *TrashItem) GetDeletedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.DeletedAt
+	}
+	return nil
+}
+
+func (x *TrashItem) GetSizeBytes() int64 {
+	if x != nil {
+		return x.SizeBytes
+	}
+	return 0
+}
+
+type DeleteNoteRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	BaseCommit    string                 `protobuf:"bytes,3,opt,name=base_commit,json=baseCommit,proto3" json:"base_commit,omitempty"`
+	CommitMessage string                 `protobuf:"bytes,4,opt,name=commit_message,json=commitMessage,proto3" json:"commit_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteNoteRequest) Reset() {
+	*x = DeleteNoteRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteNoteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteNoteRequest) ProtoMessage() {}
+
+func (x *DeleteNoteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteNoteRequest.ProtoReflect.Descriptor instead.
+func (*DeleteNoteRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *DeleteNoteRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *DeleteNoteRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *DeleteNoteRequest) GetBaseCommit() string {
+	if x != nil {
+		return x.BaseCommit
+	}
+	return ""
+}
+
+func (x *DeleteNoteRequest) GetCommitMessage() string {
+	if x != nil {
+		return x.CommitMessage
+	}
+	return ""
+}
+
+type DeleteNoteResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Item          *TrashItem             `protobuf:"bytes,1,opt,name=item,proto3" json:"item,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteNoteResponse) Reset() {
+	*x = DeleteNoteResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteNoteResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteNoteResponse) ProtoMessage() {}
+
+func (x *DeleteNoteResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteNoteResponse.ProtoReflect.Descriptor instead.
+func (*DeleteNoteResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *DeleteNoteResponse) GetItem() *TrashItem {
+	if x != nil {
+		return x.Item
+	}
+	return nil
+}
+
+type ListTrashRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListTrashRequest) Reset() {
+	*x = ListTrashRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListTrashRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListTrashRequest) ProtoMessage() {}
+
+func (x *ListTrashRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListTrashRequest.ProtoReflect.Descriptor instead.
+func (*ListTrashRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{30}
+}
+
+type ListTrashResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Items         []*TrashItem           `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListTrashResponse) Reset() {
+	*x = ListTrashResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListTrashResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListTrashResponse) ProtoMessage() {}
+
+func (x *ListTrashResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListTrashResponse.ProtoReflect.Descriptor instead.
+func (*ListTrashResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *ListTrashResponse) GetItems() []*TrashItem {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+type RestoreFromTrashRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// path restores to a different location; default = original path (a
+	// free name is chosen when it is taken).
+	Path          string `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RestoreFromTrashRequest) Reset() {
+	*x = RestoreFromTrashRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RestoreFromTrashRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RestoreFromTrashRequest) ProtoMessage() {}
+
+func (x *RestoreFromTrashRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RestoreFromTrashRequest.ProtoReflect.Descriptor instead.
+func (*RestoreFromTrashRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *RestoreFromTrashRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *RestoreFromTrashRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+type RestoreFromTrashResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Note          *NoteRef               `protobuf:"bytes,2,opt,name=note,proto3" json:"note,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RestoreFromTrashResponse) Reset() {
+	*x = RestoreFromTrashResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RestoreFromTrashResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RestoreFromTrashResponse) ProtoMessage() {}
+
+func (x *RestoreFromTrashResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RestoreFromTrashResponse.ProtoReflect.Descriptor instead.
+func (*RestoreFromTrashResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *RestoreFromTrashResponse) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *RestoreFromTrashResponse) GetNote() *NoteRef {
+	if x != nil {
+		return x.Note
+	}
+	return nil
+}
+
+type PurgeTrashRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                                               // one item; empty = by age
+	OlderThanDays int32                  `protobuf:"varint,2,opt,name=older_than_days,json=olderThanDays,proto3" json:"older_than_days,omitempty"` // 0 with empty id = everything
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PurgeTrashRequest) Reset() {
+	*x = PurgeTrashRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PurgeTrashRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PurgeTrashRequest) ProtoMessage() {}
+
+func (x *PurgeTrashRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PurgeTrashRequest.ProtoReflect.Descriptor instead.
+func (*PurgeTrashRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *PurgeTrashRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *PurgeTrashRequest) GetOlderThanDays() int32 {
+	if x != nil {
+		return x.OlderThanDays
+	}
+	return 0
+}
+
+type PurgeTrashResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Purged        int32                  `protobuf:"varint,1,opt,name=purged,proto3" json:"purged,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PurgeTrashResponse) Reset() {
+	*x = PurgeTrashResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PurgeTrashResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PurgeTrashResponse) ProtoMessage() {}
+
+func (x *PurgeTrashResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PurgeTrashResponse.ProtoReflect.Descriptor instead.
+func (*PurgeTrashResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *PurgeTrashResponse) GetPurged() int32 {
+	if x != nil {
+		return x.Purged
+	}
+	return 0
+}
+
+type RenameNoteRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	From            string                 `protobuf:"bytes,1,opt,name=from,proto3" json:"from,omitempty"` // path or id
+	To              string                 `protobuf:"bytes,2,opt,name=to,proto3" json:"to,omitempty"`     // new vault path (.md added when missing)
+	SkipLinkUpdates bool                   `protobuf:"varint,3,opt,name=skip_link_updates,json=skipLinkUpdates,proto3" json:"skip_link_updates,omitempty"`
+	CommitMessage   string                 `protobuf:"bytes,4,opt,name=commit_message,json=commitMessage,proto3" json:"commit_message,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *RenameNoteRequest) Reset() {
+	*x = RenameNoteRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RenameNoteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RenameNoteRequest) ProtoMessage() {}
+
+func (x *RenameNoteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RenameNoteRequest.ProtoReflect.Descriptor instead.
+func (*RenameNoteRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *RenameNoteRequest) GetFrom() string {
+	if x != nil {
+		return x.From
+	}
+	return ""
+}
+
+func (x *RenameNoteRequest) GetTo() string {
+	if x != nil {
+		return x.To
+	}
+	return ""
+}
+
+func (x *RenameNoteRequest) GetSkipLinkUpdates() bool {
+	if x != nil {
+		return x.SkipLinkUpdates
+	}
+	return false
+}
+
+func (x *RenameNoteRequest) GetCommitMessage() string {
+	if x != nil {
+		return x.CommitMessage
+	}
+	return ""
+}
+
+type RenameNoteResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Note          *Note                  `protobuf:"bytes,1,opt,name=note,proto3" json:"note,omitempty"`
+	UpdatedPaths  []string               `protobuf:"bytes,2,rep,name=updated_paths,json=updatedPaths,proto3" json:"updated_paths,omitempty"` // notes whose links were rewritten
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RenameNoteResponse) Reset() {
+	*x = RenameNoteResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RenameNoteResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RenameNoteResponse) ProtoMessage() {}
+
+func (x *RenameNoteResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RenameNoteResponse.ProtoReflect.Descriptor instead.
+func (*RenameNoteResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *RenameNoteResponse) GetNote() *Note {
+	if x != nil {
+		return x.Note
+	}
+	return nil
+}
+
+func (x *RenameNoteResponse) GetUpdatedPaths() []string {
+	if x != nil {
+		return x.UpdatedPaths
+	}
+	return nil
+}
+
+type MergeNotesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Source        string                 `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"` // path or id; trashed afterwards
+	Target        string                 `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"` // path or id
+	CommitMessage string                 `protobuf:"bytes,3,opt,name=commit_message,json=commitMessage,proto3" json:"commit_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MergeNotesRequest) Reset() {
+	*x = MergeNotesRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MergeNotesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MergeNotesRequest) ProtoMessage() {}
+
+func (x *MergeNotesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MergeNotesRequest.ProtoReflect.Descriptor instead.
+func (*MergeNotesRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *MergeNotesRequest) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *MergeNotesRequest) GetTarget() string {
+	if x != nil {
+		return x.Target
+	}
+	return ""
+}
+
+func (x *MergeNotesRequest) GetCommitMessage() string {
+	if x != nil {
+		return x.CommitMessage
+	}
+	return ""
+}
+
+type MergeNotesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Note          *Note                  `protobuf:"bytes,1,opt,name=note,proto3" json:"note,omitempty"`
+	UpdatedPaths  []string               `protobuf:"bytes,2,rep,name=updated_paths,json=updatedPaths,proto3" json:"updated_paths,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MergeNotesResponse) Reset() {
+	*x = MergeNotesResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MergeNotesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MergeNotesResponse) ProtoMessage() {}
+
+func (x *MergeNotesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MergeNotesResponse.ProtoReflect.Descriptor instead.
+func (*MergeNotesResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *MergeNotesResponse) GetNote() *Note {
+	if x != nil {
+		return x.Note
+	}
+	return nil
+}
+
+func (x *MergeNotesResponse) GetUpdatedPaths() []string {
+	if x != nil {
+		return x.UpdatedPaths
+	}
+	return nil
+}
+
+type SplitNoteRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	HeadingLevel  int32                  `protobuf:"varint,3,opt,name=heading_level,json=headingLevel,proto3" json:"heading_level,omitempty"` // default 2
+	Folder        string                 `protobuf:"bytes,4,opt,name=folder,proto3" json:"folder,omitempty"`                                  // default: the note's folder
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SplitNoteRequest) Reset() {
+	*x = SplitNoteRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SplitNoteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SplitNoteRequest) ProtoMessage() {}
+
+func (x *SplitNoteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SplitNoteRequest.ProtoReflect.Descriptor instead.
+func (*SplitNoteRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *SplitNoteRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *SplitNoteRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *SplitNoteRequest) GetHeadingLevel() int32 {
+	if x != nil {
+		return x.HeadingLevel
+	}
+	return 0
+}
+
+func (x *SplitNoteRequest) GetFolder() string {
+	if x != nil {
+		return x.Folder
+	}
+	return ""
+}
+
+type SplitNoteResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Note          *Note                  `protobuf:"bytes,1,opt,name=note,proto3" json:"note,omitempty"`
+	Created       []*NoteRef             `protobuf:"bytes,2,rep,name=created,proto3" json:"created,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SplitNoteResponse) Reset() {
+	*x = SplitNoteResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SplitNoteResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SplitNoteResponse) ProtoMessage() {}
+
+func (x *SplitNoteResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SplitNoteResponse.ProtoReflect.Descriptor instead.
+func (*SplitNoteResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *SplitNoteResponse) GetNote() *Note {
+	if x != nil {
+		return x.Note
+	}
+	return nil
+}
+
+func (x *SplitNoteResponse) GetCreated() []*NoteRef {
+	if x != nil {
+		return x.Created
+	}
+	return nil
+}
+
+type QueryHit struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Note      *NoteRef               `protobuf:"bytes,1,opt,name=note,proto3" json:"note,omitempty"`
+	Type      string                 `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
+	Tags      []string               `protobuf:"bytes,3,rep,name=tags,proto3" json:"tags,omitempty"`
+	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// snippet has **highlighted** matches when the query has free text.
+	Snippet       string           `protobuf:"bytes,6,opt,name=snippet,proto3" json:"snippet,omitempty"`
+	Score         float32          `protobuf:"fixed32,7,opt,name=score,proto3" json:"score,omitempty"`
+	Frontmatter   *structpb.Struct `protobuf:"bytes,8,opt,name=frontmatter,proto3" json:"frontmatter,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueryHit) Reset() {
+	*x = QueryHit{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryHit) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryHit) ProtoMessage() {}
+
+func (x *QueryHit) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryHit.ProtoReflect.Descriptor instead.
+func (*QueryHit) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *QueryHit) GetNote() *NoteRef {
+	if x != nil {
+		return x.Note
+	}
+	return nil
+}
+
+func (x *QueryHit) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *QueryHit) GetTags() []string {
+	if x != nil {
+		return x.Tags
+	}
+	return nil
+}
+
+func (x *QueryHit) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+func (x *QueryHit) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *QueryHit) GetSnippet() string {
+	if x != nil {
+		return x.Snippet
+	}
+	return ""
+}
+
+func (x *QueryHit) GetScore() float32 {
+	if x != nil {
+		return x.Score
+	}
+	return 0
+}
+
+func (x *QueryHit) GetFrontmatter() *structpb.Struct {
+	if x != nil {
+		return x.Frontmatter
+	}
+	return nil
+}
+
+type QueryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Query         string                 `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
+	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"` // overrides limit: in the query; default 50, max 500
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueryRequest) Reset() {
+	*x = QueryRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryRequest) ProtoMessage() {}
+
+func (x *QueryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryRequest.ProtoReflect.Descriptor instead.
+func (*QueryRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *QueryRequest) GetQuery() string {
+	if x != nil {
+		return x.Query
+	}
+	return ""
+}
+
+func (x *QueryRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type QueryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Hits          []*QueryHit            `protobuf:"bytes,1,rep,name=hits,proto3" json:"hits,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`      // matches before limit
+	Warnings      []string               `protobuf:"bytes,3,rep,name=warnings,proto3" json:"warnings,omitempty"` // unknown operators etc.
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueryResponse) Reset() {
+	*x = QueryResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryResponse) ProtoMessage() {}
+
+func (x *QueryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryResponse.ProtoReflect.Descriptor instead.
+func (*QueryResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *QueryResponse) GetHits() []*QueryHit {
+	if x != nil {
+		return x.Hits
+	}
+	return nil
+}
+
+func (x *QueryResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *QueryResponse) GetWarnings() []string {
+	if x != nil {
+		return x.Warnings
+	}
+	return nil
+}
+
+type RelatedNote struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Note  *NoteRef               `protobuf:"bytes,1,opt,name=note,proto3" json:"note,omitempty"`
+	Score float32                `protobuf:"fixed32,2,opt,name=score,proto3" json:"score,omitempty"`
+	// reasons: "links to", "linked from", "shared links: 3", "similar text".
+	Reasons       []string `protobuf:"bytes,3,rep,name=reasons,proto3" json:"reasons,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RelatedNote) Reset() {
+	*x = RelatedNote{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RelatedNote) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RelatedNote) ProtoMessage() {}
+
+func (x *RelatedNote) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RelatedNote.ProtoReflect.Descriptor instead.
+func (*RelatedNote) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *RelatedNote) GetNote() *NoteRef {
+	if x != nil {
+		return x.Note
+	}
+	return nil
+}
+
+func (x *RelatedNote) GetScore() float32 {
+	if x != nil {
+		return x.Score
+	}
+	return 0
+}
+
+func (x *RelatedNote) GetReasons() []string {
+	if x != nil {
+		return x.Reasons
+	}
+	return nil
+}
+
+type RelatedRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	Limit         int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RelatedRequest) Reset() {
+	*x = RelatedRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RelatedRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RelatedRequest) ProtoMessage() {}
+
+func (x *RelatedRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RelatedRequest.ProtoReflect.Descriptor instead.
+func (*RelatedRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *RelatedRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *RelatedRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *RelatedRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type RelatedResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Notes         []*RelatedNote         `protobuf:"bytes,1,rep,name=notes,proto3" json:"notes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RelatedResponse) Reset() {
+	*x = RelatedResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RelatedResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RelatedResponse) ProtoMessage() {}
+
+func (x *RelatedResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RelatedResponse.ProtoReflect.Descriptor instead.
+func (*RelatedResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *RelatedResponse) GetNotes() []*RelatedNote {
+	if x != nil {
+		return x.Notes
+	}
+	return nil
+}
+
+type Backlink struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Source        *NoteRef               `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`
+	Line          int32                  `protobuf:"varint,2,opt,name=line,proto3" json:"line,omitempty"`      // 1-based, 0 = frontmatter
+	Context       string                 `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"` // the line containing the link or mention
+	Relation      string                 `protobuf:"bytes,4,opt,name=relation,proto3" json:"relation,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Backlink) Reset() {
+	*x = Backlink{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Backlink) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Backlink) ProtoMessage() {}
+
+func (x *Backlink) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Backlink.ProtoReflect.Descriptor instead.
+func (*Backlink) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *Backlink) GetSource() *NoteRef {
+	if x != nil {
+		return x.Source
+	}
+	return nil
+}
+
+func (x *Backlink) GetLine() int32 {
+	if x != nil {
+		return x.Line
+	}
+	return 0
+}
+
+func (x *Backlink) GetContext() string {
+	if x != nil {
+		return x.Context
+	}
+	return ""
+}
+
+func (x *Backlink) GetRelation() string {
+	if x != nil {
+		return x.Relation
+	}
+	return ""
+}
+
+type BacklinksRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Path            string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	IncludeUnlinked bool                   `protobuf:"varint,3,opt,name=include_unlinked,json=includeUnlinked,proto3" json:"include_unlinked,omitempty"` // also return unlinked mentions
+	Limit           int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *BacklinksRequest) Reset() {
+	*x = BacklinksRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BacklinksRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BacklinksRequest) ProtoMessage() {}
+
+func (x *BacklinksRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BacklinksRequest.ProtoReflect.Descriptor instead.
+func (*BacklinksRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *BacklinksRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *BacklinksRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *BacklinksRequest) GetIncludeUnlinked() bool {
+	if x != nil {
+		return x.IncludeUnlinked
+	}
+	return false
+}
+
+func (x *BacklinksRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type BacklinksResponse struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Backlinks        []*Backlink            `protobuf:"bytes,1,rep,name=backlinks,proto3" json:"backlinks,omitempty"`
+	UnlinkedMentions []*Backlink            `protobuf:"bytes,2,rep,name=unlinked_mentions,json=unlinkedMentions,proto3" json:"unlinked_mentions,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *BacklinksResponse) Reset() {
+	*x = BacklinksResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BacklinksResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BacklinksResponse) ProtoMessage() {}
+
+func (x *BacklinksResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BacklinksResponse.ProtoReflect.Descriptor instead.
+func (*BacklinksResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *BacklinksResponse) GetBacklinks() []*Backlink {
+	if x != nil {
+		return x.Backlinks
+	}
+	return nil
+}
+
+func (x *BacklinksResponse) GetUnlinkedMentions() []*Backlink {
+	if x != nil {
+		return x.UnlinkedMentions
+	}
+	return nil
+}
+
+type GraphHub struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Note          *NoteRef               `protobuf:"bytes,1,opt,name=note,proto3" json:"note,omitempty"`
+	InDegree      int32                  `protobuf:"varint,2,opt,name=in_degree,json=inDegree,proto3" json:"in_degree,omitempty"`
+	OutDegree     int32                  `protobuf:"varint,3,opt,name=out_degree,json=outDegree,proto3" json:"out_degree,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GraphHub) Reset() {
+	*x = GraphHub{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GraphHub) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GraphHub) ProtoMessage() {}
+
+func (x *GraphHub) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GraphHub.ProtoReflect.Descriptor instead.
+func (*GraphHub) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *GraphHub) GetNote() *NoteRef {
+	if x != nil {
+		return x.Note
+	}
+	return nil
+}
+
+func (x *GraphHub) GetInDegree() int32 {
+	if x != nil {
+		return x.InDegree
+	}
+	return 0
+}
+
+func (x *GraphHub) GetOutDegree() int32 {
+	if x != nil {
+		return x.OutDegree
+	}
+	return 0
+}
+
+type GraphStatsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Limit         int32                  `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"` // per list, default 20
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GraphStatsRequest) Reset() {
+	*x = GraphStatsRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GraphStatsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GraphStatsRequest) ProtoMessage() {}
+
+func (x *GraphStatsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GraphStatsRequest.ProtoReflect.Descriptor instead.
+func (*GraphStatsRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *GraphStatsRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type GraphStatsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Notes         int32                  `protobuf:"varint,1,opt,name=notes,proto3" json:"notes,omitempty"`
+	Edges         int32                  `protobuf:"varint,2,opt,name=edges,proto3" json:"edges,omitempty"`
+	DanglingLinks int32                  `protobuf:"varint,3,opt,name=dangling_links,json=danglingLinks,proto3" json:"dangling_links,omitempty"`
+	Orphans       []*NoteRef             `protobuf:"bytes,4,rep,name=orphans,proto3" json:"orphans,omitempty"`
+	Hubs          []*GraphHub            `protobuf:"bytes,5,rep,name=hubs,proto3" json:"hubs,omitempty"`
+	TopDangling   []string               `protobuf:"bytes,6,rep,name=top_dangling,json=topDangling,proto3" json:"top_dangling,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GraphStatsResponse) Reset() {
+	*x = GraphStatsResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GraphStatsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GraphStatsResponse) ProtoMessage() {}
+
+func (x *GraphStatsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GraphStatsResponse.ProtoReflect.Descriptor instead.
+func (*GraphStatsResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *GraphStatsResponse) GetNotes() int32 {
+	if x != nil {
+		return x.Notes
+	}
+	return 0
+}
+
+func (x *GraphStatsResponse) GetEdges() int32 {
+	if x != nil {
+		return x.Edges
+	}
+	return 0
+}
+
+func (x *GraphStatsResponse) GetDanglingLinks() int32 {
+	if x != nil {
+		return x.DanglingLinks
+	}
+	return 0
+}
+
+func (x *GraphStatsResponse) GetOrphans() []*NoteRef {
+	if x != nil {
+		return x.Orphans
+	}
+	return nil
+}
+
+func (x *GraphStatsResponse) GetHubs() []*GraphHub {
+	if x != nil {
+		return x.Hubs
+	}
+	return nil
+}
+
+func (x *GraphStatsResponse) GetTopDangling() []string {
+	if x != nil {
+		return x.TopDangling
+	}
+	return nil
+}
+
+// NoteTask is a Markdown checkbox, e.g. `- [ ] Call João 📅 2026-10-20 #work`.
+type NoteTask struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Note          *NoteRef               `protobuf:"bytes,1,opt,name=note,proto3" json:"note,omitempty"`
+	Line          int32                  `protobuf:"varint,2,opt,name=line,proto3" json:"line,omitempty"` // 1-based line in the file
+	Text          string                 `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`  // without checkbox, dates and priority markers
+	Done          bool                   `protobuf:"varint,4,opt,name=done,proto3" json:"done,omitempty"`
+	Status        string                 `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`                     // the checkbox character: " ", "x", "/", "-", ...
+	Due           string                 `protobuf:"bytes,6,opt,name=due,proto3" json:"due,omitempty"`                           // YYYY-MM-DD (📅 or [due:: ])
+	Scheduled     string                 `protobuf:"bytes,7,opt,name=scheduled,proto3" json:"scheduled,omitempty"`               // ⏳
+	Start         string                 `protobuf:"bytes,8,opt,name=start,proto3" json:"start,omitempty"`                       // 🛫
+	DoneDate      string                 `protobuf:"bytes,9,opt,name=done_date,json=doneDate,proto3" json:"done_date,omitempty"` // ✅
+	Priority      string                 `protobuf:"bytes,10,opt,name=priority,proto3" json:"priority,omitempty"`                // highest | high | medium | low | lowest | ""
+	Tags          []string               `protobuf:"bytes,11,rep,name=tags,proto3" json:"tags,omitempty"`
+	Raw           string                 `protobuf:"bytes,12,opt,name=raw,proto3" json:"raw,omitempty"` // the full line
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NoteTask) Reset() {
+	*x = NoteTask{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NoteTask) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NoteTask) ProtoMessage() {}
+
+func (x *NoteTask) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NoteTask.ProtoReflect.Descriptor instead.
+func (*NoteTask) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{54}
+}
+
+func (x *NoteTask) GetNote() *NoteRef {
+	if x != nil {
+		return x.Note
+	}
+	return nil
+}
+
+func (x *NoteTask) GetLine() int32 {
+	if x != nil {
+		return x.Line
+	}
+	return 0
+}
+
+func (x *NoteTask) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *NoteTask) GetDone() bool {
+	if x != nil {
+		return x.Done
+	}
+	return false
+}
+
+func (x *NoteTask) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *NoteTask) GetDue() string {
+	if x != nil {
+		return x.Due
+	}
+	return ""
+}
+
+func (x *NoteTask) GetScheduled() string {
+	if x != nil {
+		return x.Scheduled
+	}
+	return ""
+}
+
+func (x *NoteTask) GetStart() string {
+	if x != nil {
+		return x.Start
+	}
+	return ""
+}
+
+func (x *NoteTask) GetDoneDate() string {
+	if x != nil {
+		return x.DoneDate
+	}
+	return ""
+}
+
+func (x *NoteTask) GetPriority() string {
+	if x != nil {
+		return x.Priority
+	}
+	return ""
+}
+
+func (x *NoteTask) GetTags() []string {
+	if x != nil {
+		return x.Tags
+	}
+	return nil
+}
+
+func (x *NoteTask) GetRaw() string {
+	if x != nil {
+		return x.Raw
+	}
+	return ""
+}
+
+type ListNoteTasksRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Status        string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`                        // open | done | all (default open)
+	DueBefore     string                 `protobuf:"bytes,2,opt,name=due_before,json=dueBefore,proto3" json:"due_before,omitempty"` // YYYY-MM-DD inclusive
+	DueAfter      string                 `protobuf:"bytes,3,opt,name=due_after,json=dueAfter,proto3" json:"due_after,omitempty"`    // YYYY-MM-DD inclusive
+	Tags          []string               `protobuf:"bytes,4,rep,name=tags,proto3" json:"tags,omitempty"`
+	PathPrefix    string                 `protobuf:"bytes,5,opt,name=path_prefix,json=pathPrefix,proto3" json:"path_prefix,omitempty"`
+	NoteId        string                 `protobuf:"bytes,6,opt,name=note_id,json=noteId,proto3" json:"note_id,omitempty"` // id or path of one note
+	Text          string                 `protobuf:"bytes,7,opt,name=text,proto3" json:"text,omitempty"`                   // substring match
+	Limit         int32                  `protobuf:"varint,8,opt,name=limit,proto3" json:"limit,omitempty"`                // default 200
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListNoteTasksRequest) Reset() {
+	*x = ListNoteTasksRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListNoteTasksRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListNoteTasksRequest) ProtoMessage() {}
+
+func (x *ListNoteTasksRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListNoteTasksRequest.ProtoReflect.Descriptor instead.
+func (*ListNoteTasksRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *ListNoteTasksRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *ListNoteTasksRequest) GetDueBefore() string {
+	if x != nil {
+		return x.DueBefore
+	}
+	return ""
+}
+
+func (x *ListNoteTasksRequest) GetDueAfter() string {
+	if x != nil {
+		return x.DueAfter
+	}
+	return ""
+}
+
+func (x *ListNoteTasksRequest) GetTags() []string {
+	if x != nil {
+		return x.Tags
+	}
+	return nil
+}
+
+func (x *ListNoteTasksRequest) GetPathPrefix() string {
+	if x != nil {
+		return x.PathPrefix
+	}
+	return ""
+}
+
+func (x *ListNoteTasksRequest) GetNoteId() string {
+	if x != nil {
+		return x.NoteId
+	}
+	return ""
+}
+
+func (x *ListNoteTasksRequest) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *ListNoteTasksRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type ListNoteTasksResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Tasks         []*NoteTask            `protobuf:"bytes,1,rep,name=tasks,proto3" json:"tasks,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListNoteTasksResponse) Reset() {
+	*x = ListNoteTasksResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[56]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListNoteTasksResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListNoteTasksResponse) ProtoMessage() {}
+
+func (x *ListNoteTasksResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[56]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListNoteTasksResponse.ProtoReflect.Descriptor instead.
+func (*ListNoteTasksResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{56}
+}
+
+func (x *ListNoteTasksResponse) GetTasks() []*NoteTask {
+	if x != nil {
+		return x.Tasks
+	}
+	return nil
+}
+
+type ToggleTaskRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"` // note id or path
+	Path  string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	Line  int32                  `protobuf:"varint,3,opt,name=line,proto3" json:"line,omitempty"`
+	// raw is the line as last read; the toggle fails (ABORTED) when the line
+	// changed since. Empty = no check.
+	Raw string `protobuf:"bytes,4,opt,name=raw,proto3" json:"raw,omitempty"`
+	// done sets the state explicitly; unset = toggle.
+	Done          *bool `protobuf:"varint,5,opt,name=done,proto3,oneof" json:"done,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToggleTaskRequest) Reset() {
+	*x = ToggleTaskRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToggleTaskRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToggleTaskRequest) ProtoMessage() {}
+
+func (x *ToggleTaskRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToggleTaskRequest.ProtoReflect.Descriptor instead.
+func (*ToggleTaskRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{57}
+}
+
+func (x *ToggleTaskRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ToggleTaskRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *ToggleTaskRequest) GetLine() int32 {
+	if x != nil {
+		return x.Line
+	}
+	return 0
+}
+
+func (x *ToggleTaskRequest) GetRaw() string {
+	if x != nil {
+		return x.Raw
+	}
+	return ""
+}
+
+func (x *ToggleTaskRequest) GetDone() bool {
+	if x != nil && x.Done != nil {
+		return *x.Done
+	}
+	return false
+}
+
+type ToggleTaskResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Task          *NoteTask              `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
+	Commit        string                 `protobuf:"bytes,2,opt,name=commit,proto3" json:"commit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToggleTaskResponse) Reset() {
+	*x = ToggleTaskResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToggleTaskResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToggleTaskResponse) ProtoMessage() {}
+
+func (x *ToggleTaskResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToggleTaskResponse.ProtoReflect.Descriptor instead.
+func (*ToggleTaskResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{58}
+}
+
+func (x *ToggleTaskResponse) GetTask() *NoteTask {
+	if x != nil {
+		return x.Task
+	}
+	return nil
+}
+
+func (x *ToggleTaskResponse) GetCommit() string {
+	if x != nil {
+		return x.Commit
+	}
+	return ""
+}
+
+type NoteTemplate struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Path  string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Name  string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// variables used by the template ({{title}}, {{date:YYYY-MM-DD}}, custom).
+	Variables []string `protobuf:"bytes,3,rep,name=variables,proto3" json:"variables,omitempty"`
+	// prompts must be supplied in NewFromTemplateRequest.variables
+	// ({{prompt:Question}} / {{ask:name}}).
+	Prompts       []string `protobuf:"bytes,4,rep,name=prompts,proto3" json:"prompts,omitempty"`
+	Type          string   `protobuf:"bytes,5,opt,name=type,proto3" json:"type,omitempty"` // frontmatter type of the template
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NoteTemplate) Reset() {
+	*x = NoteTemplate{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[59]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NoteTemplate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NoteTemplate) ProtoMessage() {}
+
+func (x *NoteTemplate) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[59]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NoteTemplate.ProtoReflect.Descriptor instead.
+func (*NoteTemplate) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{59}
+}
+
+func (x *NoteTemplate) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *NoteTemplate) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *NoteTemplate) GetVariables() []string {
+	if x != nil {
+		return x.Variables
+	}
+	return nil
+}
+
+func (x *NoteTemplate) GetPrompts() []string {
+	if x != nil {
+		return x.Prompts
+	}
+	return nil
+}
+
+func (x *NoteTemplate) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+type ListTemplatesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListTemplatesRequest) Reset() {
+	*x = ListTemplatesRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListTemplatesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListTemplatesRequest) ProtoMessage() {}
+
+func (x *ListTemplatesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListTemplatesRequest.ProtoReflect.Descriptor instead.
+func (*ListTemplatesRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{60}
+}
+
+type ListTemplatesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Templates     []*NoteTemplate        `protobuf:"bytes,1,rep,name=templates,proto3" json:"templates,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListTemplatesResponse) Reset() {
+	*x = ListTemplatesResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListTemplatesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListTemplatesResponse) ProtoMessage() {}
+
+func (x *ListTemplatesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListTemplatesResponse.ProtoReflect.Descriptor instead.
+func (*ListTemplatesResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{61}
+}
+
+func (x *ListTemplatesResponse) GetTemplates() []*NoteTemplate {
+	if x != nil {
+		return x.Templates
+	}
+	return nil
+}
+
+type NewFromTemplateRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Template      string                 `protobuf:"bytes,1,opt,name=template,proto3" json:"template,omitempty"` // path under templates/ or name
+	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`         // destination; default <folder>/<title>.md
+	Title         string                 `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
+	Variables     map[string]string      `protobuf:"bytes,4,rep,name=variables,proto3" json:"variables,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	CommitMessage string                 `protobuf:"bytes,5,opt,name=commit_message,json=commitMessage,proto3" json:"commit_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NewFromTemplateRequest) Reset() {
+	*x = NewFromTemplateRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[62]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NewFromTemplateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NewFromTemplateRequest) ProtoMessage() {}
+
+func (x *NewFromTemplateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[62]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NewFromTemplateRequest.ProtoReflect.Descriptor instead.
+func (*NewFromTemplateRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{62}
+}
+
+func (x *NewFromTemplateRequest) GetTemplate() string {
+	if x != nil {
+		return x.Template
+	}
+	return ""
+}
+
+func (x *NewFromTemplateRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *NewFromTemplateRequest) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *NewFromTemplateRequest) GetVariables() map[string]string {
+	if x != nil {
+		return x.Variables
+	}
+	return nil
+}
+
+func (x *NewFromTemplateRequest) GetCommitMessage() string {
+	if x != nil {
+		return x.CommitMessage
+	}
+	return ""
+}
+
+type NewFromTemplateResponse struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Note           *Note                  `protobuf:"bytes,1,opt,name=note,proto3" json:"note,omitempty"`
+	MissingPrompts []string               `protobuf:"bytes,2,rep,name=missing_prompts,json=missingPrompts,proto3" json:"missing_prompts,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *NewFromTemplateResponse) Reset() {
+	*x = NewFromTemplateResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[63]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NewFromTemplateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NewFromTemplateResponse) ProtoMessage() {}
+
+func (x *NewFromTemplateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[63]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NewFromTemplateResponse.ProtoReflect.Descriptor instead.
+func (*NewFromTemplateResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{63}
+}
+
+func (x *NewFromTemplateResponse) GetNote() *Note {
+	if x != nil {
+		return x.Note
+	}
+	return nil
+}
+
+func (x *NewFromTemplateResponse) GetMissingPrompts() []string {
+	if x != nil {
+		return x.MissingPrompts
+	}
+	return nil
+}
+
+type PeriodicNoteRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Period        string                 `protobuf:"bytes,1,opt,name=period,proto3" json:"period,omitempty"`  // daily | weekly | monthly | yearly
+	Date          string                 `protobuf:"bytes,2,opt,name=date,proto3" json:"date,omitempty"`      // YYYY-MM-DD; default today
+	Create        bool                   `protobuf:"varint,3,opt,name=create,proto3" json:"create,omitempty"` // create from the configured template when missing
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PeriodicNoteRequest) Reset() {
+	*x = PeriodicNoteRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[64]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PeriodicNoteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PeriodicNoteRequest) ProtoMessage() {}
+
+func (x *PeriodicNoteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[64]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PeriodicNoteRequest.ProtoReflect.Descriptor instead.
+func (*PeriodicNoteRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{64}
+}
+
+func (x *PeriodicNoteRequest) GetPeriod() string {
+	if x != nil {
+		return x.Period
+	}
+	return ""
+}
+
+func (x *PeriodicNoteRequest) GetDate() string {
+	if x != nil {
+		return x.Date
+	}
+	return ""
+}
+
+func (x *PeriodicNoteRequest) GetCreate() bool {
+	if x != nil {
+		return x.Create
+	}
+	return false
+}
+
+type PeriodicNoteResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Note          *Note                  `protobuf:"bytes,1,opt,name=note,proto3" json:"note,omitempty"` // empty when missing and create=false
+	Created       bool                   `protobuf:"varint,2,opt,name=created,proto3" json:"created,omitempty"`
+	Path          string                 `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PeriodicNoteResponse) Reset() {
+	*x = PeriodicNoteResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PeriodicNoteResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PeriodicNoteResponse) ProtoMessage() {}
+
+func (x *PeriodicNoteResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PeriodicNoteResponse.ProtoReflect.Descriptor instead.
+func (*PeriodicNoteResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{65}
+}
+
+func (x *PeriodicNoteResponse) GetNote() *Note {
+	if x != nil {
+		return x.Note
+	}
+	return nil
+}
+
+func (x *PeriodicNoteResponse) GetCreated() bool {
+	if x != nil {
+		return x.Created
+	}
+	return false
+}
+
+func (x *PeriodicNoteResponse) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+type IntegrityIssue struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// kind: index_missing | index_stale | index_orphan | broken_link |
+	// duplicate_id | missing_id | invalid_frontmatter | orphan_attachment |
+	// oversize | temp_file | conflict_copy | pending_journal | unreadable
+	Kind          string   `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
+	Severity      string   `protobuf:"bytes,2,opt,name=severity,proto3" json:"severity,omitempty"` // error | warning | info
+	Path          string   `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
+	Detail        string   `protobuf:"bytes,4,opt,name=detail,proto3" json:"detail,omitempty"`
+	Fixable       bool     `protobuf:"varint,5,opt,name=fixable,proto3" json:"fixable,omitempty"` // Repair can fix it
+	RelatedPaths  []string `protobuf:"bytes,6,rep,name=related_paths,json=relatedPaths,proto3" json:"related_paths,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *IntegrityIssue) Reset() {
+	*x = IntegrityIssue{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IntegrityIssue) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IntegrityIssue) ProtoMessage() {}
+
+func (x *IntegrityIssue) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IntegrityIssue.ProtoReflect.Descriptor instead.
+func (*IntegrityIssue) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{66}
+}
+
+func (x *IntegrityIssue) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *IntegrityIssue) GetSeverity() string {
+	if x != nil {
+		return x.Severity
+	}
+	return ""
+}
+
+func (x *IntegrityIssue) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *IntegrityIssue) GetDetail() string {
+	if x != nil {
+		return x.Detail
+	}
+	return ""
+}
+
+func (x *IntegrityIssue) GetFixable() bool {
+	if x != nil {
+		return x.Fixable
+	}
+	return false
+}
+
+func (x *IntegrityIssue) GetRelatedPaths() []string {
+	if x != nil {
+		return x.RelatedPaths
+	}
+	return nil
+}
+
+type IntegrityReport struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	At            *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=at,proto3" json:"at,omitempty"`
+	Full          bool                   `protobuf:"varint,2,opt,name=full,proto3" json:"full,omitempty"`
+	Notes         int32                  `protobuf:"varint,3,opt,name=notes,proto3" json:"notes,omitempty"`
+	Attachments   int32                  `protobuf:"varint,4,opt,name=attachments,proto3" json:"attachments,omitempty"`
+	Issues        []*IntegrityIssue      `protobuf:"bytes,5,rep,name=issues,proto3" json:"issues,omitempty"`
+	DurationMs    int64                  `protobuf:"varint,6,opt,name=duration_ms,json=durationMs,proto3" json:"duration_ms,omitempty"`
+	Counts        map[string]int32       `protobuf:"bytes,7,rep,name=counts,proto3" json:"counts,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"` // issues by kind
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *IntegrityReport) Reset() {
+	*x = IntegrityReport{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[67]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IntegrityReport) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IntegrityReport) ProtoMessage() {}
+
+func (x *IntegrityReport) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[67]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IntegrityReport.ProtoReflect.Descriptor instead.
+func (*IntegrityReport) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{67}
+}
+
+func (x *IntegrityReport) GetAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.At
+	}
+	return nil
+}
+
+func (x *IntegrityReport) GetFull() bool {
+	if x != nil {
+		return x.Full
+	}
+	return false
+}
+
+func (x *IntegrityReport) GetNotes() int32 {
+	if x != nil {
+		return x.Notes
+	}
+	return 0
+}
+
+func (x *IntegrityReport) GetAttachments() int32 {
+	if x != nil {
+		return x.Attachments
+	}
+	return 0
+}
+
+func (x *IntegrityReport) GetIssues() []*IntegrityIssue {
+	if x != nil {
+		return x.Issues
+	}
+	return nil
+}
+
+func (x *IntegrityReport) GetDurationMs() int64 {
+	if x != nil {
+		return x.DurationMs
+	}
+	return 0
+}
+
+func (x *IntegrityReport) GetCounts() map[string]int32 {
+	if x != nil {
+		return x.Counts
+	}
+	return nil
+}
+
+type CheckRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Full          bool                   `protobuf:"varint,1,opt,name=full,proto3" json:"full,omitempty"` // quick = index consistency + temp files + duplicate ids
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CheckRequest) Reset() {
+	*x = CheckRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[68]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CheckRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CheckRequest) ProtoMessage() {}
+
+func (x *CheckRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[68]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CheckRequest.ProtoReflect.Descriptor instead.
+func (*CheckRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{68}
+}
+
+func (x *CheckRequest) GetFull() bool {
+	if x != nil {
+		return x.Full
+	}
+	return false
+}
+
+type CheckResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Report        *IntegrityReport       `protobuf:"bytes,1,opt,name=report,proto3" json:"report,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CheckResponse) Reset() {
+	*x = CheckResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[69]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CheckResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CheckResponse) ProtoMessage() {}
+
+func (x *CheckResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[69]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CheckResponse.ProtoReflect.Descriptor instead.
+func (*CheckResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{69}
+}
+
+func (x *CheckResponse) GetReport() *IntegrityReport {
+	if x != nil {
+		return x.Report
+	}
+	return nil
+}
+
+type RepairRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DryRun        bool                   `protobuf:"varint,1,opt,name=dry_run,json=dryRun,proto3" json:"dry_run,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RepairRequest) Reset() {
+	*x = RepairRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[70]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RepairRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RepairRequest) ProtoMessage() {}
+
+func (x *RepairRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[70]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RepairRequest.ProtoReflect.Descriptor instead.
+func (*RepairRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{70}
+}
+
+func (x *RepairRequest) GetDryRun() bool {
+	if x != nil {
+		return x.DryRun
+	}
+	return false
+}
+
+type RepairResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Actions       []string               `protobuf:"bytes,1,rep,name=actions,proto3" json:"actions,omitempty"`
+	Report        *IntegrityReport       `protobuf:"bytes,2,opt,name=report,proto3" json:"report,omitempty"` // the check after repairing
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RepairResponse) Reset() {
+	*x = RepairResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[71]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RepairResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RepairResponse) ProtoMessage() {}
+
+func (x *RepairResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[71]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RepairResponse.ProtoReflect.Descriptor instead.
+func (*RepairResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{71}
+}
+
+func (x *RepairResponse) GetActions() []string {
+	if x != nil {
+		return x.Actions
+	}
+	return nil
+}
+
+func (x *RepairResponse) GetReport() *IntegrityReport {
+	if x != nil {
+		return x.Report
+	}
+	return nil
+}
+
+type BackupInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	SizeBytes     int64                  `protobuf:"varint,3,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	Kind          string                 `protobuf:"bytes,4,opt,name=kind,proto3" json:"kind,omitempty"` // tar.gz | bundle
+	Sha256        string                 `protobuf:"bytes,5,opt,name=sha256,proto3" json:"sha256,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BackupInfo) Reset() {
+	*x = BackupInfo{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[72]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BackupInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BackupInfo) ProtoMessage() {}
+
+func (x *BackupInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[72]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BackupInfo.ProtoReflect.Descriptor instead.
+func (*BackupInfo) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{72}
+}
+
+func (x *BackupInfo) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *BackupInfo) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *BackupInfo) GetSizeBytes() int64 {
+	if x != nil {
+		return x.SizeBytes
+	}
+	return 0
+}
+
+func (x *BackupInfo) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *BackupInfo) GetSha256() string {
+	if x != nil {
+		return x.Sha256
+	}
+	return ""
+}
+
+type BackupRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PushRemote    bool                   `protobuf:"varint,1,opt,name=push_remote,json=pushRemote,proto3" json:"push_remote,omitempty"` // also push to vault.backup.remote
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BackupRequest) Reset() {
+	*x = BackupRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[73]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BackupRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BackupRequest) ProtoMessage() {}
+
+func (x *BackupRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[73]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BackupRequest.ProtoReflect.Descriptor instead.
+func (*BackupRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{73}
+}
+
+func (x *BackupRequest) GetPushRemote() bool {
+	if x != nil {
+		return x.PushRemote
+	}
+	return false
+}
+
+type BackupResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Created       []*BackupInfo          `protobuf:"bytes,1,rep,name=created,proto3" json:"created,omitempty"`
+	Pruned        []string               `protobuf:"bytes,2,rep,name=pruned,proto3" json:"pruned,omitempty"`
+	PushResult    string                 `protobuf:"bytes,3,opt,name=push_result,json=pushResult,proto3" json:"push_result,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BackupResponse) Reset() {
+	*x = BackupResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[74]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BackupResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BackupResponse) ProtoMessage() {}
+
+func (x *BackupResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[74]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BackupResponse.ProtoReflect.Descriptor instead.
+func (*BackupResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{74}
+}
+
+func (x *BackupResponse) GetCreated() []*BackupInfo {
+	if x != nil {
+		return x.Created
+	}
+	return nil
+}
+
+func (x *BackupResponse) GetPruned() []string {
+	if x != nil {
+		return x.Pruned
+	}
+	return nil
+}
+
+func (x *BackupResponse) GetPushResult() string {
+	if x != nil {
+		return x.PushResult
+	}
+	return ""
+}
+
+type ListBackupsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBackupsRequest) Reset() {
+	*x = ListBackupsRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[75]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBackupsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBackupsRequest) ProtoMessage() {}
+
+func (x *ListBackupsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[75]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBackupsRequest.ProtoReflect.Descriptor instead.
+func (*ListBackupsRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{75}
+}
+
+type ListBackupsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Dir           string                 `protobuf:"bytes,1,opt,name=dir,proto3" json:"dir,omitempty"`
+	Backups       []*BackupInfo          `protobuf:"bytes,2,rep,name=backups,proto3" json:"backups,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBackupsResponse) Reset() {
+	*x = ListBackupsResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[76]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBackupsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBackupsResponse) ProtoMessage() {}
+
+func (x *ListBackupsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[76]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBackupsResponse.ProtoReflect.Descriptor instead.
+func (*ListBackupsResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{76}
+}
+
+func (x *ListBackupsResponse) GetDir() string {
+	if x != nil {
+		return x.Dir
+	}
+	return ""
+}
+
+func (x *ListBackupsResponse) GetBackups() []*BackupInfo {
+	if x != nil {
+		return x.Backups
+	}
+	return nil
+}
+
+type VerifyBackupRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VerifyBackupRequest) Reset() {
+	*x = VerifyBackupRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[77]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VerifyBackupRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VerifyBackupRequest) ProtoMessage() {}
+
+func (x *VerifyBackupRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[77]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VerifyBackupRequest.ProtoReflect.Descriptor instead.
+func (*VerifyBackupRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{77}
+}
+
+func (x *VerifyBackupRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type VerifyBackupResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	Files         int32                  `protobuf:"varint,2,opt,name=files,proto3" json:"files,omitempty"`
+	Problems      []string               `protobuf:"bytes,3,rep,name=problems,proto3" json:"problems,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VerifyBackupResponse) Reset() {
+	*x = VerifyBackupResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[78]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VerifyBackupResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VerifyBackupResponse) ProtoMessage() {}
+
+func (x *VerifyBackupResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[78]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VerifyBackupResponse.ProtoReflect.Descriptor instead.
+func (*VerifyBackupResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{78}
+}
+
+func (x *VerifyBackupResponse) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *VerifyBackupResponse) GetFiles() int32 {
+	if x != nil {
+		return x.Files
+	}
+	return 0
+}
+
+func (x *VerifyBackupResponse) GetProblems() []string {
+	if x != nil {
+		return x.Problems
+	}
+	return nil
+}
+
+type VaultChange struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Rev           int64                  `protobuf:"varint,1,opt,name=rev,proto3" json:"rev,omitempty"` // increasing; resume with WatchVaultRequest.since_rev
+	Kind          VaultChangeKind        `protobuf:"varint,2,opt,name=kind,proto3,enum=nexus.v1.VaultChangeKind" json:"kind,omitempty"`
+	Path          string                 `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
+	OldPath       string                 `protobuf:"bytes,4,opt,name=old_path,json=oldPath,proto3" json:"old_path,omitempty"` // RENAMED
+	Id            string                 `protobuf:"bytes,5,opt,name=id,proto3" json:"id,omitempty"`
+	At            *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=at,proto3" json:"at,omitempty"`
+	Origin        string                 `protobuf:"bytes,7,opt,name=origin,proto3" json:"origin,omitempty"` // api | agent | external | system
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VaultChange) Reset() {
+	*x = VaultChange{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[79]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VaultChange) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VaultChange) ProtoMessage() {}
+
+func (x *VaultChange) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[79]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VaultChange.ProtoReflect.Descriptor instead.
+func (*VaultChange) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{79}
+}
+
+func (x *VaultChange) GetRev() int64 {
+	if x != nil {
+		return x.Rev
+	}
+	return 0
+}
+
+func (x *VaultChange) GetKind() VaultChangeKind {
+	if x != nil {
+		return x.Kind
+	}
+	return VaultChangeKind_VAULT_CHANGE_KIND_UNSPECIFIED
+}
+
+func (x *VaultChange) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *VaultChange) GetOldPath() string {
+	if x != nil {
+		return x.OldPath
+	}
+	return ""
+}
+
+func (x *VaultChange) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *VaultChange) GetAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.At
+	}
+	return nil
+}
+
+func (x *VaultChange) GetOrigin() string {
+	if x != nil {
+		return x.Origin
+	}
+	return ""
+}
+
+type WatchVaultRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SinceRev      int64                  `protobuf:"varint,1,opt,name=since_rev,json=sinceRev,proto3" json:"since_rev,omitempty"` // 0 = live only
+	PathPrefix    string                 `protobuf:"bytes,2,opt,name=path_prefix,json=pathPrefix,proto3" json:"path_prefix,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WatchVaultRequest) Reset() {
+	*x = WatchVaultRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[80]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WatchVaultRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WatchVaultRequest) ProtoMessage() {}
+
+func (x *WatchVaultRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[80]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WatchVaultRequest.ProtoReflect.Descriptor instead.
+func (*WatchVaultRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{80}
+}
+
+func (x *WatchVaultRequest) GetSinceRev() int64 {
+	if x != nil {
+		return x.SinceRev
+	}
+	return 0
+}
+
+func (x *WatchVaultRequest) GetPathPrefix() string {
+	if x != nil {
+		return x.PathPrefix
+	}
+	return ""
+}
+
+type WatchVaultResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Change        *VaultChange           `protobuf:"bytes,1,opt,name=change,proto3" json:"change,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WatchVaultResponse) Reset() {
+	*x = WatchVaultResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[81]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WatchVaultResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WatchVaultResponse) ProtoMessage() {}
+
+func (x *WatchVaultResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[81]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WatchVaultResponse.ProtoReflect.Descriptor instead.
+func (*WatchVaultResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{81}
+}
+
+func (x *WatchVaultResponse) GetChange() *VaultChange {
+	if x != nil {
+		return x.Change
+	}
+	return nil
+}
+
+type AttachmentInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	MimeType      string                 `protobuf:"bytes,2,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
+	SizeBytes     int64                  `protobuf:"varint,3,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	Sha256        string                 `protobuf:"bytes,4,opt,name=sha256,proto3" json:"sha256,omitempty"`
+	ModifiedAt    *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=modified_at,json=modifiedAt,proto3" json:"modified_at,omitempty"`
+	TakenAt       *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=taken_at,json=takenAt,proto3" json:"taken_at,omitempty"`  // EXIF DateTimeOriginal
+	HasText       bool                   `protobuf:"varint,7,opt,name=has_text,json=hasText,proto3" json:"has_text,omitempty"` // text extracted (PDF, txt) and searchable
+	ReferencedBy  []*NoteRef             `protobuf:"bytes,8,rep,name=referenced_by,json=referencedBy,proto3" json:"referenced_by,omitempty"`
+	TextExcerpt   string                 `protobuf:"bytes,9,opt,name=text_excerpt,json=textExcerpt,proto3" json:"text_excerpt,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AttachmentInfo) Reset() {
+	*x = AttachmentInfo{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[82]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AttachmentInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AttachmentInfo) ProtoMessage() {}
+
+func (x *AttachmentInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[82]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AttachmentInfo.ProtoReflect.Descriptor instead.
+func (*AttachmentInfo) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{82}
+}
+
+func (x *AttachmentInfo) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *AttachmentInfo) GetMimeType() string {
+	if x != nil {
+		return x.MimeType
+	}
+	return ""
+}
+
+func (x *AttachmentInfo) GetSizeBytes() int64 {
+	if x != nil {
+		return x.SizeBytes
+	}
+	return 0
+}
+
+func (x *AttachmentInfo) GetSha256() string {
+	if x != nil {
+		return x.Sha256
+	}
+	return ""
+}
+
+func (x *AttachmentInfo) GetModifiedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ModifiedAt
+	}
+	return nil
+}
+
+func (x *AttachmentInfo) GetTakenAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.TakenAt
+	}
+	return nil
+}
+
+func (x *AttachmentInfo) GetHasText() bool {
+	if x != nil {
+		return x.HasText
+	}
+	return false
+}
+
+func (x *AttachmentInfo) GetReferencedBy() []*NoteRef {
+	if x != nil {
+		return x.ReferencedBy
+	}
+	return nil
+}
+
+func (x *AttachmentInfo) GetTextExcerpt() string {
+	if x != nil {
+		return x.TextExcerpt
+	}
+	return ""
+}
+
+type ListAttachmentsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PathPrefix    string                 `protobuf:"bytes,1,opt,name=path_prefix,json=pathPrefix,proto3" json:"path_prefix,omitempty"`
+	OrphanedOnly  bool                   `protobuf:"varint,2,opt,name=orphaned_only,json=orphanedOnly,proto3" json:"orphaned_only,omitempty"`
+	Query         string                 `protobuf:"bytes,3,opt,name=query,proto3" json:"query,omitempty"`  // matches name and extracted text
+	Limit         int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"` // default 200
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListAttachmentsRequest) Reset() {
+	*x = ListAttachmentsRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[83]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListAttachmentsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListAttachmentsRequest) ProtoMessage() {}
+
+func (x *ListAttachmentsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[83]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListAttachmentsRequest.ProtoReflect.Descriptor instead.
+func (*ListAttachmentsRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{83}
+}
+
+func (x *ListAttachmentsRequest) GetPathPrefix() string {
+	if x != nil {
+		return x.PathPrefix
+	}
+	return ""
+}
+
+func (x *ListAttachmentsRequest) GetOrphanedOnly() bool {
+	if x != nil {
+		return x.OrphanedOnly
+	}
+	return false
+}
+
+func (x *ListAttachmentsRequest) GetQuery() string {
+	if x != nil {
+		return x.Query
+	}
+	return ""
+}
+
+func (x *ListAttachmentsRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type ListAttachmentsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Attachments   []*AttachmentInfo      `protobuf:"bytes,1,rep,name=attachments,proto3" json:"attachments,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListAttachmentsResponse) Reset() {
+	*x = ListAttachmentsResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[84]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListAttachmentsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListAttachmentsResponse) ProtoMessage() {}
+
+func (x *ListAttachmentsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[84]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListAttachmentsResponse.ProtoReflect.Descriptor instead.
+func (*ListAttachmentsResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{84}
+}
+
+func (x *ListAttachmentsResponse) GetAttachments() []*AttachmentInfo {
+	if x != nil {
+		return x.Attachments
+	}
+	return nil
+}
+
+type ImportNotesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SourceDir     string                 `protobuf:"bytes,1,opt,name=source_dir,json=sourceDir,proto3" json:"source_dir,omitempty"`    // absolute path on the hub
+	DestFolder    string                 `protobuf:"bytes,2,opt,name=dest_folder,json=destFolder,proto3" json:"dest_folder,omitempty"` // vault folder, default "imported/<dir name>"
+	Kind          string                 `protobuf:"bytes,3,opt,name=kind,proto3" json:"kind,omitempty"`                               // obsidian | markdown (default: detect .obsidian/)
+	DryRun        bool                   `protobuf:"varint,4,opt,name=dry_run,json=dryRun,proto3" json:"dry_run,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ImportNotesRequest) Reset() {
+	*x = ImportNotesRequest{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[85]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ImportNotesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ImportNotesRequest) ProtoMessage() {}
+
+func (x *ImportNotesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[85]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ImportNotesRequest.ProtoReflect.Descriptor instead.
+func (*ImportNotesRequest) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{85}
+}
+
+func (x *ImportNotesRequest) GetSourceDir() string {
+	if x != nil {
+		return x.SourceDir
+	}
+	return ""
+}
+
+func (x *ImportNotesRequest) GetDestFolder() string {
+	if x != nil {
+		return x.DestFolder
+	}
+	return ""
+}
+
+func (x *ImportNotesRequest) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *ImportNotesRequest) GetDryRun() bool {
+	if x != nil {
+		return x.DryRun
+	}
+	return false
+}
+
+type ImportNotesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Notes         int32                  `protobuf:"varint,1,opt,name=notes,proto3" json:"notes,omitempty"`
+	Attachments   int32                  `protobuf:"varint,2,opt,name=attachments,proto3" json:"attachments,omitempty"`
+	IdsAssigned   int32                  `protobuf:"varint,3,opt,name=ids_assigned,json=idsAssigned,proto3" json:"ids_assigned,omitempty"`
+	IdsReplaced   int32                  `protobuf:"varint,4,opt,name=ids_replaced,json=idsReplaced,proto3" json:"ids_replaced,omitempty"` // duplicate ids given fresh ones
+	Skipped       []string               `protobuf:"bytes,5,rep,name=skipped,proto3" json:"skipped,omitempty"`
+	Warnings      []string               `protobuf:"bytes,6,rep,name=warnings,proto3" json:"warnings,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ImportNotesResponse) Reset() {
+	*x = ImportNotesResponse{}
+	mi := &file_nexus_v1_vault_proto_msgTypes[86]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ImportNotesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ImportNotesResponse) ProtoMessage() {}
+
+func (x *ImportNotesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_nexus_v1_vault_proto_msgTypes[86]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ImportNotesResponse.ProtoReflect.Descriptor instead.
+func (*ImportNotesResponse) Descriptor() ([]byte, []int) {
+	return file_nexus_v1_vault_proto_rawDescGZIP(), []int{86}
+}
+
+func (x *ImportNotesResponse) GetNotes() int32 {
+	if x != nil {
+		return x.Notes
+	}
+	return 0
+}
+
+func (x *ImportNotesResponse) GetAttachments() int32 {
+	if x != nil {
+		return x.Attachments
+	}
+	return 0
+}
+
+func (x *ImportNotesResponse) GetIdsAssigned() int32 {
+	if x != nil {
+		return x.IdsAssigned
+	}
+	return 0
+}
+
+func (x *ImportNotesResponse) GetIdsReplaced() int32 {
+	if x != nil {
+		return x.IdsReplaced
+	}
+	return 0
+}
+
+func (x *ImportNotesResponse) GetSkipped() []string {
+	if x != nil {
+		return x.Skipped
+	}
+	return nil
+}
+
+func (x *ImportNotesResponse) GetWarnings() []string {
+	if x != nil {
+		return x.Warnings
+	}
+	return nil
+}
+
 var File_nexus_v1_vault_proto protoreflect.FileDescriptor
 
 const file_nexus_v1_vault_proto_rawDesc = "" +
 	"\n" +
-	"\x14nexus/v1/vault.proto\x12\bnexus.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x15nexus/v1/common.proto\"\xcf\x02\n" +
+	"\x14nexus/v1/vault.proto\x12\bnexus.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x15nexus/v1/common.proto\"\xed\x02\n" +
 	"\x04Note\x12#\n" +
 	"\x03ref\x18\x01 \x01(\v2\x11.nexus.v1.NoteRefR\x03ref\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x12\n" +
@@ -1283,7 +5545,9 @@ const file_nexus_v1_vault_proto_rawDesc = "" +
 	"\tbacklinks\x18\a \x03(\v2\x11.nexus.v1.NoteRefR\tbacklinks\x129\n" +
 	"\n" +
 	"updated_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x16\n" +
-	"\x06commit\x18\t \x01(\tR\x06commit\"b\n" +
+	"\x06commit\x18\t \x01(\tR\x06commit\x12\x1c\n" +
+	"\tencrypted\x18\n" +
+	" \x01(\bR\tencrypted\"b\n" +
 	"\tSearchHit\x12%\n" +
 	"\x04note\x18\x01 \x01(\v2\x11.nexus.v1.NoteRefR\x04note\x12\x18\n" +
 	"\asnippet\x18\x02 \x01(\tR\asnippet\x12\x14\n" +
@@ -1314,22 +5578,30 @@ const file_nexus_v1_vault_proto_rawDesc = "" +
 	"\bmarkdown\x18\x02 \x01(\tR\bmarkdown\x12\x1f\n" +
 	"\vbase_commit\x18\x03 \x01(\tR\n" +
 	"baseCommit\x12%\n" +
-	"\x0ecommit_message\x18\x04 \x01(\tR\rcommitMessage\"7\n" +
+	"\x0ecommit_message\x18\x04 \x01(\tR\rcommitMessage\"O\n" +
 	"\x11WriteNoteResponse\x12\"\n" +
-	"\x04note\x18\x01 \x01(\v2\x0e.nexus.v1.NoteR\x04note\"\xaf\x01\n" +
+	"\x04note\x18\x01 \x01(\v2\x0e.nexus.v1.NoteR\x04note\x12\x16\n" +
+	"\x06merged\x18\x02 \x01(\bR\x06merged\"\xc3\x01\n" +
 	"\x0eCaptureRequest\x12\x12\n" +
 	"\x04text\x18\x01 \x01(\tR\x04text\x12\x10\n" +
 	"\x03url\x18\x02 \x01(\tR\x03url\x126\n" +
 	"\vattachments\x18\x03 \x03(\v2\x14.nexus.v1.AttachmentR\vattachments\x12\x16\n" +
 	"\x06source\x18\x04 \x01(\tR\x06source\x12'\n" +
-	"\x0fidempotency_key\x18\x05 \x01(\tR\x0eidempotencyKey\"8\n" +
+	"\x0fidempotency_key\x18\x05 \x01(\tR\x0eidempotencyKey\x12\x12\n" +
+	"\x04clip\x18\x06 \x01(\bR\x04clip\"8\n" +
 	"\x0fCaptureResponse\x12%\n" +
-	"\x04note\x18\x01 \x01(\v2\x11.nexus.v1.NoteRefR\x04note\"m\n" +
+	"\x04note\x18\x01 \x01(\v2\x11.nexus.v1.NoteRefR\x04note\"\x88\x02\n" +
 	"\fGraphRequest\x12\x1b\n" +
 	"\tcenter_id\x18\x01 \x01(\tR\bcenterId\x12\x14\n" +
 	"\x05depth\x18\x02 \x01(\x05R\x05depth\x12\x14\n" +
 	"\x05types\x18\x03 \x03(\tR\x05types\x12\x14\n" +
-	"\x05limit\x18\x04 \x01(\x05R\x05limit\"c\n" +
+	"\x05limit\x18\x04 \x01(\x05R\x05limit\x12\x1c\n" +
+	"\trelations\x18\x05 \x03(\tR\trelations\x12\x12\n" +
+	"\x04tags\x18\x06 \x03(\tR\x04tags\x12\x1f\n" +
+	"\vpath_prefix\x18\a \x01(\tR\n" +
+	"pathPrefix\x12#\n" +
+	"\rhide_dangling\x18\b \x01(\bR\fhideDangling\x12!\n" +
+	"\fhide_orphans\x18\t \x01(\bR\vhideOrphans\"c\n" +
 	"\rGraphResponse\x12'\n" +
 	"\x05nodes\x18\x01 \x03(\v2\x11.nexus.v1.NoteRefR\x05nodes\x12)\n" +
 	"\x05edges\x18\x02 \x03(\v2\x13.nexus.v1.GraphEdgeR\x05edges\"\xe4\x02\n" +
@@ -1357,13 +5629,327 @@ const file_nexus_v1_vault_proto_rawDesc = "" +
 	"\x06status\x18\x02 \x01(\x0e2\x14.nexus.v1.FactStatusR\x06status\x12)\n" +
 	"\x10corrected_object\x18\x03 \x01(\tR\x0fcorrectedObject\"8\n" +
 	"\x12ReviewFactResponse\x12\"\n" +
-	"\x04fact\x18\x01 \x01(\v2\x0e.nexus.v1.FactR\x04fact*x\n" +
+	"\x04fact\x18\x01 \x01(\v2\x0e.nexus.v1.FactR\x04fact\"\xdc\x01\n" +
+	"\vNoteVersion\x12\x16\n" +
+	"\x06commit\x18\x01 \x01(\tR\x06commit\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\x12*\n" +
+	"\x02at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x02at\x12\x18\n" +
+	"\amessage\x18\x04 \x01(\tR\amessage\x12\x16\n" +
+	"\x06author\x18\x05 \x01(\tR\x06author\x12\x12\n" +
+	"\x04diff\x18\x06 \x01(\tR\x04diff\x12\x15\n" +
+	"\x06run_id\x18\a \x01(\tR\x05runId\x12\x18\n" +
+	"\adeleted\x18\b \x01(\bR\adeleted\"m\n" +
+	"\x0eHistoryRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\x12\x14\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12!\n" +
+	"\finclude_diff\x18\x04 \x01(\bR\vincludeDiff\"D\n" +
+	"\x0fHistoryResponse\x121\n" +
+	"\bversions\x18\x01 \x03(\v2\x15.nexus.v1.NoteVersionR\bversions\"O\n" +
+	"\x11GetVersionRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\x12\x16\n" +
+	"\x06commit\x18\x03 \x01(\tR\x06commit\"a\n" +
+	"\x12GetVersionResponse\x12\x1a\n" +
+	"\bmarkdown\x18\x01 \x01(\tR\bmarkdown\x12/\n" +
+	"\aversion\x18\x02 \x01(\v2\x15.nexus.v1.NoteVersionR\aversion\"z\n" +
+	"\x15RestoreVersionRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\x12\x16\n" +
+	"\x06commit\x18\x03 \x01(\tR\x06commit\x12%\n" +
+	"\x0ecommit_message\x18\x04 \x01(\tR\rcommitMessage\"<\n" +
+	"\x16RestoreVersionResponse\x12\"\n" +
+	"\x04note\x18\x01 \x01(\v2\x0e.nexus.v1.NoteR\x04note\"\x9f\x01\n" +
+	"\tTrashItem\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\x12\x14\n" +
+	"\x05title\x18\x03 \x01(\tR\x05title\x129\n" +
+	"\n" +
+	"deleted_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tdeletedAt\x12\x1d\n" +
+	"\n" +
+	"size_bytes\x18\x05 \x01(\x03R\tsizeBytes\"\x7f\n" +
+	"\x11DeleteNoteRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\x12\x1f\n" +
+	"\vbase_commit\x18\x03 \x01(\tR\n" +
+	"baseCommit\x12%\n" +
+	"\x0ecommit_message\x18\x04 \x01(\tR\rcommitMessage\"=\n" +
+	"\x12DeleteNoteResponse\x12'\n" +
+	"\x04item\x18\x01 \x01(\v2\x13.nexus.v1.TrashItemR\x04item\"\x12\n" +
+	"\x10ListTrashRequest\">\n" +
+	"\x11ListTrashResponse\x12)\n" +
+	"\x05items\x18\x01 \x03(\v2\x13.nexus.v1.TrashItemR\x05items\"=\n" +
+	"\x17RestoreFromTrashRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\"U\n" +
+	"\x18RestoreFromTrashResponse\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x12%\n" +
+	"\x04note\x18\x02 \x01(\v2\x11.nexus.v1.NoteRefR\x04note\"K\n" +
+	"\x11PurgeTrashRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12&\n" +
+	"\x0folder_than_days\x18\x02 \x01(\x05R\rolderThanDays\",\n" +
+	"\x12PurgeTrashResponse\x12\x16\n" +
+	"\x06purged\x18\x01 \x01(\x05R\x06purged\"\x8a\x01\n" +
+	"\x11RenameNoteRequest\x12\x12\n" +
+	"\x04from\x18\x01 \x01(\tR\x04from\x12\x0e\n" +
+	"\x02to\x18\x02 \x01(\tR\x02to\x12*\n" +
+	"\x11skip_link_updates\x18\x03 \x01(\bR\x0fskipLinkUpdates\x12%\n" +
+	"\x0ecommit_message\x18\x04 \x01(\tR\rcommitMessage\"]\n" +
+	"\x12RenameNoteResponse\x12\"\n" +
+	"\x04note\x18\x01 \x01(\v2\x0e.nexus.v1.NoteR\x04note\x12#\n" +
+	"\rupdated_paths\x18\x02 \x03(\tR\fupdatedPaths\"j\n" +
+	"\x11MergeNotesRequest\x12\x16\n" +
+	"\x06source\x18\x01 \x01(\tR\x06source\x12\x16\n" +
+	"\x06target\x18\x02 \x01(\tR\x06target\x12%\n" +
+	"\x0ecommit_message\x18\x03 \x01(\tR\rcommitMessage\"]\n" +
+	"\x12MergeNotesResponse\x12\"\n" +
+	"\x04note\x18\x01 \x01(\v2\x0e.nexus.v1.NoteR\x04note\x12#\n" +
+	"\rupdated_paths\x18\x02 \x03(\tR\fupdatedPaths\"s\n" +
+	"\x10SplitNoteRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\x12#\n" +
+	"\rheading_level\x18\x03 \x01(\x05R\fheadingLevel\x12\x16\n" +
+	"\x06folder\x18\x04 \x01(\tR\x06folder\"d\n" +
+	"\x11SplitNoteResponse\x12\"\n" +
+	"\x04note\x18\x01 \x01(\v2\x0e.nexus.v1.NoteR\x04note\x12+\n" +
+	"\acreated\x18\x02 \x03(\v2\x11.nexus.v1.NoteRefR\acreated\"\xba\x02\n" +
+	"\bQueryHit\x12%\n" +
+	"\x04note\x18\x01 \x01(\v2\x11.nexus.v1.NoteRefR\x04note\x12\x12\n" +
+	"\x04type\x18\x02 \x01(\tR\x04type\x12\x12\n" +
+	"\x04tags\x18\x03 \x03(\tR\x04tags\x129\n" +
+	"\n" +
+	"updated_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x129\n" +
+	"\n" +
+	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x18\n" +
+	"\asnippet\x18\x06 \x01(\tR\asnippet\x12\x14\n" +
+	"\x05score\x18\a \x01(\x02R\x05score\x129\n" +
+	"\vfrontmatter\x18\b \x01(\v2\x17.google.protobuf.StructR\vfrontmatter\":\n" +
+	"\fQueryRequest\x12\x14\n" +
+	"\x05query\x18\x01 \x01(\tR\x05query\x12\x14\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\"i\n" +
+	"\rQueryResponse\x12&\n" +
+	"\x04hits\x18\x01 \x03(\v2\x12.nexus.v1.QueryHitR\x04hits\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\x12\x1a\n" +
+	"\bwarnings\x18\x03 \x03(\tR\bwarnings\"d\n" +
+	"\vRelatedNote\x12%\n" +
+	"\x04note\x18\x01 \x01(\v2\x11.nexus.v1.NoteRefR\x04note\x12\x14\n" +
+	"\x05score\x18\x02 \x01(\x02R\x05score\x12\x18\n" +
+	"\areasons\x18\x03 \x03(\tR\areasons\"J\n" +
+	"\x0eRelatedRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\x12\x14\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\">\n" +
+	"\x0fRelatedResponse\x12+\n" +
+	"\x05notes\x18\x01 \x03(\v2\x15.nexus.v1.RelatedNoteR\x05notes\"\x7f\n" +
+	"\bBacklink\x12)\n" +
+	"\x06source\x18\x01 \x01(\v2\x11.nexus.v1.NoteRefR\x06source\x12\x12\n" +
+	"\x04line\x18\x02 \x01(\x05R\x04line\x12\x18\n" +
+	"\acontext\x18\x03 \x01(\tR\acontext\x12\x1a\n" +
+	"\brelation\x18\x04 \x01(\tR\brelation\"w\n" +
+	"\x10BacklinksRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\x12)\n" +
+	"\x10include_unlinked\x18\x03 \x01(\bR\x0fincludeUnlinked\x12\x14\n" +
+	"\x05limit\x18\x04 \x01(\x05R\x05limit\"\x86\x01\n" +
+	"\x11BacklinksResponse\x120\n" +
+	"\tbacklinks\x18\x01 \x03(\v2\x12.nexus.v1.BacklinkR\tbacklinks\x12?\n" +
+	"\x11unlinked_mentions\x18\x02 \x03(\v2\x12.nexus.v1.BacklinkR\x10unlinkedMentions\"m\n" +
+	"\bGraphHub\x12%\n" +
+	"\x04note\x18\x01 \x01(\v2\x11.nexus.v1.NoteRefR\x04note\x12\x1b\n" +
+	"\tin_degree\x18\x02 \x01(\x05R\binDegree\x12\x1d\n" +
+	"\n" +
+	"out_degree\x18\x03 \x01(\x05R\toutDegree\")\n" +
+	"\x11GraphStatsRequest\x12\x14\n" +
+	"\x05limit\x18\x01 \x01(\x05R\x05limit\"\xdf\x01\n" +
+	"\x12GraphStatsResponse\x12\x14\n" +
+	"\x05notes\x18\x01 \x01(\x05R\x05notes\x12\x14\n" +
+	"\x05edges\x18\x02 \x01(\x05R\x05edges\x12%\n" +
+	"\x0edangling_links\x18\x03 \x01(\x05R\rdanglingLinks\x12+\n" +
+	"\aorphans\x18\x04 \x03(\v2\x11.nexus.v1.NoteRefR\aorphans\x12&\n" +
+	"\x04hubs\x18\x05 \x03(\v2\x12.nexus.v1.GraphHubR\x04hubs\x12!\n" +
+	"\ftop_dangling\x18\x06 \x03(\tR\vtopDangling\"\xaa\x02\n" +
+	"\bNoteTask\x12%\n" +
+	"\x04note\x18\x01 \x01(\v2\x11.nexus.v1.NoteRefR\x04note\x12\x12\n" +
+	"\x04line\x18\x02 \x01(\x05R\x04line\x12\x12\n" +
+	"\x04text\x18\x03 \x01(\tR\x04text\x12\x12\n" +
+	"\x04done\x18\x04 \x01(\bR\x04done\x12\x16\n" +
+	"\x06status\x18\x05 \x01(\tR\x06status\x12\x10\n" +
+	"\x03due\x18\x06 \x01(\tR\x03due\x12\x1c\n" +
+	"\tscheduled\x18\a \x01(\tR\tscheduled\x12\x14\n" +
+	"\x05start\x18\b \x01(\tR\x05start\x12\x1b\n" +
+	"\tdone_date\x18\t \x01(\tR\bdoneDate\x12\x1a\n" +
+	"\bpriority\x18\n" +
+	" \x01(\tR\bpriority\x12\x12\n" +
+	"\x04tags\x18\v \x03(\tR\x04tags\x12\x10\n" +
+	"\x03raw\x18\f \x01(\tR\x03raw\"\xe2\x01\n" +
+	"\x14ListNoteTasksRequest\x12\x16\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\x12\x1d\n" +
+	"\n" +
+	"due_before\x18\x02 \x01(\tR\tdueBefore\x12\x1b\n" +
+	"\tdue_after\x18\x03 \x01(\tR\bdueAfter\x12\x12\n" +
+	"\x04tags\x18\x04 \x03(\tR\x04tags\x12\x1f\n" +
+	"\vpath_prefix\x18\x05 \x01(\tR\n" +
+	"pathPrefix\x12\x17\n" +
+	"\anote_id\x18\x06 \x01(\tR\x06noteId\x12\x12\n" +
+	"\x04text\x18\a \x01(\tR\x04text\x12\x14\n" +
+	"\x05limit\x18\b \x01(\x05R\x05limit\"A\n" +
+	"\x15ListNoteTasksResponse\x12(\n" +
+	"\x05tasks\x18\x01 \x03(\v2\x12.nexus.v1.NoteTaskR\x05tasks\"\x7f\n" +
+	"\x11ToggleTaskRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\x12\x12\n" +
+	"\x04line\x18\x03 \x01(\x05R\x04line\x12\x10\n" +
+	"\x03raw\x18\x04 \x01(\tR\x03raw\x12\x17\n" +
+	"\x04done\x18\x05 \x01(\bH\x00R\x04done\x88\x01\x01B\a\n" +
+	"\x05_done\"T\n" +
+	"\x12ToggleTaskResponse\x12&\n" +
+	"\x04task\x18\x01 \x01(\v2\x12.nexus.v1.NoteTaskR\x04task\x12\x16\n" +
+	"\x06commit\x18\x02 \x01(\tR\x06commit\"\x82\x01\n" +
+	"\fNoteTemplate\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1c\n" +
+	"\tvariables\x18\x03 \x03(\tR\tvariables\x12\x18\n" +
+	"\aprompts\x18\x04 \x03(\tR\aprompts\x12\x12\n" +
+	"\x04type\x18\x05 \x01(\tR\x04type\"\x16\n" +
+	"\x14ListTemplatesRequest\"M\n" +
+	"\x15ListTemplatesResponse\x124\n" +
+	"\ttemplates\x18\x01 \x03(\v2\x16.nexus.v1.NoteTemplateR\ttemplates\"\x92\x02\n" +
+	"\x16NewFromTemplateRequest\x12\x1a\n" +
+	"\btemplate\x18\x01 \x01(\tR\btemplate\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\x12\x14\n" +
+	"\x05title\x18\x03 \x01(\tR\x05title\x12M\n" +
+	"\tvariables\x18\x04 \x03(\v2/.nexus.v1.NewFromTemplateRequest.VariablesEntryR\tvariables\x12%\n" +
+	"\x0ecommit_message\x18\x05 \x01(\tR\rcommitMessage\x1a<\n" +
+	"\x0eVariablesEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"f\n" +
+	"\x17NewFromTemplateResponse\x12\"\n" +
+	"\x04note\x18\x01 \x01(\v2\x0e.nexus.v1.NoteR\x04note\x12'\n" +
+	"\x0fmissing_prompts\x18\x02 \x03(\tR\x0emissingPrompts\"Y\n" +
+	"\x13PeriodicNoteRequest\x12\x16\n" +
+	"\x06period\x18\x01 \x01(\tR\x06period\x12\x12\n" +
+	"\x04date\x18\x02 \x01(\tR\x04date\x12\x16\n" +
+	"\x06create\x18\x03 \x01(\bR\x06create\"h\n" +
+	"\x14PeriodicNoteResponse\x12\"\n" +
+	"\x04note\x18\x01 \x01(\v2\x0e.nexus.v1.NoteR\x04note\x12\x18\n" +
+	"\acreated\x18\x02 \x01(\bR\acreated\x12\x12\n" +
+	"\x04path\x18\x03 \x01(\tR\x04path\"\xab\x01\n" +
+	"\x0eIntegrityIssue\x12\x12\n" +
+	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x1a\n" +
+	"\bseverity\x18\x02 \x01(\tR\bseverity\x12\x12\n" +
+	"\x04path\x18\x03 \x01(\tR\x04path\x12\x16\n" +
+	"\x06detail\x18\x04 \x01(\tR\x06detail\x12\x18\n" +
+	"\afixable\x18\x05 \x01(\bR\afixable\x12#\n" +
+	"\rrelated_paths\x18\x06 \x03(\tR\frelatedPaths\"\xd6\x02\n" +
+	"\x0fIntegrityReport\x12*\n" +
+	"\x02at\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x02at\x12\x12\n" +
+	"\x04full\x18\x02 \x01(\bR\x04full\x12\x14\n" +
+	"\x05notes\x18\x03 \x01(\x05R\x05notes\x12 \n" +
+	"\vattachments\x18\x04 \x01(\x05R\vattachments\x120\n" +
+	"\x06issues\x18\x05 \x03(\v2\x18.nexus.v1.IntegrityIssueR\x06issues\x12\x1f\n" +
+	"\vduration_ms\x18\x06 \x01(\x03R\n" +
+	"durationMs\x12=\n" +
+	"\x06counts\x18\a \x03(\v2%.nexus.v1.IntegrityReport.CountsEntryR\x06counts\x1a9\n" +
+	"\vCountsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01\"\"\n" +
+	"\fCheckRequest\x12\x12\n" +
+	"\x04full\x18\x01 \x01(\bR\x04full\"B\n" +
+	"\rCheckResponse\x121\n" +
+	"\x06report\x18\x01 \x01(\v2\x19.nexus.v1.IntegrityReportR\x06report\"(\n" +
+	"\rRepairRequest\x12\x17\n" +
+	"\adry_run\x18\x01 \x01(\bR\x06dryRun\"]\n" +
+	"\x0eRepairResponse\x12\x18\n" +
+	"\aactions\x18\x01 \x03(\tR\aactions\x121\n" +
+	"\x06report\x18\x02 \x01(\v2\x19.nexus.v1.IntegrityReportR\x06report\"\xa6\x01\n" +
+	"\n" +
+	"BackupInfo\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x129\n" +
+	"\n" +
+	"created_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"size_bytes\x18\x03 \x01(\x03R\tsizeBytes\x12\x12\n" +
+	"\x04kind\x18\x04 \x01(\tR\x04kind\x12\x16\n" +
+	"\x06sha256\x18\x05 \x01(\tR\x06sha256\"0\n" +
+	"\rBackupRequest\x12\x1f\n" +
+	"\vpush_remote\x18\x01 \x01(\bR\n" +
+	"pushRemote\"y\n" +
+	"\x0eBackupResponse\x12.\n" +
+	"\acreated\x18\x01 \x03(\v2\x14.nexus.v1.BackupInfoR\acreated\x12\x16\n" +
+	"\x06pruned\x18\x02 \x03(\tR\x06pruned\x12\x1f\n" +
+	"\vpush_result\x18\x03 \x01(\tR\n" +
+	"pushResult\"\x14\n" +
+	"\x12ListBackupsRequest\"W\n" +
+	"\x13ListBackupsResponse\x12\x10\n" +
+	"\x03dir\x18\x01 \x01(\tR\x03dir\x12.\n" +
+	"\abackups\x18\x02 \x03(\v2\x14.nexus.v1.BackupInfoR\abackups\")\n" +
+	"\x13VerifyBackupRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"X\n" +
+	"\x14VerifyBackupResponse\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x14\n" +
+	"\x05files\x18\x02 \x01(\x05R\x05files\x12\x1a\n" +
+	"\bproblems\x18\x03 \x03(\tR\bproblems\"\xd1\x01\n" +
+	"\vVaultChange\x12\x10\n" +
+	"\x03rev\x18\x01 \x01(\x03R\x03rev\x12-\n" +
+	"\x04kind\x18\x02 \x01(\x0e2\x19.nexus.v1.VaultChangeKindR\x04kind\x12\x12\n" +
+	"\x04path\x18\x03 \x01(\tR\x04path\x12\x19\n" +
+	"\bold_path\x18\x04 \x01(\tR\aoldPath\x12\x0e\n" +
+	"\x02id\x18\x05 \x01(\tR\x02id\x12*\n" +
+	"\x02at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x02at\x12\x16\n" +
+	"\x06origin\x18\a \x01(\tR\x06origin\"Q\n" +
+	"\x11WatchVaultRequest\x12\x1b\n" +
+	"\tsince_rev\x18\x01 \x01(\x03R\bsinceRev\x12\x1f\n" +
+	"\vpath_prefix\x18\x02 \x01(\tR\n" +
+	"pathPrefix\"C\n" +
+	"\x12WatchVaultResponse\x12-\n" +
+	"\x06change\x18\x01 \x01(\v2\x15.nexus.v1.VaultChangeR\x06change\"\xe2\x02\n" +
+	"\x0eAttachmentInfo\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x12\x1b\n" +
+	"\tmime_type\x18\x02 \x01(\tR\bmimeType\x12\x1d\n" +
+	"\n" +
+	"size_bytes\x18\x03 \x01(\x03R\tsizeBytes\x12\x16\n" +
+	"\x06sha256\x18\x04 \x01(\tR\x06sha256\x12;\n" +
+	"\vmodified_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"modifiedAt\x125\n" +
+	"\btaken_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\atakenAt\x12\x19\n" +
+	"\bhas_text\x18\a \x01(\bR\ahasText\x126\n" +
+	"\rreferenced_by\x18\b \x03(\v2\x11.nexus.v1.NoteRefR\freferencedBy\x12!\n" +
+	"\ftext_excerpt\x18\t \x01(\tR\vtextExcerpt\"\x8a\x01\n" +
+	"\x16ListAttachmentsRequest\x12\x1f\n" +
+	"\vpath_prefix\x18\x01 \x01(\tR\n" +
+	"pathPrefix\x12#\n" +
+	"\rorphaned_only\x18\x02 \x01(\bR\forphanedOnly\x12\x14\n" +
+	"\x05query\x18\x03 \x01(\tR\x05query\x12\x14\n" +
+	"\x05limit\x18\x04 \x01(\x05R\x05limit\"U\n" +
+	"\x17ListAttachmentsResponse\x12:\n" +
+	"\vattachments\x18\x01 \x03(\v2\x18.nexus.v1.AttachmentInfoR\vattachments\"\x81\x01\n" +
+	"\x12ImportNotesRequest\x12\x1d\n" +
+	"\n" +
+	"source_dir\x18\x01 \x01(\tR\tsourceDir\x12\x1f\n" +
+	"\vdest_folder\x18\x02 \x01(\tR\n" +
+	"destFolder\x12\x12\n" +
+	"\x04kind\x18\x03 \x01(\tR\x04kind\x12\x17\n" +
+	"\adry_run\x18\x04 \x01(\bR\x06dryRun\"\xc9\x01\n" +
+	"\x13ImportNotesResponse\x12\x14\n" +
+	"\x05notes\x18\x01 \x01(\x05R\x05notes\x12 \n" +
+	"\vattachments\x18\x02 \x01(\x05R\vattachments\x12!\n" +
+	"\fids_assigned\x18\x03 \x01(\x05R\vidsAssigned\x12!\n" +
+	"\fids_replaced\x18\x04 \x01(\x05R\vidsReplaced\x12\x18\n" +
+	"\askipped\x18\x05 \x03(\tR\askipped\x12\x1a\n" +
+	"\bwarnings\x18\x06 \x03(\tR\bwarnings*x\n" +
 	"\n" +
 	"FactStatus\x12\x1b\n" +
 	"\x17FACT_STATUS_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14FACT_STATUS_PROPOSED\x10\x01\x12\x19\n" +
 	"\x15FACT_STATUS_CONFIRMED\x10\x02\x12\x18\n" +
-	"\x14FACT_STATUS_REJECTED\x10\x032\x8e\x04\n" +
+	"\x14FACT_STATUS_REJECTED\x10\x03*\xce\x01\n" +
+	"\x0fVaultChangeKind\x12!\n" +
+	"\x1dVAULT_CHANGE_KIND_UNSPECIFIED\x10\x00\x12\x1d\n" +
+	"\x19VAULT_CHANGE_KIND_CREATED\x10\x01\x12\x1d\n" +
+	"\x19VAULT_CHANGE_KIND_UPDATED\x10\x02\x12\x1d\n" +
+	"\x19VAULT_CHANGE_KIND_DELETED\x10\x03\x12\x1d\n" +
+	"\x19VAULT_CHANGE_KIND_RENAMED\x10\x04\x12\x1c\n" +
+	"\x18VAULT_CHANGE_KIND_RESYNC\x10\x052\xd2\x13\n" +
 	"\fVaultService\x12;\n" +
 	"\x06Search\x12\x17.nexus.v1.SearchRequest\x1a\x18.nexus.v1.SearchResponse\x122\n" +
 	"\x03Ask\x12\x14.nexus.v1.AskRequest\x1a\x15.nexus.v1.AskResponse\x12>\n" +
@@ -1373,7 +5959,42 @@ const file_nexus_v1_vault_proto_rawDesc = "" +
 	"\x05Graph\x12\x16.nexus.v1.GraphRequest\x1a\x17.nexus.v1.GraphResponse\x12D\n" +
 	"\tListFacts\x12\x1a.nexus.v1.ListFactsRequest\x1a\x1b.nexus.v1.ListFactsResponse\x12G\n" +
 	"\n" +
-	"ReviewFact\x12\x1b.nexus.v1.ReviewFactRequest\x1a\x1c.nexus.v1.ReviewFactResponseB\x96\x01\n" +
+	"ReviewFact\x12\x1b.nexus.v1.ReviewFactRequest\x1a\x1c.nexus.v1.ReviewFactResponse\x12>\n" +
+	"\aHistory\x12\x18.nexus.v1.HistoryRequest\x1a\x19.nexus.v1.HistoryResponse\x12G\n" +
+	"\n" +
+	"GetVersion\x12\x1b.nexus.v1.GetVersionRequest\x1a\x1c.nexus.v1.GetVersionResponse\x12S\n" +
+	"\x0eRestoreVersion\x12\x1f.nexus.v1.RestoreVersionRequest\x1a .nexus.v1.RestoreVersionResponse\x12G\n" +
+	"\n" +
+	"DeleteNote\x12\x1b.nexus.v1.DeleteNoteRequest\x1a\x1c.nexus.v1.DeleteNoteResponse\x12D\n" +
+	"\tListTrash\x12\x1a.nexus.v1.ListTrashRequest\x1a\x1b.nexus.v1.ListTrashResponse\x12Y\n" +
+	"\x10RestoreFromTrash\x12!.nexus.v1.RestoreFromTrashRequest\x1a\".nexus.v1.RestoreFromTrashResponse\x12G\n" +
+	"\n" +
+	"PurgeTrash\x12\x1b.nexus.v1.PurgeTrashRequest\x1a\x1c.nexus.v1.PurgeTrashResponse\x12G\n" +
+	"\n" +
+	"RenameNote\x12\x1b.nexus.v1.RenameNoteRequest\x1a\x1c.nexus.v1.RenameNoteResponse\x12G\n" +
+	"\n" +
+	"MergeNotes\x12\x1b.nexus.v1.MergeNotesRequest\x1a\x1c.nexus.v1.MergeNotesResponse\x12D\n" +
+	"\tSplitNote\x12\x1a.nexus.v1.SplitNoteRequest\x1a\x1b.nexus.v1.SplitNoteResponse\x128\n" +
+	"\x05Query\x12\x16.nexus.v1.QueryRequest\x1a\x17.nexus.v1.QueryResponse\x12>\n" +
+	"\aRelated\x12\x18.nexus.v1.RelatedRequest\x1a\x19.nexus.v1.RelatedResponse\x12D\n" +
+	"\tBacklinks\x12\x1a.nexus.v1.BacklinksRequest\x1a\x1b.nexus.v1.BacklinksResponse\x12G\n" +
+	"\n" +
+	"GraphStats\x12\x1b.nexus.v1.GraphStatsRequest\x1a\x1c.nexus.v1.GraphStatsResponse\x12P\n" +
+	"\rListNoteTasks\x12\x1e.nexus.v1.ListNoteTasksRequest\x1a\x1f.nexus.v1.ListNoteTasksResponse\x12G\n" +
+	"\n" +
+	"ToggleTask\x12\x1b.nexus.v1.ToggleTaskRequest\x1a\x1c.nexus.v1.ToggleTaskResponse\x12P\n" +
+	"\rListTemplates\x12\x1e.nexus.v1.ListTemplatesRequest\x1a\x1f.nexus.v1.ListTemplatesResponse\x12V\n" +
+	"\x0fNewFromTemplate\x12 .nexus.v1.NewFromTemplateRequest\x1a!.nexus.v1.NewFromTemplateResponse\x12M\n" +
+	"\fPeriodicNote\x12\x1d.nexus.v1.PeriodicNoteRequest\x1a\x1e.nexus.v1.PeriodicNoteResponse\x128\n" +
+	"\x05Check\x12\x16.nexus.v1.CheckRequest\x1a\x17.nexus.v1.CheckResponse\x12;\n" +
+	"\x06Repair\x12\x17.nexus.v1.RepairRequest\x1a\x18.nexus.v1.RepairResponse\x12;\n" +
+	"\x06Backup\x12\x17.nexus.v1.BackupRequest\x1a\x18.nexus.v1.BackupResponse\x12J\n" +
+	"\vListBackups\x12\x1c.nexus.v1.ListBackupsRequest\x1a\x1d.nexus.v1.ListBackupsResponse\x12M\n" +
+	"\fVerifyBackup\x12\x1d.nexus.v1.VerifyBackupRequest\x1a\x1e.nexus.v1.VerifyBackupResponse\x12I\n" +
+	"\n" +
+	"WatchVault\x12\x1b.nexus.v1.WatchVaultRequest\x1a\x1c.nexus.v1.WatchVaultResponse0\x01\x12V\n" +
+	"\x0fListAttachments\x12 .nexus.v1.ListAttachmentsRequest\x1a!.nexus.v1.ListAttachmentsResponse\x12J\n" +
+	"\vImportNotes\x12\x1c.nexus.v1.ImportNotesRequest\x1a\x1d.nexus.v1.ImportNotesResponseB\x96\x01\n" +
 	"\fcom.nexus.v1B\n" +
 	"VaultProtoP\x01Z9github.com/danielpina1/nexus/backend/gen/nexus/v1;nexusv1\xa2\x02\x03NXX\xaa\x02\bNexus.V1\xca\x02\bNexus\\V1\xe2\x02\x14Nexus\\V1\\GPBMetadata\xea\x02\tNexus::V1b\x06proto3"
 
@@ -1389,82 +6010,253 @@ func file_nexus_v1_vault_proto_rawDescGZIP() []byte {
 	return file_nexus_v1_vault_proto_rawDescData
 }
 
-var file_nexus_v1_vault_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_nexus_v1_vault_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
+var file_nexus_v1_vault_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_nexus_v1_vault_proto_msgTypes = make([]protoimpl.MessageInfo, 89)
 var file_nexus_v1_vault_proto_goTypes = []any{
-	(FactStatus)(0),               // 0: nexus.v1.FactStatus
-	(*Note)(nil),                  // 1: nexus.v1.Note
-	(*SearchHit)(nil),             // 2: nexus.v1.SearchHit
-	(*GraphEdge)(nil),             // 3: nexus.v1.GraphEdge
-	(*SearchRequest)(nil),         // 4: nexus.v1.SearchRequest
-	(*SearchResponse)(nil),        // 5: nexus.v1.SearchResponse
-	(*AskRequest)(nil),            // 6: nexus.v1.AskRequest
-	(*AskResponse)(nil),           // 7: nexus.v1.AskResponse
-	(*GetNoteRequest)(nil),        // 8: nexus.v1.GetNoteRequest
-	(*GetNoteResponse)(nil),       // 9: nexus.v1.GetNoteResponse
-	(*WriteNoteRequest)(nil),      // 10: nexus.v1.WriteNoteRequest
-	(*WriteNoteResponse)(nil),     // 11: nexus.v1.WriteNoteResponse
-	(*CaptureRequest)(nil),        // 12: nexus.v1.CaptureRequest
-	(*CaptureResponse)(nil),       // 13: nexus.v1.CaptureResponse
-	(*GraphRequest)(nil),          // 14: nexus.v1.GraphRequest
-	(*GraphResponse)(nil),         // 15: nexus.v1.GraphResponse
-	(*Fact)(nil),                  // 16: nexus.v1.Fact
-	(*ListFactsRequest)(nil),      // 17: nexus.v1.ListFactsRequest
-	(*ListFactsResponse)(nil),     // 18: nexus.v1.ListFactsResponse
-	(*ReviewFactRequest)(nil),     // 19: nexus.v1.ReviewFactRequest
-	(*ReviewFactResponse)(nil),    // 20: nexus.v1.ReviewFactResponse
-	(*NoteRef)(nil),               // 21: nexus.v1.NoteRef
-	(*structpb.Struct)(nil),       // 22: google.protobuf.Struct
-	(*timestamppb.Timestamp)(nil), // 23: google.protobuf.Timestamp
-	(*Attachment)(nil),            // 24: nexus.v1.Attachment
-	(*PageRequest)(nil),           // 25: nexus.v1.PageRequest
+	(FactStatus)(0),                  // 0: nexus.v1.FactStatus
+	(VaultChangeKind)(0),             // 1: nexus.v1.VaultChangeKind
+	(*Note)(nil),                     // 2: nexus.v1.Note
+	(*SearchHit)(nil),                // 3: nexus.v1.SearchHit
+	(*GraphEdge)(nil),                // 4: nexus.v1.GraphEdge
+	(*SearchRequest)(nil),            // 5: nexus.v1.SearchRequest
+	(*SearchResponse)(nil),           // 6: nexus.v1.SearchResponse
+	(*AskRequest)(nil),               // 7: nexus.v1.AskRequest
+	(*AskResponse)(nil),              // 8: nexus.v1.AskResponse
+	(*GetNoteRequest)(nil),           // 9: nexus.v1.GetNoteRequest
+	(*GetNoteResponse)(nil),          // 10: nexus.v1.GetNoteResponse
+	(*WriteNoteRequest)(nil),         // 11: nexus.v1.WriteNoteRequest
+	(*WriteNoteResponse)(nil),        // 12: nexus.v1.WriteNoteResponse
+	(*CaptureRequest)(nil),           // 13: nexus.v1.CaptureRequest
+	(*CaptureResponse)(nil),          // 14: nexus.v1.CaptureResponse
+	(*GraphRequest)(nil),             // 15: nexus.v1.GraphRequest
+	(*GraphResponse)(nil),            // 16: nexus.v1.GraphResponse
+	(*Fact)(nil),                     // 17: nexus.v1.Fact
+	(*ListFactsRequest)(nil),         // 18: nexus.v1.ListFactsRequest
+	(*ListFactsResponse)(nil),        // 19: nexus.v1.ListFactsResponse
+	(*ReviewFactRequest)(nil),        // 20: nexus.v1.ReviewFactRequest
+	(*ReviewFactResponse)(nil),       // 21: nexus.v1.ReviewFactResponse
+	(*NoteVersion)(nil),              // 22: nexus.v1.NoteVersion
+	(*HistoryRequest)(nil),           // 23: nexus.v1.HistoryRequest
+	(*HistoryResponse)(nil),          // 24: nexus.v1.HistoryResponse
+	(*GetVersionRequest)(nil),        // 25: nexus.v1.GetVersionRequest
+	(*GetVersionResponse)(nil),       // 26: nexus.v1.GetVersionResponse
+	(*RestoreVersionRequest)(nil),    // 27: nexus.v1.RestoreVersionRequest
+	(*RestoreVersionResponse)(nil),   // 28: nexus.v1.RestoreVersionResponse
+	(*TrashItem)(nil),                // 29: nexus.v1.TrashItem
+	(*DeleteNoteRequest)(nil),        // 30: nexus.v1.DeleteNoteRequest
+	(*DeleteNoteResponse)(nil),       // 31: nexus.v1.DeleteNoteResponse
+	(*ListTrashRequest)(nil),         // 32: nexus.v1.ListTrashRequest
+	(*ListTrashResponse)(nil),        // 33: nexus.v1.ListTrashResponse
+	(*RestoreFromTrashRequest)(nil),  // 34: nexus.v1.RestoreFromTrashRequest
+	(*RestoreFromTrashResponse)(nil), // 35: nexus.v1.RestoreFromTrashResponse
+	(*PurgeTrashRequest)(nil),        // 36: nexus.v1.PurgeTrashRequest
+	(*PurgeTrashResponse)(nil),       // 37: nexus.v1.PurgeTrashResponse
+	(*RenameNoteRequest)(nil),        // 38: nexus.v1.RenameNoteRequest
+	(*RenameNoteResponse)(nil),       // 39: nexus.v1.RenameNoteResponse
+	(*MergeNotesRequest)(nil),        // 40: nexus.v1.MergeNotesRequest
+	(*MergeNotesResponse)(nil),       // 41: nexus.v1.MergeNotesResponse
+	(*SplitNoteRequest)(nil),         // 42: nexus.v1.SplitNoteRequest
+	(*SplitNoteResponse)(nil),        // 43: nexus.v1.SplitNoteResponse
+	(*QueryHit)(nil),                 // 44: nexus.v1.QueryHit
+	(*QueryRequest)(nil),             // 45: nexus.v1.QueryRequest
+	(*QueryResponse)(nil),            // 46: nexus.v1.QueryResponse
+	(*RelatedNote)(nil),              // 47: nexus.v1.RelatedNote
+	(*RelatedRequest)(nil),           // 48: nexus.v1.RelatedRequest
+	(*RelatedResponse)(nil),          // 49: nexus.v1.RelatedResponse
+	(*Backlink)(nil),                 // 50: nexus.v1.Backlink
+	(*BacklinksRequest)(nil),         // 51: nexus.v1.BacklinksRequest
+	(*BacklinksResponse)(nil),        // 52: nexus.v1.BacklinksResponse
+	(*GraphHub)(nil),                 // 53: nexus.v1.GraphHub
+	(*GraphStatsRequest)(nil),        // 54: nexus.v1.GraphStatsRequest
+	(*GraphStatsResponse)(nil),       // 55: nexus.v1.GraphStatsResponse
+	(*NoteTask)(nil),                 // 56: nexus.v1.NoteTask
+	(*ListNoteTasksRequest)(nil),     // 57: nexus.v1.ListNoteTasksRequest
+	(*ListNoteTasksResponse)(nil),    // 58: nexus.v1.ListNoteTasksResponse
+	(*ToggleTaskRequest)(nil),        // 59: nexus.v1.ToggleTaskRequest
+	(*ToggleTaskResponse)(nil),       // 60: nexus.v1.ToggleTaskResponse
+	(*NoteTemplate)(nil),             // 61: nexus.v1.NoteTemplate
+	(*ListTemplatesRequest)(nil),     // 62: nexus.v1.ListTemplatesRequest
+	(*ListTemplatesResponse)(nil),    // 63: nexus.v1.ListTemplatesResponse
+	(*NewFromTemplateRequest)(nil),   // 64: nexus.v1.NewFromTemplateRequest
+	(*NewFromTemplateResponse)(nil),  // 65: nexus.v1.NewFromTemplateResponse
+	(*PeriodicNoteRequest)(nil),      // 66: nexus.v1.PeriodicNoteRequest
+	(*PeriodicNoteResponse)(nil),     // 67: nexus.v1.PeriodicNoteResponse
+	(*IntegrityIssue)(nil),           // 68: nexus.v1.IntegrityIssue
+	(*IntegrityReport)(nil),          // 69: nexus.v1.IntegrityReport
+	(*CheckRequest)(nil),             // 70: nexus.v1.CheckRequest
+	(*CheckResponse)(nil),            // 71: nexus.v1.CheckResponse
+	(*RepairRequest)(nil),            // 72: nexus.v1.RepairRequest
+	(*RepairResponse)(nil),           // 73: nexus.v1.RepairResponse
+	(*BackupInfo)(nil),               // 74: nexus.v1.BackupInfo
+	(*BackupRequest)(nil),            // 75: nexus.v1.BackupRequest
+	(*BackupResponse)(nil),           // 76: nexus.v1.BackupResponse
+	(*ListBackupsRequest)(nil),       // 77: nexus.v1.ListBackupsRequest
+	(*ListBackupsResponse)(nil),      // 78: nexus.v1.ListBackupsResponse
+	(*VerifyBackupRequest)(nil),      // 79: nexus.v1.VerifyBackupRequest
+	(*VerifyBackupResponse)(nil),     // 80: nexus.v1.VerifyBackupResponse
+	(*VaultChange)(nil),              // 81: nexus.v1.VaultChange
+	(*WatchVaultRequest)(nil),        // 82: nexus.v1.WatchVaultRequest
+	(*WatchVaultResponse)(nil),       // 83: nexus.v1.WatchVaultResponse
+	(*AttachmentInfo)(nil),           // 84: nexus.v1.AttachmentInfo
+	(*ListAttachmentsRequest)(nil),   // 85: nexus.v1.ListAttachmentsRequest
+	(*ListAttachmentsResponse)(nil),  // 86: nexus.v1.ListAttachmentsResponse
+	(*ImportNotesRequest)(nil),       // 87: nexus.v1.ImportNotesRequest
+	(*ImportNotesResponse)(nil),      // 88: nexus.v1.ImportNotesResponse
+	nil,                              // 89: nexus.v1.NewFromTemplateRequest.VariablesEntry
+	nil,                              // 90: nexus.v1.IntegrityReport.CountsEntry
+	(*NoteRef)(nil),                  // 91: nexus.v1.NoteRef
+	(*structpb.Struct)(nil),          // 92: google.protobuf.Struct
+	(*timestamppb.Timestamp)(nil),    // 93: google.protobuf.Timestamp
+	(*Attachment)(nil),               // 94: nexus.v1.Attachment
+	(*PageRequest)(nil),              // 95: nexus.v1.PageRequest
 }
 var file_nexus_v1_vault_proto_depIdxs = []int32{
-	21, // 0: nexus.v1.Note.ref:type_name -> nexus.v1.NoteRef
-	22, // 1: nexus.v1.Note.frontmatter:type_name -> google.protobuf.Struct
-	21, // 2: nexus.v1.Note.links:type_name -> nexus.v1.NoteRef
-	21, // 3: nexus.v1.Note.backlinks:type_name -> nexus.v1.NoteRef
-	23, // 4: nexus.v1.Note.updated_at:type_name -> google.protobuf.Timestamp
-	21, // 5: nexus.v1.SearchHit.note:type_name -> nexus.v1.NoteRef
-	2,  // 6: nexus.v1.SearchResponse.hits:type_name -> nexus.v1.SearchHit
-	21, // 7: nexus.v1.AskResponse.sources:type_name -> nexus.v1.NoteRef
-	1,  // 8: nexus.v1.GetNoteResponse.note:type_name -> nexus.v1.Note
-	1,  // 9: nexus.v1.WriteNoteResponse.note:type_name -> nexus.v1.Note
-	24, // 10: nexus.v1.CaptureRequest.attachments:type_name -> nexus.v1.Attachment
-	21, // 11: nexus.v1.CaptureResponse.note:type_name -> nexus.v1.NoteRef
-	21, // 12: nexus.v1.GraphResponse.nodes:type_name -> nexus.v1.NoteRef
-	3,  // 13: nexus.v1.GraphResponse.edges:type_name -> nexus.v1.GraphEdge
-	21, // 14: nexus.v1.Fact.subject:type_name -> nexus.v1.NoteRef
-	0,  // 15: nexus.v1.Fact.status:type_name -> nexus.v1.FactStatus
-	21, // 16: nexus.v1.Fact.source:type_name -> nexus.v1.NoteRef
-	23, // 17: nexus.v1.Fact.valid_from:type_name -> google.protobuf.Timestamp
-	23, // 18: nexus.v1.Fact.valid_to:type_name -> google.protobuf.Timestamp
-	0,  // 19: nexus.v1.ListFactsRequest.status:type_name -> nexus.v1.FactStatus
-	25, // 20: nexus.v1.ListFactsRequest.page:type_name -> nexus.v1.PageRequest
-	16, // 21: nexus.v1.ListFactsResponse.facts:type_name -> nexus.v1.Fact
-	0,  // 22: nexus.v1.ReviewFactRequest.status:type_name -> nexus.v1.FactStatus
-	16, // 23: nexus.v1.ReviewFactResponse.fact:type_name -> nexus.v1.Fact
-	4,  // 24: nexus.v1.VaultService.Search:input_type -> nexus.v1.SearchRequest
-	6,  // 25: nexus.v1.VaultService.Ask:input_type -> nexus.v1.AskRequest
-	8,  // 26: nexus.v1.VaultService.GetNote:input_type -> nexus.v1.GetNoteRequest
-	10, // 27: nexus.v1.VaultService.WriteNote:input_type -> nexus.v1.WriteNoteRequest
-	12, // 28: nexus.v1.VaultService.Capture:input_type -> nexus.v1.CaptureRequest
-	14, // 29: nexus.v1.VaultService.Graph:input_type -> nexus.v1.GraphRequest
-	17, // 30: nexus.v1.VaultService.ListFacts:input_type -> nexus.v1.ListFactsRequest
-	19, // 31: nexus.v1.VaultService.ReviewFact:input_type -> nexus.v1.ReviewFactRequest
-	5,  // 32: nexus.v1.VaultService.Search:output_type -> nexus.v1.SearchResponse
-	7,  // 33: nexus.v1.VaultService.Ask:output_type -> nexus.v1.AskResponse
-	9,  // 34: nexus.v1.VaultService.GetNote:output_type -> nexus.v1.GetNoteResponse
-	11, // 35: nexus.v1.VaultService.WriteNote:output_type -> nexus.v1.WriteNoteResponse
-	13, // 36: nexus.v1.VaultService.Capture:output_type -> nexus.v1.CaptureResponse
-	15, // 37: nexus.v1.VaultService.Graph:output_type -> nexus.v1.GraphResponse
-	18, // 38: nexus.v1.VaultService.ListFacts:output_type -> nexus.v1.ListFactsResponse
-	20, // 39: nexus.v1.VaultService.ReviewFact:output_type -> nexus.v1.ReviewFactResponse
-	32, // [32:40] is the sub-list for method output_type
-	24, // [24:32] is the sub-list for method input_type
-	24, // [24:24] is the sub-list for extension type_name
-	24, // [24:24] is the sub-list for extension extendee
-	0,  // [0:24] is the sub-list for field type_name
+	91,  // 0: nexus.v1.Note.ref:type_name -> nexus.v1.NoteRef
+	92,  // 1: nexus.v1.Note.frontmatter:type_name -> google.protobuf.Struct
+	91,  // 2: nexus.v1.Note.links:type_name -> nexus.v1.NoteRef
+	91,  // 3: nexus.v1.Note.backlinks:type_name -> nexus.v1.NoteRef
+	93,  // 4: nexus.v1.Note.updated_at:type_name -> google.protobuf.Timestamp
+	91,  // 5: nexus.v1.SearchHit.note:type_name -> nexus.v1.NoteRef
+	3,   // 6: nexus.v1.SearchResponse.hits:type_name -> nexus.v1.SearchHit
+	91,  // 7: nexus.v1.AskResponse.sources:type_name -> nexus.v1.NoteRef
+	2,   // 8: nexus.v1.GetNoteResponse.note:type_name -> nexus.v1.Note
+	2,   // 9: nexus.v1.WriteNoteResponse.note:type_name -> nexus.v1.Note
+	94,  // 10: nexus.v1.CaptureRequest.attachments:type_name -> nexus.v1.Attachment
+	91,  // 11: nexus.v1.CaptureResponse.note:type_name -> nexus.v1.NoteRef
+	91,  // 12: nexus.v1.GraphResponse.nodes:type_name -> nexus.v1.NoteRef
+	4,   // 13: nexus.v1.GraphResponse.edges:type_name -> nexus.v1.GraphEdge
+	91,  // 14: nexus.v1.Fact.subject:type_name -> nexus.v1.NoteRef
+	0,   // 15: nexus.v1.Fact.status:type_name -> nexus.v1.FactStatus
+	91,  // 16: nexus.v1.Fact.source:type_name -> nexus.v1.NoteRef
+	93,  // 17: nexus.v1.Fact.valid_from:type_name -> google.protobuf.Timestamp
+	93,  // 18: nexus.v1.Fact.valid_to:type_name -> google.protobuf.Timestamp
+	0,   // 19: nexus.v1.ListFactsRequest.status:type_name -> nexus.v1.FactStatus
+	95,  // 20: nexus.v1.ListFactsRequest.page:type_name -> nexus.v1.PageRequest
+	17,  // 21: nexus.v1.ListFactsResponse.facts:type_name -> nexus.v1.Fact
+	0,   // 22: nexus.v1.ReviewFactRequest.status:type_name -> nexus.v1.FactStatus
+	17,  // 23: nexus.v1.ReviewFactResponse.fact:type_name -> nexus.v1.Fact
+	93,  // 24: nexus.v1.NoteVersion.at:type_name -> google.protobuf.Timestamp
+	22,  // 25: nexus.v1.HistoryResponse.versions:type_name -> nexus.v1.NoteVersion
+	22,  // 26: nexus.v1.GetVersionResponse.version:type_name -> nexus.v1.NoteVersion
+	2,   // 27: nexus.v1.RestoreVersionResponse.note:type_name -> nexus.v1.Note
+	93,  // 28: nexus.v1.TrashItem.deleted_at:type_name -> google.protobuf.Timestamp
+	29,  // 29: nexus.v1.DeleteNoteResponse.item:type_name -> nexus.v1.TrashItem
+	29,  // 30: nexus.v1.ListTrashResponse.items:type_name -> nexus.v1.TrashItem
+	91,  // 31: nexus.v1.RestoreFromTrashResponse.note:type_name -> nexus.v1.NoteRef
+	2,   // 32: nexus.v1.RenameNoteResponse.note:type_name -> nexus.v1.Note
+	2,   // 33: nexus.v1.MergeNotesResponse.note:type_name -> nexus.v1.Note
+	2,   // 34: nexus.v1.SplitNoteResponse.note:type_name -> nexus.v1.Note
+	91,  // 35: nexus.v1.SplitNoteResponse.created:type_name -> nexus.v1.NoteRef
+	91,  // 36: nexus.v1.QueryHit.note:type_name -> nexus.v1.NoteRef
+	93,  // 37: nexus.v1.QueryHit.updated_at:type_name -> google.protobuf.Timestamp
+	93,  // 38: nexus.v1.QueryHit.created_at:type_name -> google.protobuf.Timestamp
+	92,  // 39: nexus.v1.QueryHit.frontmatter:type_name -> google.protobuf.Struct
+	44,  // 40: nexus.v1.QueryResponse.hits:type_name -> nexus.v1.QueryHit
+	91,  // 41: nexus.v1.RelatedNote.note:type_name -> nexus.v1.NoteRef
+	47,  // 42: nexus.v1.RelatedResponse.notes:type_name -> nexus.v1.RelatedNote
+	91,  // 43: nexus.v1.Backlink.source:type_name -> nexus.v1.NoteRef
+	50,  // 44: nexus.v1.BacklinksResponse.backlinks:type_name -> nexus.v1.Backlink
+	50,  // 45: nexus.v1.BacklinksResponse.unlinked_mentions:type_name -> nexus.v1.Backlink
+	91,  // 46: nexus.v1.GraphHub.note:type_name -> nexus.v1.NoteRef
+	91,  // 47: nexus.v1.GraphStatsResponse.orphans:type_name -> nexus.v1.NoteRef
+	53,  // 48: nexus.v1.GraphStatsResponse.hubs:type_name -> nexus.v1.GraphHub
+	91,  // 49: nexus.v1.NoteTask.note:type_name -> nexus.v1.NoteRef
+	56,  // 50: nexus.v1.ListNoteTasksResponse.tasks:type_name -> nexus.v1.NoteTask
+	56,  // 51: nexus.v1.ToggleTaskResponse.task:type_name -> nexus.v1.NoteTask
+	61,  // 52: nexus.v1.ListTemplatesResponse.templates:type_name -> nexus.v1.NoteTemplate
+	89,  // 53: nexus.v1.NewFromTemplateRequest.variables:type_name -> nexus.v1.NewFromTemplateRequest.VariablesEntry
+	2,   // 54: nexus.v1.NewFromTemplateResponse.note:type_name -> nexus.v1.Note
+	2,   // 55: nexus.v1.PeriodicNoteResponse.note:type_name -> nexus.v1.Note
+	93,  // 56: nexus.v1.IntegrityReport.at:type_name -> google.protobuf.Timestamp
+	68,  // 57: nexus.v1.IntegrityReport.issues:type_name -> nexus.v1.IntegrityIssue
+	90,  // 58: nexus.v1.IntegrityReport.counts:type_name -> nexus.v1.IntegrityReport.CountsEntry
+	69,  // 59: nexus.v1.CheckResponse.report:type_name -> nexus.v1.IntegrityReport
+	69,  // 60: nexus.v1.RepairResponse.report:type_name -> nexus.v1.IntegrityReport
+	93,  // 61: nexus.v1.BackupInfo.created_at:type_name -> google.protobuf.Timestamp
+	74,  // 62: nexus.v1.BackupResponse.created:type_name -> nexus.v1.BackupInfo
+	74,  // 63: nexus.v1.ListBackupsResponse.backups:type_name -> nexus.v1.BackupInfo
+	1,   // 64: nexus.v1.VaultChange.kind:type_name -> nexus.v1.VaultChangeKind
+	93,  // 65: nexus.v1.VaultChange.at:type_name -> google.protobuf.Timestamp
+	81,  // 66: nexus.v1.WatchVaultResponse.change:type_name -> nexus.v1.VaultChange
+	93,  // 67: nexus.v1.AttachmentInfo.modified_at:type_name -> google.protobuf.Timestamp
+	93,  // 68: nexus.v1.AttachmentInfo.taken_at:type_name -> google.protobuf.Timestamp
+	91,  // 69: nexus.v1.AttachmentInfo.referenced_by:type_name -> nexus.v1.NoteRef
+	84,  // 70: nexus.v1.ListAttachmentsResponse.attachments:type_name -> nexus.v1.AttachmentInfo
+	5,   // 71: nexus.v1.VaultService.Search:input_type -> nexus.v1.SearchRequest
+	7,   // 72: nexus.v1.VaultService.Ask:input_type -> nexus.v1.AskRequest
+	9,   // 73: nexus.v1.VaultService.GetNote:input_type -> nexus.v1.GetNoteRequest
+	11,  // 74: nexus.v1.VaultService.WriteNote:input_type -> nexus.v1.WriteNoteRequest
+	13,  // 75: nexus.v1.VaultService.Capture:input_type -> nexus.v1.CaptureRequest
+	15,  // 76: nexus.v1.VaultService.Graph:input_type -> nexus.v1.GraphRequest
+	18,  // 77: nexus.v1.VaultService.ListFacts:input_type -> nexus.v1.ListFactsRequest
+	20,  // 78: nexus.v1.VaultService.ReviewFact:input_type -> nexus.v1.ReviewFactRequest
+	23,  // 79: nexus.v1.VaultService.History:input_type -> nexus.v1.HistoryRequest
+	25,  // 80: nexus.v1.VaultService.GetVersion:input_type -> nexus.v1.GetVersionRequest
+	27,  // 81: nexus.v1.VaultService.RestoreVersion:input_type -> nexus.v1.RestoreVersionRequest
+	30,  // 82: nexus.v1.VaultService.DeleteNote:input_type -> nexus.v1.DeleteNoteRequest
+	32,  // 83: nexus.v1.VaultService.ListTrash:input_type -> nexus.v1.ListTrashRequest
+	34,  // 84: nexus.v1.VaultService.RestoreFromTrash:input_type -> nexus.v1.RestoreFromTrashRequest
+	36,  // 85: nexus.v1.VaultService.PurgeTrash:input_type -> nexus.v1.PurgeTrashRequest
+	38,  // 86: nexus.v1.VaultService.RenameNote:input_type -> nexus.v1.RenameNoteRequest
+	40,  // 87: nexus.v1.VaultService.MergeNotes:input_type -> nexus.v1.MergeNotesRequest
+	42,  // 88: nexus.v1.VaultService.SplitNote:input_type -> nexus.v1.SplitNoteRequest
+	45,  // 89: nexus.v1.VaultService.Query:input_type -> nexus.v1.QueryRequest
+	48,  // 90: nexus.v1.VaultService.Related:input_type -> nexus.v1.RelatedRequest
+	51,  // 91: nexus.v1.VaultService.Backlinks:input_type -> nexus.v1.BacklinksRequest
+	54,  // 92: nexus.v1.VaultService.GraphStats:input_type -> nexus.v1.GraphStatsRequest
+	57,  // 93: nexus.v1.VaultService.ListNoteTasks:input_type -> nexus.v1.ListNoteTasksRequest
+	59,  // 94: nexus.v1.VaultService.ToggleTask:input_type -> nexus.v1.ToggleTaskRequest
+	62,  // 95: nexus.v1.VaultService.ListTemplates:input_type -> nexus.v1.ListTemplatesRequest
+	64,  // 96: nexus.v1.VaultService.NewFromTemplate:input_type -> nexus.v1.NewFromTemplateRequest
+	66,  // 97: nexus.v1.VaultService.PeriodicNote:input_type -> nexus.v1.PeriodicNoteRequest
+	70,  // 98: nexus.v1.VaultService.Check:input_type -> nexus.v1.CheckRequest
+	72,  // 99: nexus.v1.VaultService.Repair:input_type -> nexus.v1.RepairRequest
+	75,  // 100: nexus.v1.VaultService.Backup:input_type -> nexus.v1.BackupRequest
+	77,  // 101: nexus.v1.VaultService.ListBackups:input_type -> nexus.v1.ListBackupsRequest
+	79,  // 102: nexus.v1.VaultService.VerifyBackup:input_type -> nexus.v1.VerifyBackupRequest
+	82,  // 103: nexus.v1.VaultService.WatchVault:input_type -> nexus.v1.WatchVaultRequest
+	85,  // 104: nexus.v1.VaultService.ListAttachments:input_type -> nexus.v1.ListAttachmentsRequest
+	87,  // 105: nexus.v1.VaultService.ImportNotes:input_type -> nexus.v1.ImportNotesRequest
+	6,   // 106: nexus.v1.VaultService.Search:output_type -> nexus.v1.SearchResponse
+	8,   // 107: nexus.v1.VaultService.Ask:output_type -> nexus.v1.AskResponse
+	10,  // 108: nexus.v1.VaultService.GetNote:output_type -> nexus.v1.GetNoteResponse
+	12,  // 109: nexus.v1.VaultService.WriteNote:output_type -> nexus.v1.WriteNoteResponse
+	14,  // 110: nexus.v1.VaultService.Capture:output_type -> nexus.v1.CaptureResponse
+	16,  // 111: nexus.v1.VaultService.Graph:output_type -> nexus.v1.GraphResponse
+	19,  // 112: nexus.v1.VaultService.ListFacts:output_type -> nexus.v1.ListFactsResponse
+	21,  // 113: nexus.v1.VaultService.ReviewFact:output_type -> nexus.v1.ReviewFactResponse
+	24,  // 114: nexus.v1.VaultService.History:output_type -> nexus.v1.HistoryResponse
+	26,  // 115: nexus.v1.VaultService.GetVersion:output_type -> nexus.v1.GetVersionResponse
+	28,  // 116: nexus.v1.VaultService.RestoreVersion:output_type -> nexus.v1.RestoreVersionResponse
+	31,  // 117: nexus.v1.VaultService.DeleteNote:output_type -> nexus.v1.DeleteNoteResponse
+	33,  // 118: nexus.v1.VaultService.ListTrash:output_type -> nexus.v1.ListTrashResponse
+	35,  // 119: nexus.v1.VaultService.RestoreFromTrash:output_type -> nexus.v1.RestoreFromTrashResponse
+	37,  // 120: nexus.v1.VaultService.PurgeTrash:output_type -> nexus.v1.PurgeTrashResponse
+	39,  // 121: nexus.v1.VaultService.RenameNote:output_type -> nexus.v1.RenameNoteResponse
+	41,  // 122: nexus.v1.VaultService.MergeNotes:output_type -> nexus.v1.MergeNotesResponse
+	43,  // 123: nexus.v1.VaultService.SplitNote:output_type -> nexus.v1.SplitNoteResponse
+	46,  // 124: nexus.v1.VaultService.Query:output_type -> nexus.v1.QueryResponse
+	49,  // 125: nexus.v1.VaultService.Related:output_type -> nexus.v1.RelatedResponse
+	52,  // 126: nexus.v1.VaultService.Backlinks:output_type -> nexus.v1.BacklinksResponse
+	55,  // 127: nexus.v1.VaultService.GraphStats:output_type -> nexus.v1.GraphStatsResponse
+	58,  // 128: nexus.v1.VaultService.ListNoteTasks:output_type -> nexus.v1.ListNoteTasksResponse
+	60,  // 129: nexus.v1.VaultService.ToggleTask:output_type -> nexus.v1.ToggleTaskResponse
+	63,  // 130: nexus.v1.VaultService.ListTemplates:output_type -> nexus.v1.ListTemplatesResponse
+	65,  // 131: nexus.v1.VaultService.NewFromTemplate:output_type -> nexus.v1.NewFromTemplateResponse
+	67,  // 132: nexus.v1.VaultService.PeriodicNote:output_type -> nexus.v1.PeriodicNoteResponse
+	71,  // 133: nexus.v1.VaultService.Check:output_type -> nexus.v1.CheckResponse
+	73,  // 134: nexus.v1.VaultService.Repair:output_type -> nexus.v1.RepairResponse
+	76,  // 135: nexus.v1.VaultService.Backup:output_type -> nexus.v1.BackupResponse
+	78,  // 136: nexus.v1.VaultService.ListBackups:output_type -> nexus.v1.ListBackupsResponse
+	80,  // 137: nexus.v1.VaultService.VerifyBackup:output_type -> nexus.v1.VerifyBackupResponse
+	83,  // 138: nexus.v1.VaultService.WatchVault:output_type -> nexus.v1.WatchVaultResponse
+	86,  // 139: nexus.v1.VaultService.ListAttachments:output_type -> nexus.v1.ListAttachmentsResponse
+	88,  // 140: nexus.v1.VaultService.ImportNotes:output_type -> nexus.v1.ImportNotesResponse
+	106, // [106:141] is the sub-list for method output_type
+	71,  // [71:106] is the sub-list for method input_type
+	71,  // [71:71] is the sub-list for extension type_name
+	71,  // [71:71] is the sub-list for extension extendee
+	0,   // [0:71] is the sub-list for field type_name
 }
 
 func init() { file_nexus_v1_vault_proto_init() }
@@ -1473,13 +6265,14 @@ func file_nexus_v1_vault_proto_init() {
 		return
 	}
 	file_nexus_v1_common_proto_init()
+	file_nexus_v1_vault_proto_msgTypes[57].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_nexus_v1_vault_proto_rawDesc), len(file_nexus_v1_vault_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   20,
+			NumEnums:      2,
+			NumMessages:   89,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -49,6 +49,70 @@ const (
 	VaultServiceListFactsProcedure = "/nexus.v1.VaultService/ListFacts"
 	// VaultServiceReviewFactProcedure is the fully-qualified name of the VaultService's ReviewFact RPC.
 	VaultServiceReviewFactProcedure = "/nexus.v1.VaultService/ReviewFact"
+	// VaultServiceHistoryProcedure is the fully-qualified name of the VaultService's History RPC.
+	VaultServiceHistoryProcedure = "/nexus.v1.VaultService/History"
+	// VaultServiceGetVersionProcedure is the fully-qualified name of the VaultService's GetVersion RPC.
+	VaultServiceGetVersionProcedure = "/nexus.v1.VaultService/GetVersion"
+	// VaultServiceRestoreVersionProcedure is the fully-qualified name of the VaultService's
+	// RestoreVersion RPC.
+	VaultServiceRestoreVersionProcedure = "/nexus.v1.VaultService/RestoreVersion"
+	// VaultServiceDeleteNoteProcedure is the fully-qualified name of the VaultService's DeleteNote RPC.
+	VaultServiceDeleteNoteProcedure = "/nexus.v1.VaultService/DeleteNote"
+	// VaultServiceListTrashProcedure is the fully-qualified name of the VaultService's ListTrash RPC.
+	VaultServiceListTrashProcedure = "/nexus.v1.VaultService/ListTrash"
+	// VaultServiceRestoreFromTrashProcedure is the fully-qualified name of the VaultService's
+	// RestoreFromTrash RPC.
+	VaultServiceRestoreFromTrashProcedure = "/nexus.v1.VaultService/RestoreFromTrash"
+	// VaultServicePurgeTrashProcedure is the fully-qualified name of the VaultService's PurgeTrash RPC.
+	VaultServicePurgeTrashProcedure = "/nexus.v1.VaultService/PurgeTrash"
+	// VaultServiceRenameNoteProcedure is the fully-qualified name of the VaultService's RenameNote RPC.
+	VaultServiceRenameNoteProcedure = "/nexus.v1.VaultService/RenameNote"
+	// VaultServiceMergeNotesProcedure is the fully-qualified name of the VaultService's MergeNotes RPC.
+	VaultServiceMergeNotesProcedure = "/nexus.v1.VaultService/MergeNotes"
+	// VaultServiceSplitNoteProcedure is the fully-qualified name of the VaultService's SplitNote RPC.
+	VaultServiceSplitNoteProcedure = "/nexus.v1.VaultService/SplitNote"
+	// VaultServiceQueryProcedure is the fully-qualified name of the VaultService's Query RPC.
+	VaultServiceQueryProcedure = "/nexus.v1.VaultService/Query"
+	// VaultServiceRelatedProcedure is the fully-qualified name of the VaultService's Related RPC.
+	VaultServiceRelatedProcedure = "/nexus.v1.VaultService/Related"
+	// VaultServiceBacklinksProcedure is the fully-qualified name of the VaultService's Backlinks RPC.
+	VaultServiceBacklinksProcedure = "/nexus.v1.VaultService/Backlinks"
+	// VaultServiceGraphStatsProcedure is the fully-qualified name of the VaultService's GraphStats RPC.
+	VaultServiceGraphStatsProcedure = "/nexus.v1.VaultService/GraphStats"
+	// VaultServiceListNoteTasksProcedure is the fully-qualified name of the VaultService's
+	// ListNoteTasks RPC.
+	VaultServiceListNoteTasksProcedure = "/nexus.v1.VaultService/ListNoteTasks"
+	// VaultServiceToggleTaskProcedure is the fully-qualified name of the VaultService's ToggleTask RPC.
+	VaultServiceToggleTaskProcedure = "/nexus.v1.VaultService/ToggleTask"
+	// VaultServiceListTemplatesProcedure is the fully-qualified name of the VaultService's
+	// ListTemplates RPC.
+	VaultServiceListTemplatesProcedure = "/nexus.v1.VaultService/ListTemplates"
+	// VaultServiceNewFromTemplateProcedure is the fully-qualified name of the VaultService's
+	// NewFromTemplate RPC.
+	VaultServiceNewFromTemplateProcedure = "/nexus.v1.VaultService/NewFromTemplate"
+	// VaultServicePeriodicNoteProcedure is the fully-qualified name of the VaultService's PeriodicNote
+	// RPC.
+	VaultServicePeriodicNoteProcedure = "/nexus.v1.VaultService/PeriodicNote"
+	// VaultServiceCheckProcedure is the fully-qualified name of the VaultService's Check RPC.
+	VaultServiceCheckProcedure = "/nexus.v1.VaultService/Check"
+	// VaultServiceRepairProcedure is the fully-qualified name of the VaultService's Repair RPC.
+	VaultServiceRepairProcedure = "/nexus.v1.VaultService/Repair"
+	// VaultServiceBackupProcedure is the fully-qualified name of the VaultService's Backup RPC.
+	VaultServiceBackupProcedure = "/nexus.v1.VaultService/Backup"
+	// VaultServiceListBackupsProcedure is the fully-qualified name of the VaultService's ListBackups
+	// RPC.
+	VaultServiceListBackupsProcedure = "/nexus.v1.VaultService/ListBackups"
+	// VaultServiceVerifyBackupProcedure is the fully-qualified name of the VaultService's VerifyBackup
+	// RPC.
+	VaultServiceVerifyBackupProcedure = "/nexus.v1.VaultService/VerifyBackup"
+	// VaultServiceWatchVaultProcedure is the fully-qualified name of the VaultService's WatchVault RPC.
+	VaultServiceWatchVaultProcedure = "/nexus.v1.VaultService/WatchVault"
+	// VaultServiceListAttachmentsProcedure is the fully-qualified name of the VaultService's
+	// ListAttachments RPC.
+	VaultServiceListAttachmentsProcedure = "/nexus.v1.VaultService/ListAttachments"
+	// VaultServiceImportNotesProcedure is the fully-qualified name of the VaultService's ImportNotes
+	// RPC.
+	VaultServiceImportNotesProcedure = "/nexus.v1.VaultService/ImportNotes"
 )
 
 // VaultServiceClient is a client for the nexus.v1.VaultService service.
@@ -62,6 +126,57 @@ type VaultServiceClient interface {
 	Graph(context.Context, *connect.Request[v1.GraphRequest]) (*connect.Response[v1.GraphResponse], error)
 	ListFacts(context.Context, *connect.Request[v1.ListFactsRequest]) (*connect.Response[v1.ListFactsResponse], error)
 	ReviewFact(context.Context, *connect.Request[v1.ReviewFactRequest]) (*connect.Response[v1.ReviewFactResponse], error)
+	// --- Versioning and undo -------------------------------------------------
+	// History lists the versions of a note, newest first (git log, or the
+	// local snapshot store when the vault is not a git repo).
+	History(context.Context, *connect.Request[v1.HistoryRequest]) (*connect.Response[v1.HistoryResponse], error)
+	// GetVersion returns the Markdown of a note at a version.
+	GetVersion(context.Context, *connect.Request[v1.GetVersionRequest]) (*connect.Response[v1.GetVersionResponse], error)
+	// RestoreVersion writes an old version back as a new change.
+	RestoreVersion(context.Context, *connect.Request[v1.RestoreVersionRequest]) (*connect.Response[v1.RestoreVersionResponse], error)
+	// DeleteNote moves a note (or attachment) to the vault trash (.trash/).
+	DeleteNote(context.Context, *connect.Request[v1.DeleteNoteRequest]) (*connect.Response[v1.DeleteNoteResponse], error)
+	ListTrash(context.Context, *connect.Request[v1.ListTrashRequest]) (*connect.Response[v1.ListTrashResponse], error)
+	RestoreFromTrash(context.Context, *connect.Request[v1.RestoreFromTrashRequest]) (*connect.Response[v1.RestoreFromTrashResponse], error)
+	// PurgeTrash permanently deletes trash items (one id, or older than N days).
+	PurgeTrash(context.Context, *connect.Request[v1.PurgeTrashRequest]) (*connect.Response[v1.PurgeTrashResponse], error)
+	// --- Refactoring -----------------------------------------------------------
+	// RenameNote moves a note and rewrites every link to it.
+	RenameNote(context.Context, *connect.Request[v1.RenameNoteRequest]) (*connect.Response[v1.RenameNoteResponse], error)
+	// MergeNotes appends source into target, redirects links, trashes source.
+	MergeNotes(context.Context, *connect.Request[v1.MergeNotesRequest]) (*connect.Response[v1.MergeNotesResponse], error)
+	// SplitNote moves each section at a heading level into its own note.
+	SplitNote(context.Context, *connect.Request[v1.SplitNoteRequest]) (*connect.Response[v1.SplitNoteResponse], error)
+	// --- Queries, search and graph analytics ----------------------------------
+	// Query runs the vault query language, e.g.
+	// `type:person tag:work updated:>2026-09-01 links:[[ACME]] sort:-updated limit:20`.
+	Query(context.Context, *connect.Request[v1.QueryRequest]) (*connect.Response[v1.QueryResponse], error)
+	// Related returns notes related to a note (shared links + embeddings).
+	Related(context.Context, *connect.Request[v1.RelatedRequest]) (*connect.Response[v1.RelatedResponse], error)
+	// Backlinks returns linking notes with context lines and unlinked mentions.
+	Backlinks(context.Context, *connect.Request[v1.BacklinksRequest]) (*connect.Response[v1.BacklinksResponse], error)
+	// GraphStats returns orphans, hubs and totals.
+	GraphStats(context.Context, *connect.Request[v1.GraphStatsRequest]) (*connect.Response[v1.GraphStatsResponse], error)
+	// --- Tasks in notes ---------------------------------------------------------
+	ListNoteTasks(context.Context, *connect.Request[v1.ListNoteTasksRequest]) (*connect.Response[v1.ListNoteTasksResponse], error)
+	ToggleTask(context.Context, *connect.Request[v1.ToggleTaskRequest]) (*connect.Response[v1.ToggleTaskResponse], error)
+	// --- Templates and periodic notes ------------------------------------------
+	ListTemplates(context.Context, *connect.Request[v1.ListTemplatesRequest]) (*connect.Response[v1.ListTemplatesResponse], error)
+	NewFromTemplate(context.Context, *connect.Request[v1.NewFromTemplateRequest]) (*connect.Response[v1.NewFromTemplateResponse], error)
+	// PeriodicNote returns (creating when asked) the daily/weekly/monthly note.
+	PeriodicNote(context.Context, *connect.Request[v1.PeriodicNoteRequest]) (*connect.Response[v1.PeriodicNoteResponse], error)
+	// --- Integrity and backups -----------------------------------------------------
+	Check(context.Context, *connect.Request[v1.CheckRequest]) (*connect.Response[v1.CheckResponse], error)
+	Repair(context.Context, *connect.Request[v1.RepairRequest]) (*connect.Response[v1.RepairResponse], error)
+	Backup(context.Context, *connect.Request[v1.BackupRequest]) (*connect.Response[v1.BackupResponse], error)
+	ListBackups(context.Context, *connect.Request[v1.ListBackupsRequest]) (*connect.Response[v1.ListBackupsResponse], error)
+	VerifyBackup(context.Context, *connect.Request[v1.VerifyBackupRequest]) (*connect.Response[v1.VerifyBackupResponse], error)
+	// --- Change feed, attachments, import ------------------------------------------
+	// WatchVault streams note changes (created/updated/deleted/renamed).
+	WatchVault(context.Context, *connect.Request[v1.WatchVaultRequest]) (*connect.ServerStreamForClient[v1.WatchVaultResponse], error)
+	ListAttachments(context.Context, *connect.Request[v1.ListAttachmentsRequest]) (*connect.Response[v1.ListAttachmentsResponse], error)
+	// ImportNotes imports an Obsidian vault or a Markdown folder on the hub's disk.
+	ImportNotes(context.Context, *connect.Request[v1.ImportNotesRequest]) (*connect.Response[v1.ImportNotesResponse], error)
 }
 
 // NewVaultServiceClient constructs a client for the nexus.v1.VaultService service. By default, it
@@ -123,19 +238,208 @@ func NewVaultServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(vaultServiceMethods.ByName("ReviewFact")),
 			connect.WithClientOptions(opts...),
 		),
+		history: connect.NewClient[v1.HistoryRequest, v1.HistoryResponse](
+			httpClient,
+			baseURL+VaultServiceHistoryProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("History")),
+			connect.WithClientOptions(opts...),
+		),
+		getVersion: connect.NewClient[v1.GetVersionRequest, v1.GetVersionResponse](
+			httpClient,
+			baseURL+VaultServiceGetVersionProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("GetVersion")),
+			connect.WithClientOptions(opts...),
+		),
+		restoreVersion: connect.NewClient[v1.RestoreVersionRequest, v1.RestoreVersionResponse](
+			httpClient,
+			baseURL+VaultServiceRestoreVersionProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("RestoreVersion")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteNote: connect.NewClient[v1.DeleteNoteRequest, v1.DeleteNoteResponse](
+			httpClient,
+			baseURL+VaultServiceDeleteNoteProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("DeleteNote")),
+			connect.WithClientOptions(opts...),
+		),
+		listTrash: connect.NewClient[v1.ListTrashRequest, v1.ListTrashResponse](
+			httpClient,
+			baseURL+VaultServiceListTrashProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("ListTrash")),
+			connect.WithClientOptions(opts...),
+		),
+		restoreFromTrash: connect.NewClient[v1.RestoreFromTrashRequest, v1.RestoreFromTrashResponse](
+			httpClient,
+			baseURL+VaultServiceRestoreFromTrashProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("RestoreFromTrash")),
+			connect.WithClientOptions(opts...),
+		),
+		purgeTrash: connect.NewClient[v1.PurgeTrashRequest, v1.PurgeTrashResponse](
+			httpClient,
+			baseURL+VaultServicePurgeTrashProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("PurgeTrash")),
+			connect.WithClientOptions(opts...),
+		),
+		renameNote: connect.NewClient[v1.RenameNoteRequest, v1.RenameNoteResponse](
+			httpClient,
+			baseURL+VaultServiceRenameNoteProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("RenameNote")),
+			connect.WithClientOptions(opts...),
+		),
+		mergeNotes: connect.NewClient[v1.MergeNotesRequest, v1.MergeNotesResponse](
+			httpClient,
+			baseURL+VaultServiceMergeNotesProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("MergeNotes")),
+			connect.WithClientOptions(opts...),
+		),
+		splitNote: connect.NewClient[v1.SplitNoteRequest, v1.SplitNoteResponse](
+			httpClient,
+			baseURL+VaultServiceSplitNoteProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("SplitNote")),
+			connect.WithClientOptions(opts...),
+		),
+		query: connect.NewClient[v1.QueryRequest, v1.QueryResponse](
+			httpClient,
+			baseURL+VaultServiceQueryProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("Query")),
+			connect.WithClientOptions(opts...),
+		),
+		related: connect.NewClient[v1.RelatedRequest, v1.RelatedResponse](
+			httpClient,
+			baseURL+VaultServiceRelatedProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("Related")),
+			connect.WithClientOptions(opts...),
+		),
+		backlinks: connect.NewClient[v1.BacklinksRequest, v1.BacklinksResponse](
+			httpClient,
+			baseURL+VaultServiceBacklinksProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("Backlinks")),
+			connect.WithClientOptions(opts...),
+		),
+		graphStats: connect.NewClient[v1.GraphStatsRequest, v1.GraphStatsResponse](
+			httpClient,
+			baseURL+VaultServiceGraphStatsProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("GraphStats")),
+			connect.WithClientOptions(opts...),
+		),
+		listNoteTasks: connect.NewClient[v1.ListNoteTasksRequest, v1.ListNoteTasksResponse](
+			httpClient,
+			baseURL+VaultServiceListNoteTasksProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("ListNoteTasks")),
+			connect.WithClientOptions(opts...),
+		),
+		toggleTask: connect.NewClient[v1.ToggleTaskRequest, v1.ToggleTaskResponse](
+			httpClient,
+			baseURL+VaultServiceToggleTaskProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("ToggleTask")),
+			connect.WithClientOptions(opts...),
+		),
+		listTemplates: connect.NewClient[v1.ListTemplatesRequest, v1.ListTemplatesResponse](
+			httpClient,
+			baseURL+VaultServiceListTemplatesProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("ListTemplates")),
+			connect.WithClientOptions(opts...),
+		),
+		newFromTemplate: connect.NewClient[v1.NewFromTemplateRequest, v1.NewFromTemplateResponse](
+			httpClient,
+			baseURL+VaultServiceNewFromTemplateProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("NewFromTemplate")),
+			connect.WithClientOptions(opts...),
+		),
+		periodicNote: connect.NewClient[v1.PeriodicNoteRequest, v1.PeriodicNoteResponse](
+			httpClient,
+			baseURL+VaultServicePeriodicNoteProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("PeriodicNote")),
+			connect.WithClientOptions(opts...),
+		),
+		check: connect.NewClient[v1.CheckRequest, v1.CheckResponse](
+			httpClient,
+			baseURL+VaultServiceCheckProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("Check")),
+			connect.WithClientOptions(opts...),
+		),
+		repair: connect.NewClient[v1.RepairRequest, v1.RepairResponse](
+			httpClient,
+			baseURL+VaultServiceRepairProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("Repair")),
+			connect.WithClientOptions(opts...),
+		),
+		backup: connect.NewClient[v1.BackupRequest, v1.BackupResponse](
+			httpClient,
+			baseURL+VaultServiceBackupProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("Backup")),
+			connect.WithClientOptions(opts...),
+		),
+		listBackups: connect.NewClient[v1.ListBackupsRequest, v1.ListBackupsResponse](
+			httpClient,
+			baseURL+VaultServiceListBackupsProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("ListBackups")),
+			connect.WithClientOptions(opts...),
+		),
+		verifyBackup: connect.NewClient[v1.VerifyBackupRequest, v1.VerifyBackupResponse](
+			httpClient,
+			baseURL+VaultServiceVerifyBackupProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("VerifyBackup")),
+			connect.WithClientOptions(opts...),
+		),
+		watchVault: connect.NewClient[v1.WatchVaultRequest, v1.WatchVaultResponse](
+			httpClient,
+			baseURL+VaultServiceWatchVaultProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("WatchVault")),
+			connect.WithClientOptions(opts...),
+		),
+		listAttachments: connect.NewClient[v1.ListAttachmentsRequest, v1.ListAttachmentsResponse](
+			httpClient,
+			baseURL+VaultServiceListAttachmentsProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("ListAttachments")),
+			connect.WithClientOptions(opts...),
+		),
+		importNotes: connect.NewClient[v1.ImportNotesRequest, v1.ImportNotesResponse](
+			httpClient,
+			baseURL+VaultServiceImportNotesProcedure,
+			connect.WithSchema(vaultServiceMethods.ByName("ImportNotes")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // vaultServiceClient implements VaultServiceClient.
 type vaultServiceClient struct {
-	search     *connect.Client[v1.SearchRequest, v1.SearchResponse]
-	ask        *connect.Client[v1.AskRequest, v1.AskResponse]
-	getNote    *connect.Client[v1.GetNoteRequest, v1.GetNoteResponse]
-	writeNote  *connect.Client[v1.WriteNoteRequest, v1.WriteNoteResponse]
-	capture    *connect.Client[v1.CaptureRequest, v1.CaptureResponse]
-	graph      *connect.Client[v1.GraphRequest, v1.GraphResponse]
-	listFacts  *connect.Client[v1.ListFactsRequest, v1.ListFactsResponse]
-	reviewFact *connect.Client[v1.ReviewFactRequest, v1.ReviewFactResponse]
+	search           *connect.Client[v1.SearchRequest, v1.SearchResponse]
+	ask              *connect.Client[v1.AskRequest, v1.AskResponse]
+	getNote          *connect.Client[v1.GetNoteRequest, v1.GetNoteResponse]
+	writeNote        *connect.Client[v1.WriteNoteRequest, v1.WriteNoteResponse]
+	capture          *connect.Client[v1.CaptureRequest, v1.CaptureResponse]
+	graph            *connect.Client[v1.GraphRequest, v1.GraphResponse]
+	listFacts        *connect.Client[v1.ListFactsRequest, v1.ListFactsResponse]
+	reviewFact       *connect.Client[v1.ReviewFactRequest, v1.ReviewFactResponse]
+	history          *connect.Client[v1.HistoryRequest, v1.HistoryResponse]
+	getVersion       *connect.Client[v1.GetVersionRequest, v1.GetVersionResponse]
+	restoreVersion   *connect.Client[v1.RestoreVersionRequest, v1.RestoreVersionResponse]
+	deleteNote       *connect.Client[v1.DeleteNoteRequest, v1.DeleteNoteResponse]
+	listTrash        *connect.Client[v1.ListTrashRequest, v1.ListTrashResponse]
+	restoreFromTrash *connect.Client[v1.RestoreFromTrashRequest, v1.RestoreFromTrashResponse]
+	purgeTrash       *connect.Client[v1.PurgeTrashRequest, v1.PurgeTrashResponse]
+	renameNote       *connect.Client[v1.RenameNoteRequest, v1.RenameNoteResponse]
+	mergeNotes       *connect.Client[v1.MergeNotesRequest, v1.MergeNotesResponse]
+	splitNote        *connect.Client[v1.SplitNoteRequest, v1.SplitNoteResponse]
+	query            *connect.Client[v1.QueryRequest, v1.QueryResponse]
+	related          *connect.Client[v1.RelatedRequest, v1.RelatedResponse]
+	backlinks        *connect.Client[v1.BacklinksRequest, v1.BacklinksResponse]
+	graphStats       *connect.Client[v1.GraphStatsRequest, v1.GraphStatsResponse]
+	listNoteTasks    *connect.Client[v1.ListNoteTasksRequest, v1.ListNoteTasksResponse]
+	toggleTask       *connect.Client[v1.ToggleTaskRequest, v1.ToggleTaskResponse]
+	listTemplates    *connect.Client[v1.ListTemplatesRequest, v1.ListTemplatesResponse]
+	newFromTemplate  *connect.Client[v1.NewFromTemplateRequest, v1.NewFromTemplateResponse]
+	periodicNote     *connect.Client[v1.PeriodicNoteRequest, v1.PeriodicNoteResponse]
+	check            *connect.Client[v1.CheckRequest, v1.CheckResponse]
+	repair           *connect.Client[v1.RepairRequest, v1.RepairResponse]
+	backup           *connect.Client[v1.BackupRequest, v1.BackupResponse]
+	listBackups      *connect.Client[v1.ListBackupsRequest, v1.ListBackupsResponse]
+	verifyBackup     *connect.Client[v1.VerifyBackupRequest, v1.VerifyBackupResponse]
+	watchVault       *connect.Client[v1.WatchVaultRequest, v1.WatchVaultResponse]
+	listAttachments  *connect.Client[v1.ListAttachmentsRequest, v1.ListAttachmentsResponse]
+	importNotes      *connect.Client[v1.ImportNotesRequest, v1.ImportNotesResponse]
 }
 
 // Search calls nexus.v1.VaultService.Search.
@@ -178,6 +482,141 @@ func (c *vaultServiceClient) ReviewFact(ctx context.Context, req *connect.Reques
 	return c.reviewFact.CallUnary(ctx, req)
 }
 
+// History calls nexus.v1.VaultService.History.
+func (c *vaultServiceClient) History(ctx context.Context, req *connect.Request[v1.HistoryRequest]) (*connect.Response[v1.HistoryResponse], error) {
+	return c.history.CallUnary(ctx, req)
+}
+
+// GetVersion calls nexus.v1.VaultService.GetVersion.
+func (c *vaultServiceClient) GetVersion(ctx context.Context, req *connect.Request[v1.GetVersionRequest]) (*connect.Response[v1.GetVersionResponse], error) {
+	return c.getVersion.CallUnary(ctx, req)
+}
+
+// RestoreVersion calls nexus.v1.VaultService.RestoreVersion.
+func (c *vaultServiceClient) RestoreVersion(ctx context.Context, req *connect.Request[v1.RestoreVersionRequest]) (*connect.Response[v1.RestoreVersionResponse], error) {
+	return c.restoreVersion.CallUnary(ctx, req)
+}
+
+// DeleteNote calls nexus.v1.VaultService.DeleteNote.
+func (c *vaultServiceClient) DeleteNote(ctx context.Context, req *connect.Request[v1.DeleteNoteRequest]) (*connect.Response[v1.DeleteNoteResponse], error) {
+	return c.deleteNote.CallUnary(ctx, req)
+}
+
+// ListTrash calls nexus.v1.VaultService.ListTrash.
+func (c *vaultServiceClient) ListTrash(ctx context.Context, req *connect.Request[v1.ListTrashRequest]) (*connect.Response[v1.ListTrashResponse], error) {
+	return c.listTrash.CallUnary(ctx, req)
+}
+
+// RestoreFromTrash calls nexus.v1.VaultService.RestoreFromTrash.
+func (c *vaultServiceClient) RestoreFromTrash(ctx context.Context, req *connect.Request[v1.RestoreFromTrashRequest]) (*connect.Response[v1.RestoreFromTrashResponse], error) {
+	return c.restoreFromTrash.CallUnary(ctx, req)
+}
+
+// PurgeTrash calls nexus.v1.VaultService.PurgeTrash.
+func (c *vaultServiceClient) PurgeTrash(ctx context.Context, req *connect.Request[v1.PurgeTrashRequest]) (*connect.Response[v1.PurgeTrashResponse], error) {
+	return c.purgeTrash.CallUnary(ctx, req)
+}
+
+// RenameNote calls nexus.v1.VaultService.RenameNote.
+func (c *vaultServiceClient) RenameNote(ctx context.Context, req *connect.Request[v1.RenameNoteRequest]) (*connect.Response[v1.RenameNoteResponse], error) {
+	return c.renameNote.CallUnary(ctx, req)
+}
+
+// MergeNotes calls nexus.v1.VaultService.MergeNotes.
+func (c *vaultServiceClient) MergeNotes(ctx context.Context, req *connect.Request[v1.MergeNotesRequest]) (*connect.Response[v1.MergeNotesResponse], error) {
+	return c.mergeNotes.CallUnary(ctx, req)
+}
+
+// SplitNote calls nexus.v1.VaultService.SplitNote.
+func (c *vaultServiceClient) SplitNote(ctx context.Context, req *connect.Request[v1.SplitNoteRequest]) (*connect.Response[v1.SplitNoteResponse], error) {
+	return c.splitNote.CallUnary(ctx, req)
+}
+
+// Query calls nexus.v1.VaultService.Query.
+func (c *vaultServiceClient) Query(ctx context.Context, req *connect.Request[v1.QueryRequest]) (*connect.Response[v1.QueryResponse], error) {
+	return c.query.CallUnary(ctx, req)
+}
+
+// Related calls nexus.v1.VaultService.Related.
+func (c *vaultServiceClient) Related(ctx context.Context, req *connect.Request[v1.RelatedRequest]) (*connect.Response[v1.RelatedResponse], error) {
+	return c.related.CallUnary(ctx, req)
+}
+
+// Backlinks calls nexus.v1.VaultService.Backlinks.
+func (c *vaultServiceClient) Backlinks(ctx context.Context, req *connect.Request[v1.BacklinksRequest]) (*connect.Response[v1.BacklinksResponse], error) {
+	return c.backlinks.CallUnary(ctx, req)
+}
+
+// GraphStats calls nexus.v1.VaultService.GraphStats.
+func (c *vaultServiceClient) GraphStats(ctx context.Context, req *connect.Request[v1.GraphStatsRequest]) (*connect.Response[v1.GraphStatsResponse], error) {
+	return c.graphStats.CallUnary(ctx, req)
+}
+
+// ListNoteTasks calls nexus.v1.VaultService.ListNoteTasks.
+func (c *vaultServiceClient) ListNoteTasks(ctx context.Context, req *connect.Request[v1.ListNoteTasksRequest]) (*connect.Response[v1.ListNoteTasksResponse], error) {
+	return c.listNoteTasks.CallUnary(ctx, req)
+}
+
+// ToggleTask calls nexus.v1.VaultService.ToggleTask.
+func (c *vaultServiceClient) ToggleTask(ctx context.Context, req *connect.Request[v1.ToggleTaskRequest]) (*connect.Response[v1.ToggleTaskResponse], error) {
+	return c.toggleTask.CallUnary(ctx, req)
+}
+
+// ListTemplates calls nexus.v1.VaultService.ListTemplates.
+func (c *vaultServiceClient) ListTemplates(ctx context.Context, req *connect.Request[v1.ListTemplatesRequest]) (*connect.Response[v1.ListTemplatesResponse], error) {
+	return c.listTemplates.CallUnary(ctx, req)
+}
+
+// NewFromTemplate calls nexus.v1.VaultService.NewFromTemplate.
+func (c *vaultServiceClient) NewFromTemplate(ctx context.Context, req *connect.Request[v1.NewFromTemplateRequest]) (*connect.Response[v1.NewFromTemplateResponse], error) {
+	return c.newFromTemplate.CallUnary(ctx, req)
+}
+
+// PeriodicNote calls nexus.v1.VaultService.PeriodicNote.
+func (c *vaultServiceClient) PeriodicNote(ctx context.Context, req *connect.Request[v1.PeriodicNoteRequest]) (*connect.Response[v1.PeriodicNoteResponse], error) {
+	return c.periodicNote.CallUnary(ctx, req)
+}
+
+// Check calls nexus.v1.VaultService.Check.
+func (c *vaultServiceClient) Check(ctx context.Context, req *connect.Request[v1.CheckRequest]) (*connect.Response[v1.CheckResponse], error) {
+	return c.check.CallUnary(ctx, req)
+}
+
+// Repair calls nexus.v1.VaultService.Repair.
+func (c *vaultServiceClient) Repair(ctx context.Context, req *connect.Request[v1.RepairRequest]) (*connect.Response[v1.RepairResponse], error) {
+	return c.repair.CallUnary(ctx, req)
+}
+
+// Backup calls nexus.v1.VaultService.Backup.
+func (c *vaultServiceClient) Backup(ctx context.Context, req *connect.Request[v1.BackupRequest]) (*connect.Response[v1.BackupResponse], error) {
+	return c.backup.CallUnary(ctx, req)
+}
+
+// ListBackups calls nexus.v1.VaultService.ListBackups.
+func (c *vaultServiceClient) ListBackups(ctx context.Context, req *connect.Request[v1.ListBackupsRequest]) (*connect.Response[v1.ListBackupsResponse], error) {
+	return c.listBackups.CallUnary(ctx, req)
+}
+
+// VerifyBackup calls nexus.v1.VaultService.VerifyBackup.
+func (c *vaultServiceClient) VerifyBackup(ctx context.Context, req *connect.Request[v1.VerifyBackupRequest]) (*connect.Response[v1.VerifyBackupResponse], error) {
+	return c.verifyBackup.CallUnary(ctx, req)
+}
+
+// WatchVault calls nexus.v1.VaultService.WatchVault.
+func (c *vaultServiceClient) WatchVault(ctx context.Context, req *connect.Request[v1.WatchVaultRequest]) (*connect.ServerStreamForClient[v1.WatchVaultResponse], error) {
+	return c.watchVault.CallServerStream(ctx, req)
+}
+
+// ListAttachments calls nexus.v1.VaultService.ListAttachments.
+func (c *vaultServiceClient) ListAttachments(ctx context.Context, req *connect.Request[v1.ListAttachmentsRequest]) (*connect.Response[v1.ListAttachmentsResponse], error) {
+	return c.listAttachments.CallUnary(ctx, req)
+}
+
+// ImportNotes calls nexus.v1.VaultService.ImportNotes.
+func (c *vaultServiceClient) ImportNotes(ctx context.Context, req *connect.Request[v1.ImportNotesRequest]) (*connect.Response[v1.ImportNotesResponse], error) {
+	return c.importNotes.CallUnary(ctx, req)
+}
+
 // VaultServiceHandler is an implementation of the nexus.v1.VaultService service.
 type VaultServiceHandler interface {
 	Search(context.Context, *connect.Request[v1.SearchRequest]) (*connect.Response[v1.SearchResponse], error)
@@ -189,6 +628,57 @@ type VaultServiceHandler interface {
 	Graph(context.Context, *connect.Request[v1.GraphRequest]) (*connect.Response[v1.GraphResponse], error)
 	ListFacts(context.Context, *connect.Request[v1.ListFactsRequest]) (*connect.Response[v1.ListFactsResponse], error)
 	ReviewFact(context.Context, *connect.Request[v1.ReviewFactRequest]) (*connect.Response[v1.ReviewFactResponse], error)
+	// --- Versioning and undo -------------------------------------------------
+	// History lists the versions of a note, newest first (git log, or the
+	// local snapshot store when the vault is not a git repo).
+	History(context.Context, *connect.Request[v1.HistoryRequest]) (*connect.Response[v1.HistoryResponse], error)
+	// GetVersion returns the Markdown of a note at a version.
+	GetVersion(context.Context, *connect.Request[v1.GetVersionRequest]) (*connect.Response[v1.GetVersionResponse], error)
+	// RestoreVersion writes an old version back as a new change.
+	RestoreVersion(context.Context, *connect.Request[v1.RestoreVersionRequest]) (*connect.Response[v1.RestoreVersionResponse], error)
+	// DeleteNote moves a note (or attachment) to the vault trash (.trash/).
+	DeleteNote(context.Context, *connect.Request[v1.DeleteNoteRequest]) (*connect.Response[v1.DeleteNoteResponse], error)
+	ListTrash(context.Context, *connect.Request[v1.ListTrashRequest]) (*connect.Response[v1.ListTrashResponse], error)
+	RestoreFromTrash(context.Context, *connect.Request[v1.RestoreFromTrashRequest]) (*connect.Response[v1.RestoreFromTrashResponse], error)
+	// PurgeTrash permanently deletes trash items (one id, or older than N days).
+	PurgeTrash(context.Context, *connect.Request[v1.PurgeTrashRequest]) (*connect.Response[v1.PurgeTrashResponse], error)
+	// --- Refactoring -----------------------------------------------------------
+	// RenameNote moves a note and rewrites every link to it.
+	RenameNote(context.Context, *connect.Request[v1.RenameNoteRequest]) (*connect.Response[v1.RenameNoteResponse], error)
+	// MergeNotes appends source into target, redirects links, trashes source.
+	MergeNotes(context.Context, *connect.Request[v1.MergeNotesRequest]) (*connect.Response[v1.MergeNotesResponse], error)
+	// SplitNote moves each section at a heading level into its own note.
+	SplitNote(context.Context, *connect.Request[v1.SplitNoteRequest]) (*connect.Response[v1.SplitNoteResponse], error)
+	// --- Queries, search and graph analytics ----------------------------------
+	// Query runs the vault query language, e.g.
+	// `type:person tag:work updated:>2026-09-01 links:[[ACME]] sort:-updated limit:20`.
+	Query(context.Context, *connect.Request[v1.QueryRequest]) (*connect.Response[v1.QueryResponse], error)
+	// Related returns notes related to a note (shared links + embeddings).
+	Related(context.Context, *connect.Request[v1.RelatedRequest]) (*connect.Response[v1.RelatedResponse], error)
+	// Backlinks returns linking notes with context lines and unlinked mentions.
+	Backlinks(context.Context, *connect.Request[v1.BacklinksRequest]) (*connect.Response[v1.BacklinksResponse], error)
+	// GraphStats returns orphans, hubs and totals.
+	GraphStats(context.Context, *connect.Request[v1.GraphStatsRequest]) (*connect.Response[v1.GraphStatsResponse], error)
+	// --- Tasks in notes ---------------------------------------------------------
+	ListNoteTasks(context.Context, *connect.Request[v1.ListNoteTasksRequest]) (*connect.Response[v1.ListNoteTasksResponse], error)
+	ToggleTask(context.Context, *connect.Request[v1.ToggleTaskRequest]) (*connect.Response[v1.ToggleTaskResponse], error)
+	// --- Templates and periodic notes ------------------------------------------
+	ListTemplates(context.Context, *connect.Request[v1.ListTemplatesRequest]) (*connect.Response[v1.ListTemplatesResponse], error)
+	NewFromTemplate(context.Context, *connect.Request[v1.NewFromTemplateRequest]) (*connect.Response[v1.NewFromTemplateResponse], error)
+	// PeriodicNote returns (creating when asked) the daily/weekly/monthly note.
+	PeriodicNote(context.Context, *connect.Request[v1.PeriodicNoteRequest]) (*connect.Response[v1.PeriodicNoteResponse], error)
+	// --- Integrity and backups -----------------------------------------------------
+	Check(context.Context, *connect.Request[v1.CheckRequest]) (*connect.Response[v1.CheckResponse], error)
+	Repair(context.Context, *connect.Request[v1.RepairRequest]) (*connect.Response[v1.RepairResponse], error)
+	Backup(context.Context, *connect.Request[v1.BackupRequest]) (*connect.Response[v1.BackupResponse], error)
+	ListBackups(context.Context, *connect.Request[v1.ListBackupsRequest]) (*connect.Response[v1.ListBackupsResponse], error)
+	VerifyBackup(context.Context, *connect.Request[v1.VerifyBackupRequest]) (*connect.Response[v1.VerifyBackupResponse], error)
+	// --- Change feed, attachments, import ------------------------------------------
+	// WatchVault streams note changes (created/updated/deleted/renamed).
+	WatchVault(context.Context, *connect.Request[v1.WatchVaultRequest], *connect.ServerStream[v1.WatchVaultResponse]) error
+	ListAttachments(context.Context, *connect.Request[v1.ListAttachmentsRequest]) (*connect.Response[v1.ListAttachmentsResponse], error)
+	// ImportNotes imports an Obsidian vault or a Markdown folder on the hub's disk.
+	ImportNotes(context.Context, *connect.Request[v1.ImportNotesRequest]) (*connect.Response[v1.ImportNotesResponse], error)
 }
 
 // NewVaultServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -246,6 +736,168 @@ func NewVaultServiceHandler(svc VaultServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(vaultServiceMethods.ByName("ReviewFact")),
 		connect.WithHandlerOptions(opts...),
 	)
+	vaultServiceHistoryHandler := connect.NewUnaryHandler(
+		VaultServiceHistoryProcedure,
+		svc.History,
+		connect.WithSchema(vaultServiceMethods.ByName("History")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vaultServiceGetVersionHandler := connect.NewUnaryHandler(
+		VaultServiceGetVersionProcedure,
+		svc.GetVersion,
+		connect.WithSchema(vaultServiceMethods.ByName("GetVersion")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vaultServiceRestoreVersionHandler := connect.NewUnaryHandler(
+		VaultServiceRestoreVersionProcedure,
+		svc.RestoreVersion,
+		connect.WithSchema(vaultServiceMethods.ByName("RestoreVersion")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vaultServiceDeleteNoteHandler := connect.NewUnaryHandler(
+		VaultServiceDeleteNoteProcedure,
+		svc.DeleteNote,
+		connect.WithSchema(vaultServiceMethods.ByName("DeleteNote")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vaultServiceListTrashHandler := connect.NewUnaryHandler(
+		VaultServiceListTrashProcedure,
+		svc.ListTrash,
+		connect.WithSchema(vaultServiceMethods.ByName("ListTrash")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vaultServiceRestoreFromTrashHandler := connect.NewUnaryHandler(
+		VaultServiceRestoreFromTrashProcedure,
+		svc.RestoreFromTrash,
+		connect.WithSchema(vaultServiceMethods.ByName("RestoreFromTrash")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vaultServicePurgeTrashHandler := connect.NewUnaryHandler(
+		VaultServicePurgeTrashProcedure,
+		svc.PurgeTrash,
+		connect.WithSchema(vaultServiceMethods.ByName("PurgeTrash")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vaultServiceRenameNoteHandler := connect.NewUnaryHandler(
+		VaultServiceRenameNoteProcedure,
+		svc.RenameNote,
+		connect.WithSchema(vaultServiceMethods.ByName("RenameNote")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vaultServiceMergeNotesHandler := connect.NewUnaryHandler(
+		VaultServiceMergeNotesProcedure,
+		svc.MergeNotes,
+		connect.WithSchema(vaultServiceMethods.ByName("MergeNotes")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vaultServiceSplitNoteHandler := connect.NewUnaryHandler(
+		VaultServiceSplitNoteProcedure,
+		svc.SplitNote,
+		connect.WithSchema(vaultServiceMethods.ByName("SplitNote")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vaultServiceQueryHandler := connect.NewUnaryHandler(
+		VaultServiceQueryProcedure,
+		svc.Query,
+		connect.WithSchema(vaultServiceMethods.ByName("Query")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vaultServiceRelatedHandler := connect.NewUnaryHandler(
+		VaultServiceRelatedProcedure,
+		svc.Related,
+		connect.WithSchema(vaultServiceMethods.ByName("Related")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vaultServiceBacklinksHandler := connect.NewUnaryHandler(
+		VaultServiceBacklinksProcedure,
+		svc.Backlinks,
+		connect.WithSchema(vaultServiceMethods.ByName("Backlinks")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vaultServiceGraphStatsHandler := connect.NewUnaryHandler(
+		VaultServiceGraphStatsProcedure,
+		svc.GraphStats,
+		connect.WithSchema(vaultServiceMethods.ByName("GraphStats")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vaultServiceListNoteTasksHandler := connect.NewUnaryHandler(
+		VaultServiceListNoteTasksProcedure,
+		svc.ListNoteTasks,
+		connect.WithSchema(vaultServiceMethods.ByName("ListNoteTasks")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vaultServiceToggleTaskHandler := connect.NewUnaryHandler(
+		VaultServiceToggleTaskProcedure,
+		svc.ToggleTask,
+		connect.WithSchema(vaultServiceMethods.ByName("ToggleTask")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vaultServiceListTemplatesHandler := connect.NewUnaryHandler(
+		VaultServiceListTemplatesProcedure,
+		svc.ListTemplates,
+		connect.WithSchema(vaultServiceMethods.ByName("ListTemplates")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vaultServiceNewFromTemplateHandler := connect.NewUnaryHandler(
+		VaultServiceNewFromTemplateProcedure,
+		svc.NewFromTemplate,
+		connect.WithSchema(vaultServiceMethods.ByName("NewFromTemplate")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vaultServicePeriodicNoteHandler := connect.NewUnaryHandler(
+		VaultServicePeriodicNoteProcedure,
+		svc.PeriodicNote,
+		connect.WithSchema(vaultServiceMethods.ByName("PeriodicNote")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vaultServiceCheckHandler := connect.NewUnaryHandler(
+		VaultServiceCheckProcedure,
+		svc.Check,
+		connect.WithSchema(vaultServiceMethods.ByName("Check")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vaultServiceRepairHandler := connect.NewUnaryHandler(
+		VaultServiceRepairProcedure,
+		svc.Repair,
+		connect.WithSchema(vaultServiceMethods.ByName("Repair")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vaultServiceBackupHandler := connect.NewUnaryHandler(
+		VaultServiceBackupProcedure,
+		svc.Backup,
+		connect.WithSchema(vaultServiceMethods.ByName("Backup")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vaultServiceListBackupsHandler := connect.NewUnaryHandler(
+		VaultServiceListBackupsProcedure,
+		svc.ListBackups,
+		connect.WithSchema(vaultServiceMethods.ByName("ListBackups")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vaultServiceVerifyBackupHandler := connect.NewUnaryHandler(
+		VaultServiceVerifyBackupProcedure,
+		svc.VerifyBackup,
+		connect.WithSchema(vaultServiceMethods.ByName("VerifyBackup")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vaultServiceWatchVaultHandler := connect.NewServerStreamHandler(
+		VaultServiceWatchVaultProcedure,
+		svc.WatchVault,
+		connect.WithSchema(vaultServiceMethods.ByName("WatchVault")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vaultServiceListAttachmentsHandler := connect.NewUnaryHandler(
+		VaultServiceListAttachmentsProcedure,
+		svc.ListAttachments,
+		connect.WithSchema(vaultServiceMethods.ByName("ListAttachments")),
+		connect.WithHandlerOptions(opts...),
+	)
+	vaultServiceImportNotesHandler := connect.NewUnaryHandler(
+		VaultServiceImportNotesProcedure,
+		svc.ImportNotes,
+		connect.WithSchema(vaultServiceMethods.ByName("ImportNotes")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/nexus.v1.VaultService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case VaultServiceSearchProcedure:
@@ -264,6 +916,60 @@ func NewVaultServiceHandler(svc VaultServiceHandler, opts ...connect.HandlerOpti
 			vaultServiceListFactsHandler.ServeHTTP(w, r)
 		case VaultServiceReviewFactProcedure:
 			vaultServiceReviewFactHandler.ServeHTTP(w, r)
+		case VaultServiceHistoryProcedure:
+			vaultServiceHistoryHandler.ServeHTTP(w, r)
+		case VaultServiceGetVersionProcedure:
+			vaultServiceGetVersionHandler.ServeHTTP(w, r)
+		case VaultServiceRestoreVersionProcedure:
+			vaultServiceRestoreVersionHandler.ServeHTTP(w, r)
+		case VaultServiceDeleteNoteProcedure:
+			vaultServiceDeleteNoteHandler.ServeHTTP(w, r)
+		case VaultServiceListTrashProcedure:
+			vaultServiceListTrashHandler.ServeHTTP(w, r)
+		case VaultServiceRestoreFromTrashProcedure:
+			vaultServiceRestoreFromTrashHandler.ServeHTTP(w, r)
+		case VaultServicePurgeTrashProcedure:
+			vaultServicePurgeTrashHandler.ServeHTTP(w, r)
+		case VaultServiceRenameNoteProcedure:
+			vaultServiceRenameNoteHandler.ServeHTTP(w, r)
+		case VaultServiceMergeNotesProcedure:
+			vaultServiceMergeNotesHandler.ServeHTTP(w, r)
+		case VaultServiceSplitNoteProcedure:
+			vaultServiceSplitNoteHandler.ServeHTTP(w, r)
+		case VaultServiceQueryProcedure:
+			vaultServiceQueryHandler.ServeHTTP(w, r)
+		case VaultServiceRelatedProcedure:
+			vaultServiceRelatedHandler.ServeHTTP(w, r)
+		case VaultServiceBacklinksProcedure:
+			vaultServiceBacklinksHandler.ServeHTTP(w, r)
+		case VaultServiceGraphStatsProcedure:
+			vaultServiceGraphStatsHandler.ServeHTTP(w, r)
+		case VaultServiceListNoteTasksProcedure:
+			vaultServiceListNoteTasksHandler.ServeHTTP(w, r)
+		case VaultServiceToggleTaskProcedure:
+			vaultServiceToggleTaskHandler.ServeHTTP(w, r)
+		case VaultServiceListTemplatesProcedure:
+			vaultServiceListTemplatesHandler.ServeHTTP(w, r)
+		case VaultServiceNewFromTemplateProcedure:
+			vaultServiceNewFromTemplateHandler.ServeHTTP(w, r)
+		case VaultServicePeriodicNoteProcedure:
+			vaultServicePeriodicNoteHandler.ServeHTTP(w, r)
+		case VaultServiceCheckProcedure:
+			vaultServiceCheckHandler.ServeHTTP(w, r)
+		case VaultServiceRepairProcedure:
+			vaultServiceRepairHandler.ServeHTTP(w, r)
+		case VaultServiceBackupProcedure:
+			vaultServiceBackupHandler.ServeHTTP(w, r)
+		case VaultServiceListBackupsProcedure:
+			vaultServiceListBackupsHandler.ServeHTTP(w, r)
+		case VaultServiceVerifyBackupProcedure:
+			vaultServiceVerifyBackupHandler.ServeHTTP(w, r)
+		case VaultServiceWatchVaultProcedure:
+			vaultServiceWatchVaultHandler.ServeHTTP(w, r)
+		case VaultServiceListAttachmentsProcedure:
+			vaultServiceListAttachmentsHandler.ServeHTTP(w, r)
+		case VaultServiceImportNotesProcedure:
+			vaultServiceImportNotesHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -303,4 +1009,112 @@ func (UnimplementedVaultServiceHandler) ListFacts(context.Context, *connect.Requ
 
 func (UnimplementedVaultServiceHandler) ReviewFact(context.Context, *connect.Request[v1.ReviewFactRequest]) (*connect.Response[v1.ReviewFactResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.ReviewFact is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) History(context.Context, *connect.Request[v1.HistoryRequest]) (*connect.Response[v1.HistoryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.History is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) GetVersion(context.Context, *connect.Request[v1.GetVersionRequest]) (*connect.Response[v1.GetVersionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.GetVersion is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) RestoreVersion(context.Context, *connect.Request[v1.RestoreVersionRequest]) (*connect.Response[v1.RestoreVersionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.RestoreVersion is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) DeleteNote(context.Context, *connect.Request[v1.DeleteNoteRequest]) (*connect.Response[v1.DeleteNoteResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.DeleteNote is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) ListTrash(context.Context, *connect.Request[v1.ListTrashRequest]) (*connect.Response[v1.ListTrashResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.ListTrash is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) RestoreFromTrash(context.Context, *connect.Request[v1.RestoreFromTrashRequest]) (*connect.Response[v1.RestoreFromTrashResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.RestoreFromTrash is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) PurgeTrash(context.Context, *connect.Request[v1.PurgeTrashRequest]) (*connect.Response[v1.PurgeTrashResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.PurgeTrash is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) RenameNote(context.Context, *connect.Request[v1.RenameNoteRequest]) (*connect.Response[v1.RenameNoteResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.RenameNote is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) MergeNotes(context.Context, *connect.Request[v1.MergeNotesRequest]) (*connect.Response[v1.MergeNotesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.MergeNotes is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) SplitNote(context.Context, *connect.Request[v1.SplitNoteRequest]) (*connect.Response[v1.SplitNoteResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.SplitNote is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) Query(context.Context, *connect.Request[v1.QueryRequest]) (*connect.Response[v1.QueryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.Query is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) Related(context.Context, *connect.Request[v1.RelatedRequest]) (*connect.Response[v1.RelatedResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.Related is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) Backlinks(context.Context, *connect.Request[v1.BacklinksRequest]) (*connect.Response[v1.BacklinksResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.Backlinks is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) GraphStats(context.Context, *connect.Request[v1.GraphStatsRequest]) (*connect.Response[v1.GraphStatsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.GraphStats is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) ListNoteTasks(context.Context, *connect.Request[v1.ListNoteTasksRequest]) (*connect.Response[v1.ListNoteTasksResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.ListNoteTasks is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) ToggleTask(context.Context, *connect.Request[v1.ToggleTaskRequest]) (*connect.Response[v1.ToggleTaskResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.ToggleTask is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) ListTemplates(context.Context, *connect.Request[v1.ListTemplatesRequest]) (*connect.Response[v1.ListTemplatesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.ListTemplates is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) NewFromTemplate(context.Context, *connect.Request[v1.NewFromTemplateRequest]) (*connect.Response[v1.NewFromTemplateResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.NewFromTemplate is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) PeriodicNote(context.Context, *connect.Request[v1.PeriodicNoteRequest]) (*connect.Response[v1.PeriodicNoteResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.PeriodicNote is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) Check(context.Context, *connect.Request[v1.CheckRequest]) (*connect.Response[v1.CheckResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.Check is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) Repair(context.Context, *connect.Request[v1.RepairRequest]) (*connect.Response[v1.RepairResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.Repair is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) Backup(context.Context, *connect.Request[v1.BackupRequest]) (*connect.Response[v1.BackupResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.Backup is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) ListBackups(context.Context, *connect.Request[v1.ListBackupsRequest]) (*connect.Response[v1.ListBackupsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.ListBackups is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) VerifyBackup(context.Context, *connect.Request[v1.VerifyBackupRequest]) (*connect.Response[v1.VerifyBackupResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.VerifyBackup is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) WatchVault(context.Context, *connect.Request[v1.WatchVaultRequest], *connect.ServerStream[v1.WatchVaultResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.WatchVault is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) ListAttachments(context.Context, *connect.Request[v1.ListAttachmentsRequest]) (*connect.Response[v1.ListAttachmentsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.ListAttachments is not implemented"))
+}
+
+func (UnimplementedVaultServiceHandler) ImportNotes(context.Context, *connect.Request[v1.ImportNotesRequest]) (*connect.Response[v1.ImportNotesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nexus.v1.VaultService.ImportNotes is not implemented"))
 }

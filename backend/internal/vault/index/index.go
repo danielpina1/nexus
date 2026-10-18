@@ -4,8 +4,11 @@
 //
 // Schema (index.db, separate from the hub store):
 //
-//	notes(rowid, path UNIQUE, id, type, title, name, aliases JSON, tags JSON, hash, updated unix-ms)
-//	edges(src path, dst normalised target, relation, raw target, heading, embed)
+//	notes(rowid, path UNIQUE, id, type, title, name, aliases JSON, tags JSON, hash, updated unix-ms,
+//	      fm JSON frontmatter, created unix-ms, size bytes)
+//	edges(src path, dst normalised target, relation, raw target, heading, embed, line)
+//	tasks(path, line, status, done, text, due, scheduled, start, done_date, priority, tags JSON, raw)
+//	attachments(rowid, path UNIQUE, hash, size, mime, modified, taken, text) + attachments_fts(name, text)
 //	notes_fts(title, aliases, body, tags)   -- FTS5, rowid = notes.rowid
 //	vectors(path, chunk, hash, text, vec)   -- optional embeddings (see vector.go)
 //	kv(key, value)                          -- small module state (capture idempotency)
@@ -48,7 +51,10 @@ var schema = []string{
 		aliases TEXT NOT NULL DEFAULT '[]',
 		tags TEXT NOT NULL DEFAULT '[]',
 		hash TEXT NOT NULL DEFAULT '',
-		updated INTEGER NOT NULL DEFAULT 0
+		updated INTEGER NOT NULL DEFAULT 0,
+		fm TEXT NOT NULL DEFAULT '{}',
+		created INTEGER NOT NULL DEFAULT 0,
+		size INTEGER NOT NULL DEFAULT 0
 	)`,
 	`CREATE INDEX IF NOT EXISTS notes_id ON notes(id)`,
 	`CREATE INDEX IF NOT EXISTS notes_type ON notes(type)`,
@@ -59,7 +65,8 @@ var schema = []string{
 		relation TEXT NOT NULL,
 		raw TEXT NOT NULL,
 		heading TEXT NOT NULL DEFAULT '',
-		embed INTEGER NOT NULL DEFAULT 0
+		embed INTEGER NOT NULL DEFAULT 0,
+		line INTEGER NOT NULL DEFAULT 0
 	)`,
 	`CREATE INDEX IF NOT EXISTS edges_src ON edges(src)`,
 	`CREATE INDEX IF NOT EXISTS edges_dst ON edges(dst)`,
@@ -73,6 +80,47 @@ var schema = []string{
 		PRIMARY KEY(path, chunk)
 	)`,
 	`CREATE TABLE IF NOT EXISTS kv(key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
+	`CREATE TABLE IF NOT EXISTS tasks(
+		path TEXT NOT NULL,
+		line INTEGER NOT NULL,
+		status TEXT NOT NULL,
+		done INTEGER NOT NULL,
+		text TEXT NOT NULL,
+		due TEXT NOT NULL DEFAULT '',
+		scheduled TEXT NOT NULL DEFAULT '',
+		start TEXT NOT NULL DEFAULT '',
+		done_date TEXT NOT NULL DEFAULT '',
+		priority TEXT NOT NULL DEFAULT '',
+		tags TEXT NOT NULL DEFAULT '[]',
+		raw TEXT NOT NULL
+	)`,
+	`CREATE INDEX IF NOT EXISTS tasks_path ON tasks(path)`,
+	`CREATE INDEX IF NOT EXISTS tasks_due ON tasks(due)`,
+	`CREATE TABLE IF NOT EXISTS attachments(
+		rowid INTEGER PRIMARY KEY,
+		path TEXT NOT NULL UNIQUE,
+		hash TEXT NOT NULL,
+		size INTEGER NOT NULL,
+		mime TEXT NOT NULL DEFAULT '',
+		modified INTEGER NOT NULL DEFAULT 0,
+		taken INTEGER NOT NULL DEFAULT 0,
+		text TEXT NOT NULL DEFAULT ''
+	)`,
+	`CREATE INDEX IF NOT EXISTS attachments_hash ON attachments(hash)`,
+	`CREATE TABLE IF NOT EXISTS attachment_refs(src TEXT NOT NULL, target TEXT NOT NULL)`,
+	`CREATE INDEX IF NOT EXISTS attachment_refs_src ON attachment_refs(src)`,
+	`CREATE VIRTUAL TABLE IF NOT EXISTS attachments_fts USING fts5(name, text, tokenize='unicode61 remove_diacritics 2')`,
+}
+
+// schemaVersion bumps force a re-index of every note (new derived columns).
+const schemaVersion = "2"
+
+// migrations add columns to databases created by older versions.
+var migrations = []struct{ table, column, ddl string }{
+	{"notes", "fm", `ALTER TABLE notes ADD COLUMN fm TEXT NOT NULL DEFAULT '{}'`},
+	{"notes", "created", `ALTER TABLE notes ADD COLUMN created INTEGER NOT NULL DEFAULT 0`},
+	{"notes", "size", `ALTER TABLE notes ADD COLUMN size INTEGER NOT NULL DEFAULT 0`},
+	{"edges", "line", `ALTER TABLE edges ADD COLUMN line INTEGER NOT NULL DEFAULT 0`},
 }
 
 // Entry is an indexed note.
@@ -85,6 +133,12 @@ type Entry struct {
 	Tags    []string
 	Hash    string
 	Updated time.Time
+	// Frontmatter is the parsed YAML (JSON-compatible values).
+	Frontmatter map[string]any
+	// Created is the frontmatter created/date value, else Updated.
+	Created time.Time
+	// Size is the content size in bytes.
+	Size int64
 }
 
 // Key is the stable identifier exposed in APIs: the frontmatter id, or the
@@ -108,6 +162,34 @@ type Index struct {
 
 	vmu sync.RWMutex
 	vec VectorSearcher
+
+	hmu     sync.RWMutex
+	decode  func(rel string, raw []byte) ([]byte, error)
+	private func(rel string) bool
+	extract AttachmentExtractor
+}
+
+// SetDecoder sets the function that turns on-disk bytes into note text
+// (decryption). Files that fail to decode are indexed by name only.
+func (ix *Index) SetDecoder(fn func(rel string, raw []byte) ([]byte, error)) {
+	ix.hmu.Lock()
+	ix.decode = fn
+	ix.hmu.Unlock()
+}
+
+// SetPrivate marks notes whose body and tasks must not be indexed (only
+// title, aliases, tags and links are).
+func (ix *Index) SetPrivate(fn func(rel string) bool) {
+	ix.hmu.Lock()
+	ix.private = fn
+	ix.hmu.Unlock()
+}
+
+func (ix *Index) isPrivate(rel string) bool {
+	ix.hmu.RLock()
+	fn := ix.private
+	ix.hmu.RUnlock()
+	return fn != nil && fn(rel)
 }
 
 // Open opens or creates the index database at path.
@@ -129,13 +211,50 @@ func OpenMemory() (*Index, error) {
 }
 
 func newIndex(db *sql.DB) (*Index, error) {
-	for _, s := range schema {
-		if _, err := db.Exec(s); err != nil {
-			db.Close()
-			return nil, fmt.Errorf("index schema: %w", err)
-		}
+	if err := migrate(db); err != nil {
+		db.Close()
+		return nil, err
 	}
 	return &Index{db: db}, nil
+}
+
+func migrate(db *sql.DB) error {
+	// Old databases: add the missing columns before the CREATE INDEX
+	// statements that may reference them.
+	for _, m := range migrations {
+		var n int
+		if err := db.QueryRow(`SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?`, m.table).Scan(&n); err != nil {
+			return fmt.Errorf("index schema: %w", err)
+		}
+		if n == 0 {
+			continue // created fresh below
+		}
+		if err := db.QueryRow(`SELECT count(*) FROM pragma_table_info(?) WHERE name = ?`, m.table, m.column).Scan(&n); err != nil {
+			return fmt.Errorf("index schema: %w", err)
+		}
+		if n == 0 {
+			if _, err := db.Exec(m.ddl); err != nil {
+				return fmt.Errorf("index migrate: %w", err)
+			}
+		}
+	}
+	for _, s := range schema {
+		if _, err := db.Exec(s); err != nil {
+			return fmt.Errorf("index schema: %w", err)
+		}
+	}
+	var v string
+	_ = db.QueryRow(`SELECT value FROM kv WHERE key = 'schema'`).Scan(&v)
+	if v != schemaVersion {
+		// Derived columns changed: force every note to be re-indexed.
+		if _, err := db.Exec(`UPDATE notes SET hash = ''`); err != nil {
+			return err
+		}
+		if _, err := db.Exec(`INSERT INTO kv(key, value) VALUES('schema', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, schemaVersion); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // DB exposes the database (vector store, module state).
@@ -210,6 +329,19 @@ func (ix *Index) Upsert(ctx context.Context, rel string, src []byte, updated tim
 	n := note.Parse(rel, src)
 	aliases, _ := json.Marshal(nonNil(n.Aliases))
 	tags, _ := json.Marshal(nonNil(n.Tags))
+	fm, err := json.Marshal(n.Frontmatter)
+	if err != nil {
+		fm = []byte("{}")
+	}
+	created := frontmatterTime(n.Frontmatter, "created", "date")
+	if created.IsZero() {
+		created = updated
+	}
+	private := ix.isPrivate(rel)
+	body := n.Body
+	if private {
+		body = ""
+	}
 
 	ix.wmu.Lock()
 	defer ix.wmu.Unlock()
@@ -221,19 +353,36 @@ func (ix *Index) Upsert(ctx context.Context, rel string, src []byte, updated tim
 	if err := deleteTx(ctx, tx, rel); err != nil {
 		return false, err
 	}
-	res, err := tx.ExecContext(ctx, `INSERT INTO notes(path, id, type, title, name, aliases, tags, hash, updated) VALUES(?,?,?,?,?,?,?,?,?)`,
-		rel, n.ID, n.Type, n.Title, baseName(rel), string(aliases), string(tags), h, updated.UnixMilli())
+	res, err := tx.ExecContext(ctx, `INSERT INTO notes(path, id, type, title, name, aliases, tags, hash, updated, fm, created, size) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`,
+		rel, n.ID, n.Type, n.Title, baseName(rel), string(aliases), string(tags), h, updated.UnixMilli(), string(fm), created.UnixMilli(), len(src))
 	if err != nil {
 		return false, err
 	}
 	rowid, _ := res.LastInsertId()
 	if _, err := tx.ExecContext(ctx, `INSERT INTO notes_fts(rowid, title, aliases, body, tags) VALUES(?,?,?,?,?)`,
-		rowid, n.Title, strings.Join(n.Aliases, " "), n.Body, strings.Join(n.Tags, " ")); err != nil {
+		rowid, n.Title, strings.Join(n.Aliases, " "), body, strings.Join(n.Tags, " ")); err != nil {
 		return false, err
+	}
+	if !private {
+		for _, t := range n.Tasks {
+			done := 0
+			if t.Done {
+				done = 1
+			}
+			ttags, _ := json.Marshal(nonNil(t.Tags))
+			if _, err := tx.ExecContext(ctx, `INSERT INTO tasks(path, line, status, done, text, due, scheduled, start, done_date, priority, tags, raw) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`,
+				rel, t.Line, t.Status, done, t.Text, t.Due, t.Scheduled, t.Start, t.DoneDate, t.Priority, string(ttags), t.Raw); err != nil {
+				return false, err
+			}
+		}
 	}
 	seen := map[string]bool{}
 	for _, l := range n.Links {
 		if isAttachment(l.Target) {
+			t := strings.ToLower(strings.TrimPrefix(strings.ReplaceAll(l.Target, "%20", " "), "./"))
+			if _, err := tx.ExecContext(ctx, `INSERT INTO attachment_refs(src, target) VALUES(?,?)`, rel, t); err != nil {
+				return false, err
+			}
 			continue
 		}
 		dst := NormalizeTarget(l.Target)
@@ -246,8 +395,8 @@ func (ix *Index) Upsert(ctx context.Context, rel string, src []byte, updated tim
 		if l.Embed {
 			embed = 1
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO edges(src, dst, relation, raw, heading, embed) VALUES(?,?,?,?,?,?)`,
-			rel, dst, l.Relation, l.Target, l.Heading, embed); err != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO edges(src, dst, relation, raw, heading, embed, line) VALUES(?,?,?,?,?,?,?)`,
+			rel, dst, l.Relation, l.Target, l.Heading, embed, l.Line); err != nil {
 			return false, err
 		}
 	}
@@ -274,6 +423,16 @@ func (ix *Index) UpsertFile(ctx context.Context, root, rel string) (bool, error)
 	b, err := os.ReadFile(p)
 	if err != nil {
 		return false, err
+	}
+	ix.hmu.RLock()
+	dec := ix.decode
+	ix.hmu.RUnlock()
+	if dec != nil {
+		plain, err := dec(rel, b)
+		if err != nil {
+			plain = nil // undecodable (no key): indexed by name only
+		}
+		b = plain
 	}
 	return ix.Upsert(ctx, rel, b, fi.ModTime())
 }
@@ -314,6 +473,12 @@ func deleteTx(ctx context.Context, tx *sql.Tx, rel string) error {
 			return err
 		}
 	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM tasks WHERE path = ?`, rel); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM attachment_refs WHERE src = ?`, rel); err != nil {
+		return err
+	}
 	_, err = tx.ExecContext(ctx, `DELETE FROM edges WHERE src = ?`, rel)
 	return err
 }
@@ -321,6 +486,8 @@ func deleteTx(ctx context.Context, tx *sql.Tx, rel string) error {
 // SyncStats reports what Sync did.
 type SyncStats struct {
 	Scanned, Updated, Removed int
+	// Attachments is the number of attachment files seen.
+	Attachments int
 }
 
 // Sync brings the index up to date with the files under root (incremental:
@@ -358,13 +525,16 @@ func (ix *Index) Sync(ctx context.Context, root string) (SyncStats, error) {
 			st.Removed++
 		}
 	}
+	if err := ix.syncAttachments(ctx, root, &st); err != nil {
+		return st, err
+	}
 	return st, nil
 }
 
 // Rebuild drops every indexed note and re-indexes root from scratch.
 func (ix *Index) Rebuild(ctx context.Context, root string) (SyncStats, error) {
 	ix.wmu.Lock()
-	for _, q := range []string{`DELETE FROM notes_fts`, `DELETE FROM notes`, `DELETE FROM edges`, `DELETE FROM vectors`} {
+	for _, q := range []string{`DELETE FROM notes_fts`, `DELETE FROM notes`, `DELETE FROM edges`, `DELETE FROM vectors`, `DELETE FROM tasks`, `DELETE FROM attachments`, `DELETE FROM attachments_fts`, `DELETE FROM attachment_refs`} {
 		if _, err := ix.db.ExecContext(ctx, q); err != nil {
 			ix.wmu.Unlock()
 			return SyncStats{}, err
@@ -392,17 +562,55 @@ func (ix *Index) paths(ctx context.Context) ([]string, error) {
 	return out, rows.Err()
 }
 
-const entryCols = `path, id, type, title, aliases, tags, hash, updated`
+const entryCols = `path, id, type, title, aliases, tags, hash, updated, fm, created, size`
 
-func scanEntry(sc interface{ Scan(...any) error }) (*Entry, error) {
+// entryColsN is entryCols qualified with the "n" table alias.
+const entryColsN = `n.path, n.id, n.type, n.title, n.aliases, n.tags, n.hash, n.updated, n.fm, n.created, n.size`
+
+func scanEntry(sc interface{ Scan(...any) error }, extra ...any) (*Entry, error) {
 	var e Entry
-	var aliases, tags string
-	var updated int64
-	if err := sc.Scan(&e.Path, &e.ID, &e.Type, &e.Title, &aliases, &tags, &e.Hash, &updated); err != nil {
+	var aliases, tags, fm string
+	var updated, created int64
+	dst := append([]any{&e.Path, &e.ID, &e.Type, &e.Title, &aliases, &tags, &e.Hash, &updated, &fm, &created, &e.Size}, extra...)
+	if err := sc.Scan(dst...); err != nil {
 		return nil, err
 	}
 	fill(&e, aliases, tags, updated)
+	_ = json.Unmarshal([]byte(fm), &e.Frontmatter)
+	if e.Frontmatter == nil {
+		e.Frontmatter = map[string]any{}
+	}
+	e.Created = time.UnixMilli(created)
+	if created == 0 {
+		e.Created = e.Updated
+	}
 	return &e, nil
+}
+
+// frontmatterTime parses the first date-like frontmatter value of keys.
+func frontmatterTime(fm map[string]any, keys ...string) time.Time {
+	for _, k := range keys {
+		if t, ok := ParseTime(fm[k]); ok {
+			return t
+		}
+	}
+	return time.Time{}
+}
+
+// ParseTime parses a frontmatter date (RFC 3339, "YYYY-MM-DD",
+// "YYYY-MM-DD HH:MM", "YYYY-MM-DDTHH:MM").
+func ParseTime(v any) (time.Time, bool) {
+	s, ok := v.(string)
+	if !ok {
+		return time.Time{}, false
+	}
+	s = strings.TrimSpace(s)
+	for _, layout := range []string{time.RFC3339Nano, "2006-01-02T15:04:05", "2006-01-02 15:04:05", "2006-01-02T15:04", "2006-01-02 15:04", "2006-01-02"} {
+		if t, err := time.ParseInLocation(layout, s, time.Local); err == nil {
+			return t, true
+		}
+	}
+	return time.Time{}, false
 }
 
 func (ix *Index) queryEntries(ctx context.Context, q string, args ...any) ([]*Entry, error) {
