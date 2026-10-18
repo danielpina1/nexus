@@ -103,8 +103,11 @@ type ProviderConfig struct {
 	// is used as given. Endpoint suffixes such as /chat/completions are
 	// stripped.
 	BaseURL string `yaml:"base_url"`
-	// API is the wire flavour: "openai" (default) or "anthropic".
+	// API is the wire flavour: "openai" (default) or "anthropic", or a
+	// subscription CLI: "claude-cli" (Claude Code) or "codex-cli" (Codex).
 	API string `yaml:"api"`
+	// Binary is the CLI to run for claude-cli / codex-cli (default claude / codex).
+	Binary string `yaml:"binary"`
 	// Kind is a deprecated synonym of API.
 	Kind string `yaml:"kind"`
 	// APIKeyEnv names the environment variable holding the key.
@@ -257,13 +260,16 @@ func (c *Config) validate() error {
 		return errors.New("llm: no providers configured")
 	}
 	for name, p := range c.Providers {
+		if isCLIAPI(p.api()) {
+			continue // a local CLI: no URL, auth or TLS settings
+		}
 		if _, err := NormalizeBaseURL(p.BaseURL); err != nil {
 			return fmt.Errorf("llm: provider %q: %w", name, err)
 		}
 		switch p.api() {
 		case APIOpenAI, APIAnthropic:
 		default:
-			return fmt.Errorf("llm: provider %q: unknown api %q (use openai or anthropic)", name, p.api())
+			return fmt.Errorf("llm: provider %q: unknown api %q (use openai, anthropic, claude-cli or codex-cli)", name, p.api())
 		}
 		mode, _ := p.authMode()
 		switch mode {

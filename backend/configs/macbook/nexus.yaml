@@ -68,12 +68,30 @@ vault:
   embed_model: embed
 
 # --- Models (hub side: router, vault Ask, memory) ----------------------------
-# Default: subscriptions only. Agents run on Claude Code / Codex (your Claude
-# and ChatGPT subscriptions) on the node; no local model runs on this Mac.
-# The router then uses rules and what it learned from your choices, and vault
-# search is keyword-based (FTS5).
+# Default: subscriptions only, no local model runs on this Mac. Agents run on
+# Claude Code / Codex on the node; the hub's own small jobs (picking an agent
+# when unsure, drafting agents, summaries) also go through the Claude Code CLI
+# (your Claude subscription; Haiku for routing), falling back to Codex.
+# Vault search is keyword-based (FTS5) without a local embedding model.
 # Local models (optional): scripts/mac/setup.sh --with-ollama (or run-local.sh
-# --with-ollama) uncomments the Ollama block below. Check with `nexusd llm check`.
+# --with-ollama) swaps this block for the Ollama one below.
+# Check with `nexusd llm check` (docs/MODELS.md).
+# >>> subscriptions
+llm:
+  default_provider: claude
+  providers:
+    claude: { api: claude-cli, timeout: 90s }   # binary: claude (logged in: `claude` → /login)
+    codex:  { api: codex-cli, timeout: 120s }   # binary: codex  (logged in: `codex login`)
+  aliases:
+    fast-local: { provider: claude, model: haiku, fallback: [{ provider: codex }] }
+    smart:      { provider: claude, model: sonnet, fallback: [{ provider: codex }] }
+    best:       { provider: claude, model: opus, fallback: [{ provider: codex }] }
+  health:
+    failure_threshold: 3
+    cooldown: 30s
+    max_cooldown: 10m
+  max_retries: 0
+# <<< subscriptions
 # >>> ollama
 #~ llm:
 #~   default_provider: ollama

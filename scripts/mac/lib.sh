@@ -202,11 +202,13 @@ render_node_config() {
   return 0
 }
 
-# enable_ollama FILE — uncomment the "# >>> ollama … # <<< ollama" block of
-# a MacBook profile and turn vault embeddings on (local models are opt-in).
+# enable_ollama FILE — in a MacBook profile, comment out the subscriptions
+# llm block, uncomment the "# >>> ollama … # <<< ollama" one and turn vault
+# embeddings on (local models are opt-in).
 enable_ollama() {
   local f="$1"
-  sed -e '/^# >>> ollama/,/^# <<< ollama/ s/^#~ \{0,1\}//' \
+  sed -e '/^# >>> subscriptions/,/^# <<< subscriptions/{' -e '/^#/!s/^/#~ /' -e '}' \
+      -e '/^# >>> ollama/,/^# <<< ollama/ s/^#~ \{0,1\}//' \
       -e 's/embeddings: false # ollama-embeddings/embeddings: true/' "$f" > "$f.tmp" &&
     cat "$f.tmp" > "$f" && rm -f "$f.tmp"
 }
