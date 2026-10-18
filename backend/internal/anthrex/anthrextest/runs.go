@@ -29,7 +29,7 @@ func Task(id, title, state, role string, input, output uint64) map[string]any {
 	if role != "" {
 		rounds = append(rounds, map[string]any{
 			"role": role, "session": uint32(1), "round": uint32(1), "window_id": uint32(5),
-			"route": map[string]any{"runtime": "claude", "model": "opus", "effort": "high"},
+			"route":      map[string]any{"runtime": "claude", "model": "opus", "effort": "high"},
 			"session_id": nil, "started_at": uint64(1_700_000_000), "ended_at": nil, "tool_calls": uint32(4),
 			"last_event": uint64(0), "turn_open": false, "turns": uint32(1), "rate_limited": false,
 			"open_subagents": uint32(0), "denials": uint32(0),
@@ -40,7 +40,7 @@ func Task(id, title, state, role string, input, output uint64) map[string]any {
 		"id": id, "title": title, "epic": nil, "kind": "code", "size": "M", "hub": false,
 		"test_mode": "check", "test_mode_reason": nil, "notes": []any{}, "owns": []any{}, "deps": []any{},
 		"implicit_deps": []any{}, "priority": int32(0),
-		"route": map[string]any{"runtime": "claude", "model": "opus", "effort": "high"},
+		"route":        map[string]any{"runtime": "claude", "model": "opus", "effort": "high"},
 		"review_route": nil, "budget": map[string]any{"tool_calls": uint32(100), "minutes": uint32(30), "tokens": nil},
 		"spent_session": map[string]any{"tool_calls": uint32(0), "secs": uint64(0), "tokens": uint64(0)},
 		"spent_total":   map[string]any{"tool_calls": uint32(4), "secs": uint64(60), "tokens": input + output},

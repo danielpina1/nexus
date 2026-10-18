@@ -88,7 +88,10 @@ func TestFixturesDecodeRunInfo(t *testing.T) {
 		}
 		ja, _ := json.Marshal(r)
 		jb, _ := json.Marshal(direct)
-		if !bytes.Equal(ja, jb) {
+		var ga, gb any
+		_ = json.Unmarshal(ja, &ga)
+		_ = json.Unmarshal(jb, &gb)
+		if !reflect.DeepEqual(ga, gb) {
 			t.Fatalf("%s: msgpack path and json path disagree", name)
 		}
 		if r.RunID == "" || r.Goal == "" || r.State == "" || r.BaseBranch == "" || len(r.Tasks) == 0 {

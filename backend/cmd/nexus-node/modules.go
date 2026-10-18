@@ -5,6 +5,7 @@ package main
 import (
 	_ "github.com/danielpina1/nexus/backend/internal/llm"
 	_ "github.com/danielpina1/nexus/backend/internal/node"
+	_ "github.com/danielpina1/nexus/backend/internal/runtime/anthrex"
 	_ "github.com/danielpina1/nexus/backend/internal/runtime/browser"
 	_ "github.com/danielpina1/nexus/backend/internal/runtime/claudecode"
 	_ "github.com/danielpina1/nexus/backend/internal/runtime/codex"

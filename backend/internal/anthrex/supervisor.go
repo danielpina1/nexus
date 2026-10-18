@@ -273,6 +273,12 @@ func (s *Supervisor) Message(ctx context.Context, runID, to, text, kind string) 
 	return s.done(ctx, ReqEdit(runID, []any{e}, false))
 }
 
+// Edit sends RunRequest::Edit with generic PlanEdit values (EditMessage,
+// EditAnswer…).
+func (s *Supervisor) Edit(ctx context.Context, runID string, edits []any) (string, error) {
+	return s.done(ctx, ReqEdit(runID, edits, false))
+}
+
 // Cancel implements API.
 func (s *Supervisor) Cancel(ctx context.Context, runID string) (string, error) {
 	return s.done(ctx, ReqCancel(runID))

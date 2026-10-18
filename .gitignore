@@ -26,3 +26,8 @@ data/
 .DS_Store
 .idea/
 .vscode/
+
+# Built binaries (go build in backend/)
+backend/nexus
+backend/nexusd
+backend/nexus-node
