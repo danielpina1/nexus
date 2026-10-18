@@ -20,11 +20,15 @@ export interface ChatMessage {
   choices?: string[];
   /** The input that produced a router question, to re-send with the chosen route. */
   originalInput?: string;
+  /** "Create a new agent for this": the architect draft the router started. */
+  draftId?: string;
 }
 
 interface ChatState {
   messages: ChatMessage[];
   activeTaskId?: string;
+  /** A page the chat wants to open (consumed by the Chat page), e.g. a new architect draft. */
+  pendingNav?: string;
   setActiveTask: (id: string | undefined) => void;
   send: (input: string, opts?: { agentId?: string }) => Promise<ChatMessage | undefined>;
   clear: () => void;
@@ -109,6 +113,7 @@ export const useChat = create<ChatState>((set, get) => ({
         useEvents.getState().upsertTasks([res.task]);
         set({ activeTaskId: res.task.id });
       }
+      const draftId = res.route?.params?.architect_draft_id;
       const done: Partial<ChatMessage> = {
         pending: false,
         route: res.route,
@@ -117,8 +122,10 @@ export const useChat = create<ChatState>((set, get) => ({
         text: res.question || res.answer || (res.task ? "" : "Done."),
         choices: res.question ? res.choices : undefined,
         originalInput: res.question ? text : undefined,
+        draftId: typeof draftId === "string" && draftId ? draftId : undefined,
       };
       patch(done);
+      if (done.draftId) set({ pendingNav: `/architect/${done.draftId}` });
       return { ...reply, ...done };
     } catch (err) {
       patch({ pending: false, error: errorMessage(err), text: "" });
