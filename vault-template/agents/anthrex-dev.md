@@ -1,7 +1,7 @@
 ---
 type: agent
 id: anthrex-dev
-name: Anthrex developer
+name: Talos · Anthrex developer
 description: Delivers a coding goal in one of your repositories through Anthrex — plans it into
   tasks, runs Claude Code / Codex workers in git worktrees, checks, reviews and merges them into a
   run branch, then asks you before merging into the base branch. Use for multi-step features,

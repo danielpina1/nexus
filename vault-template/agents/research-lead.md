@@ -1,7 +1,7 @@
 ---
 type: agent
 id: research-lead
-name: Research lead
+name: Apollo · Research lead
 description: Plans and synthesises big research questions — splits them into sub-questions, has
   researchers investigate them in parallel (via the deep-research workflow) and writes the final
   report linked to existing notes. Use for "deep dive", "full report on", "estudo aprofundado".

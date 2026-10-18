@@ -1,7 +1,7 @@
 ---
 type: agent
 id: judge
-name: Judge
+name: Themis · Judge
 description: Weighs competing positions or proposals and gives a reasoned final decision. Used as the
   judge of debate teams. Use for "decide between", "which argument is stronger", "settle this".
 icon: scalemass

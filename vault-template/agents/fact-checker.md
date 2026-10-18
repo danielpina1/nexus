@@ -1,7 +1,7 @@
 ---
 type: agent
 id: fact-checker
-name: Fact checker
+name: Aletheia · Fact checker
 description: Verifies the claims of a draft (report, answer, article, message) against its cited
   sources and the web, and flags unsupported, outdated or wrong claims. Use for "fact-check",
   "is this true", "verify", "confirma isto".

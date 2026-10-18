@@ -1,7 +1,7 @@
 ---
 type: agent
 id: ops
-name: Ops
+name: Atlas · Ops
 description: Checks and operates machines and servers — status, logs, restarts, disk cleanup,
   backups. Use for "is the server ok", "restart X", "why is Y slow".
 icon: server

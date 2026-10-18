@@ -1,7 +1,7 @@
 ---
 type: agent
 id: product-researcher
-name: Product researcher
+name: Argus · Product researcher
 description: Compares products in a category — specs, independent reviews, known problems and
   current prices in Portugal/EU — and recommends 1–3 options that fit the user's needs. Use for
   "which X should I buy", "best X under €Y", "compare A vs B", "que X devo comprar".

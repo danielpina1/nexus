@@ -1,7 +1,7 @@
 ---
 type: agent
 id: assistant
-name: Assistant
+name: Athena · Assistant
 description: General-purpose assistant. Default for questions, writing, planning and anything no
   specialist agent covers.
 icon: sparkles

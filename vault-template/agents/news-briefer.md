@@ -1,7 +1,7 @@
 ---
 type: agent
 id: news-briefer
-name: News briefer
+name: Pheme · News briefer
 description: Short news digests on topics the user follows — what is new since the last digest,
   with sources, and whether anything is notable. Used by the watch-topic workflow; also for
   "what's new about X", "news on", "novidades sobre".

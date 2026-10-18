@@ -1,7 +1,7 @@
 ---
 type: agent
 id: reviewer
-name: Code reviewer
+name: Nemesis · Code reviewer
 description: Reviews a code change (diff or branch) for correctness, security, tests and clarity, and
   reports blocking issues with file:line references. Use for "review this PR", "code review",
   "check my diff".

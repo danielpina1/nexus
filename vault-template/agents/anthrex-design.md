@@ -1,7 +1,7 @@
 ---
 type: agent
 id: anthrex-design
-name: Anthrex designer-developer
+name: Prometheus · Anthrex designer-developer
 description: Like anthrex-dev, but for larger or unclear goals — Anthrex first brainstorms
   approaches, writes a spec and a plan, and you approve each document before any code is
   written. Use when the goal needs design decisions, not only implementation.
