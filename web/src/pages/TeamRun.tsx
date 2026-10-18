@@ -445,7 +445,10 @@ export default function TeamRun() {
   const totals = runTotals(runQ.data, tree, root);
   const limits = runQ.data?.limits ?? team?.limits;
   const roles = useMemo(() => [...new Set([...(team?.members.map((m) => m.role) ?? []), ...tree.filter((t) => t.id !== rootId && t.role).map((t) => t.role)])], [team, tree, rootId]);
-  const stopped = runQ.data?.stoppedReason ?? "";
+  // A run that ended normally carries "team run ended (succeeded)": only real
+  // stops (budget, limits, timeout, cancel, failure) are shown as an alert.
+  const stopReason = runQ.data?.stoppedReason ?? "";
+  const stopped = stopReason && root?.state !== TaskState.SUCCEEDED && !/\(succeeded\)/.test(stopReason) ? stopReason : "";
 
   if (!root) {
     if (runQ.isError) return <ErrorState error={runQ.error} onRetry={() => runQ.refetch()} />;
@@ -478,7 +481,7 @@ export default function TeamRun() {
         <ArrowLeft className="size-3.5" aria-hidden /> {team?.name ?? "Teams"}
       </Link>
 
-      <div className="mb-5 flex flex-wrap items-start gap-3">
+      <div className="relative mb-5 flex flex-wrap items-start gap-3 max-sm:pr-12">
         <TeamIcon id={root.teamId || "tree"} icon={team?.icon} size="lg" />
         <div className="min-w-0 flex-1 basis-60">
           <h1 className="text-[22px] leading-tight font-semibold tracking-[-0.01em] break-words text-fg">{root.title || root.prompt}</h1>
@@ -500,8 +503,8 @@ export default function TeamRun() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link to={`/tasks/${root.id}`} className={buttonClass("ghost")}>
-            <ExternalLink className="size-3.5" aria-hidden /> Root task
+          <Link to={`/tasks/${root.id}`} className={`${buttonClass("ghost")} max-sm:absolute max-sm:top-0 max-sm:right-0`} aria-label="Root task">
+            <ExternalLink className="size-3.5" aria-hidden /> <span className="max-sm:hidden">Root task</span>
           </Link>
           {active && (
             <ConfirmButton

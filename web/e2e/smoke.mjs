@@ -184,7 +184,7 @@ await step("Teams: list, detail and live validation", async () => {
   await page.getByRole("tab", { name: "Edit" }).click();
   const md = page.getByTestId("team-markdown");
   await md.waitFor();
-  await page.getByText(/^Valid/).first().waitFor({ timeout: 10_000 });
+  await page.getByText(/^\s*Valid\b/).first().waitFor({ timeout: 10_000 });
   // Break the strategy: UpsertTeam{validate_only} reports it and Save is disabled.
   const text = await md.inputValue();
   await md.fill(text.replace(/^strategy:.*$/m, "strategy: nonsense"));
@@ -213,7 +213,7 @@ await step("Architect: start screen and draft list", async () => {
   await page.getByTestId("architect-request").waitFor({ timeout: 10_000 });
   await page.getByText("Drafts", { exact: true }).waitFor();
   // The list resolves to rows or the empty state (no endless skeleton).
-  await page.locator("[data-testid=draft-row], text=/No open drafts|No drafts yet/").first().waitFor({ timeout: 10_000 });
+  await page.getByTestId("draft-row").or(page.getByText(/No open drafts|No drafts yet/)).first().waitFor({ timeout: 10_000 });
 });
 
 await step("⌘K offers “Create an agent…”", async () => {
