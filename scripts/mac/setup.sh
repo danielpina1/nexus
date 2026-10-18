@@ -5,11 +5,13 @@
 # Ollama with local models, Chrome for the shopping agent, the Claude Code /
 # Codex CLIs (your subscriptions), launchd agents, and the dashboard.
 #
-#   scripts/mac/setup.sh [--dry-run] [--yes] [--skip-models] [--skip-services]
+#   scripts/mac/setup.sh [--dry-run] [--yes] [--with-ollama] [--skip-models] [--skip-services]
 #
 #   --dry-run        print every step and command, change nothing
 #   --yes            answer yes to every question (installs, model pulls…)
-#   --skip-models    don't pull Ollama models
+#   --with-ollama    also set up local models in Ollama (default: Claude Code
+#                    and Codex subscriptions only; no local model runs)
+#   --skip-models    don't pull Ollama models (with --with-ollama)
 #   --skip-services  don't install launchd agents (run the Hub yourself)
 #
 # Safe to re-run: existing configs, vault, pairing and binaries are kept
@@ -29,6 +31,7 @@ for a in "$@"; do
     --dry-run) DRY_RUN=1 ;;
     --yes|-y) ASSUME_YES=1 ;;
     --skip-models) SKIP_MODELS=1 ;;
+    --with-ollama) export NEXUS_WITH_OLLAMA=1 ;;
     --skip-services) SKIP_SERVICES=1 ;;
     -h|--help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) die "unknown flag $a (see --help)" ;;
@@ -89,11 +92,13 @@ else
 fi
 
 # -----------------------------------------------------------------------------
-step "Command-line tools (go, node, buf, ollama, xcodegen)"
+TOOLS="go node buf xcodegen"
+[[ "${NEXUS_WITH_OLLAMA:-0}" == 1 ]] && TOOLS="go node buf ollama xcodegen"
+step "Command-line tools ($TOOLS)"
 info "go: builds the Hub and node · node: builds the dashboard · buf: regenerates API code (make gen)"
-info "ollama: local models · xcodegen: generates the iOS Xcode project"
+info "xcodegen: generates the iOS Xcode project${NEXUS_WITH_OLLAMA:+ · ollama: local models}"
 missing=()
-for f in go node buf ollama xcodegen; do
+for f in $TOOLS; do
   if have "$f"; then ok "$f: $(command -v "$f")"; else missing+=("$f"); fi
 done
 if [[ ${#missing[@]} -gt 0 ]]; then
@@ -236,13 +241,16 @@ if [[ -f "$NODE_CFG" ]]; then
 else
   run mkdir -p "$NEXUS_NODE_DIR"
   run cp "$REPO_ROOT/backend/configs/macbook/node.yaml" "$NODE_CFG"
+  [[ "${NEXUS_WITH_OLLAMA:-0}" == 1 && "$DRY_RUN" != 1 ]] && enable_ollama "$NODE_CFG"
   run chmod 600 "$NODE_CFG"
   info "node id \"$NEXUS_NODE_ID\", tags [mac, dev, browser] — edit node.tags to add always-on/gpu (see the comments)"
 fi
 
 # -----------------------------------------------------------------------------
 step "Ollama and local models"
-if curl -fsS --max-time 2 http://localhost:11434/api/version >/dev/null 2>&1; then
+if [[ "${NEXUS_WITH_OLLAMA:-0}" != 1 ]]; then
+  ok "skipped: subscriptions only (Claude Code + Codex); no local models (add --with-ollama to use them)"
+elif curl -fsS --max-time 2 http://localhost:11434/api/version >/dev/null 2>&1; then
   ok "Ollama is running on localhost:11434"
 else
   say "Ollama is not running. Homebrew can run it as a background service (starts at login)."
@@ -258,7 +266,9 @@ else
     warn "Skipped. Start Ollama yourself (the Ollama app or: ollama serve)."
   fi
 fi
-if [[ "$SKIP_MODELS" == 1 ]]; then
+if [[ "${NEXUS_WITH_OLLAMA:-0}" != 1 ]]; then
+  :
+elif [[ "$SKIP_MODELS" == 1 ]]; then
   info "--skip-models: not pulling models"
 else
   # alias  model  approx. download size  why
@@ -310,9 +320,14 @@ fi
 # -----------------------------------------------------------------------------
 step "Check models and runtimes"
 if [[ "$DRY_RUN" == 1 ]]; then
-  run_in "$NEXUS_HUB_DIR" "$NEXUSD" llm check -config nexus.yaml -quick
-  run_in "$NEXUS_NODE_DIR" "$NODE_BIN" llm check -config node.yaml -quick
+  if [[ "${NEXUS_WITH_OLLAMA:-0}" == 1 ]]; then
+    run_in "$NEXUS_HUB_DIR" "$NEXUSD" llm check -config nexus.yaml -quick
+    run_in "$NEXUS_NODE_DIR" "$NODE_BIN" llm check -config node.yaml -quick
+  fi
   run_in "$NEXUS_NODE_DIR" "$NODE_BIN" runtimes -config node.yaml
+elif [[ "${NEXUS_WITH_OLLAMA:-0}" != 1 ]]; then
+  info "no local models (subscriptions only): the claude-code and codex runtimes below must be ready"
+  run_in "$NEXUS_NODE_DIR" "$NODE_BIN" runtimes -config node.yaml || true
 else
   run_in "$NEXUS_HUB_DIR" "$NEXUSD" llm check -config nexus.yaml -quick || warn "hub model check reported problems (details above; docs/MODELS.md §5)"
   run_in "$NEXUS_NODE_DIR" "$NODE_BIN" llm check -config node.yaml -quick || warn "node model check reported problems"

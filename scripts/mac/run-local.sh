@@ -2,7 +2,7 @@
 # Run a throw-away Hub + node in the foreground for development, using the
 # MacBook profile (backend/configs/macbook) in a temporary directory.
 #
-#   scripts/mac/run-local.sh [--dir DIR] [--port 7701] [--bin DIR]   (make run-local)
+#   scripts/mac/run-local.sh [--dir DIR] [--port 7701] [--bin DIR] [--with-ollama]   (make run-local)
 #
 # - builds backend/bin/ (nexusd, nexus-node, nexus); --bin DIR uses prebuilt
 #   binaries from DIR instead
@@ -25,6 +25,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --dir) DIR="$2"; shift 2 ;;
     --port) PORT="$2"; shift 2 ;;
+    --with-ollama) export NEXUS_WITH_OLLAMA=1; shift ;;
     --bin) BIN_OVERRIDE="$2"; shift 2 ;;
     -h|--help) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) die "unknown argument $1" ;;
@@ -88,6 +89,7 @@ fi
 if [[ ! -f "$NEXUS_NODE_DIR/node.yaml" ]]; then
   sed -e "s|hub_url: https://localhost:7700|hub_url: $URL|" \
     "$REPO_ROOT/backend/configs/macbook/node.yaml" > "$NEXUS_NODE_DIR/node.yaml"
+  [[ "${NEXUS_WITH_OLLAMA:-0}" == 1 ]] && enable_ollama "$NEXUS_NODE_DIR/node.yaml"
 fi
 
 (cd "$NEXUS_HUB_DIR" && exec "$BIN/nexusd" serve -config nexus.yaml) >>"$DIR/hub.log" 2>&1 &

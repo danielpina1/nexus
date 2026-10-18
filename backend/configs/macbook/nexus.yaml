@@ -62,35 +62,41 @@ vault:
   git: true             # auto-commit changes made through Nexus
   commit_delay: 5s
   watch: true           # re-index edits made in Obsidian
-  # Semantic search with the `embed` alias (nomic-embed-text in Ollama).
-  embeddings: true
+  # Semantic search with the `embed` alias (nomic-embed-text in Ollama);
+  # turned on by --with-ollama. Off: keyword search only.
+  embeddings: false # ollama-embeddings
   embed_model: embed
 
 # --- Models (hub side: router, vault Ask, memory) ----------------------------
-# Claude / ChatGPT subscriptions are used through the Claude Code and Codex
-# CLIs on the node (runtimes claude-code / codex), not here: the Hub only
-# needs local models. Check with `nexusd llm check` (docs/MODELS.md).
-llm:
-  default_provider: ollama
-  aliases_auto: true
-  providers:
-    ollama:
-      base_url: http://localhost:11434/v1
-      api: openai
-      auth: none
-      timeout: 300s            # first call loads the model into memory
-  aliases:
-    # Pulled by setup.sh (asks first). Pinned so they never change silently.
-    fast-local: { provider: ollama, model: "qwen2.5:7b" }
-    embed:      { provider: ollama, model: "nomic-embed-text" }
-    # Picked automatically from what Ollama has (e.g. qwen2.5:14b if pulled).
-    smart:      { provider: ollama, model: CHANGE_ME }
-    best:       { provider: ollama, model: CHANGE_ME }
-  health:
-    failure_threshold: 3
-    cooldown: 15s
-    max_cooldown: 5m
-  max_retries: 3
+# Default: subscriptions only. Agents run on Claude Code / Codex (your Claude
+# and ChatGPT subscriptions) on the node; no local model runs on this Mac.
+# The router then uses rules and what it learned from your choices, and vault
+# search is keyword-based (FTS5).
+# Local models (optional): scripts/mac/setup.sh --with-ollama (or run-local.sh
+# --with-ollama) uncomments the Ollama block below. Check with `nexusd llm check`.
+# >>> ollama
+#~ llm:
+#~   default_provider: ollama
+#~   aliases_auto: true
+#~   providers:
+#~     ollama:
+#~       base_url: http://localhost:11434/v1
+#~       api: openai
+#~       auth: none
+#~       timeout: 300s            # first call loads the model into memory
+#~   aliases:
+#~     # Pulled by setup.sh (asks first). Pinned so they never change silently.
+#~     fast-local: { provider: ollama, model: "qwen2.5:7b" }
+#~     embed:      { provider: ollama, model: "nomic-embed-text" }
+#~     # Picked automatically from what Ollama has (e.g. qwen2.5:14b if pulled).
+#~     smart:      { provider: ollama, model: CHANGE_ME }
+#~     best:       { provider: ollama, model: CHANGE_ME }
+#~   health:
+#~     failure_threshold: 3
+#~     cooldown: 15s
+#~     max_cooldown: 5m
+#~   max_retries: 3
+# <<< ollama
 
 # --- Command router ----------------------------------------------------------
 router:

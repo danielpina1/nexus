@@ -190,7 +190,25 @@ render_hub_config() {
         "$REPO_ROOT/backend/configs/macbook/nexus.yaml" > "$dst"
   )
   grep -q "dev_token: $token" "$dst" || die "rendering $dst failed"
+  [[ "${NEXUS_WITH_OLLAMA:-0}" == 1 ]] && enable_ollama "$dst"
   printf '%s' "$token"
+}
+
+# render_node_config DST — copy the MacBook node profile (Ollama block
+# enabled only with NEXUS_WITH_OLLAMA=1).
+render_node_config() {
+  cp "$REPO_ROOT/backend/configs/macbook/node.yaml" "$1"
+  [[ "${NEXUS_WITH_OLLAMA:-0}" == 1 ]] && enable_ollama "$1"
+  return 0
+}
+
+# enable_ollama FILE — uncomment the "# >>> ollama … # <<< ollama" block of
+# a MacBook profile and turn vault embeddings on (local models are opt-in).
+enable_ollama() {
+  local f="$1"
+  sed -e '/^# >>> ollama/,/^# <<< ollama/ s/^#~ \{0,1\}//' \
+      -e 's/embeddings: false # ollama-embeddings/embeddings: true/' "$f" > "$f.tmp" &&
+    cat "$f.tmp" > "$f" && rm -f "$f.tmp"
 }
 
 # pair_local_node NEXUSD NODE_BIN HUB_DIR NODE_DIR NODE_ID HUB_URL — issue a
