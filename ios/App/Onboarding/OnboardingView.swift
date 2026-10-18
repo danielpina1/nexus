@@ -19,62 +19,63 @@ struct OnboardingView: View {
     var body: some View {
         NavigationStack(path: $path) {
             ScrollView {
-                VStack(spacing: 24) {
-                    Image(systemName: "circle.hexagongrid.fill")
-                        .font(.system(size: 72))
-                        .foregroundStyle(.tint)
-                        .padding(.top, 40)
-                    Text("Nexus").font(.largeTitle.bold())
-                    Text("Your agents, machines and vault — controlled from your phone, approved with Face ID.")
-                        .multilineTextAlignment(.center)
-                        .foregroundStyle(.secondary)
+                VStack(spacing: NXSpace.s6) {
+                    VStack(spacing: NXSpace.s3) {
+                        NXIconTile(systemImage: "circle.hexagongrid.fill", tone: .accent, size: 72)
+                            .padding(.top, NXSpace.s10)
+                        Text("Nexus")
+                            .font(NXTextStyle(family: .heading, weight: .bold, size: 34, relativeTo: .largeTitle, lineSpacing: 0, tracking: -0.34).font)
+                            .foregroundStyle(NXColor.fg)
+                            .accessibilityAddTraits(.isHeader)
+                        Text("Your agents, machines and vault — controlled from your phone, approved with Face ID.")
+                            .nx(NXType.bodyLg)
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(NXColor.fg2)
+                    }
 
-                    VStack(spacing: 12) {
-                        Button {
+                    VStack(spacing: NXSpace.s3) {
+                        NXButton("Scan pairing code", systemImage: "qrcode.viewfinder", kind: .primary, size: .large, fullWidth: true) {
                             showScanner = true
-                        } label: {
-                            Label("Scan pairing code", systemImage: "qrcode.viewfinder")
-                                .frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
 
                         Text("Run `nexusd pair --device` on your Hub, or open Security → Pair device on the web dashboard.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                            .nx(NXType.footnote)
+                            .foregroundStyle(NXColor.muted)
                             .multilineTextAlignment(.center)
 
                         PairAtHomeHint()
                     }
 
-                    GroupBox("Or paste the pairing link") {
-                        TextField("nexus://pair?…", text: $pasteText, axis: .vertical)
+                    VStack(alignment: .leading, spacing: NXSpace.s3) {
+                        Text("Or paste the pairing link")
+                            .nx(NXType.body.weight(.semibold))
+                            .foregroundStyle(NXColor.fg)
+                        NXTextField(placeholder: "nexus://pair?…", text: $pasteText, axis: .vertical, mono: true)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
-                            .font(.footnote.monospaced())
-                        Button("Continue") { handle(code: pasteText) }
+                        NXButton("Continue", kind: .secondary) { handle(code: pasteText) }
                             .disabled(pasteText.isEmpty)
                             .frame(maxWidth: .infinity, alignment: .trailing)
                     }
+                    .nxCard()
 
                     if let parseError {
                         ErrorBanner(message: parseError) { self.parseError = nil }
                     }
 
-                    VStack(spacing: 8) {
+                    VStack(spacing: NXSpace.s1) {
                         NavigationLink(value: OnboardingStep.devToken) {
                             Label("Connect with a dev token", systemImage: "hammer")
                         }
-                        Button {
+                        .buttonStyle(NXButtonStyle(kind: .ghost))
+                        NXButton("Explore demo mode", systemImage: "play.rectangle", kind: .ghost) {
                             store.setDemoMode(true)
-                        } label: {
-                            Label("Explore demo mode", systemImage: "play.rectangle")
                         }
                     }
-                    .font(.subheadline)
                 }
-                .padding()
+                .padding(NXSpace.s4)
             }
+            .nxScreenBackground()
             .navigationDestination(for: OnboardingStep.self) { step in
                 switch step {
                 case .pair(let box):
@@ -141,25 +142,27 @@ struct PairingView: View {
             Section("Hub") {
                 ForEach(payload.hubURLs, id: \.self) { url in
                     Label(url.absoluteString, systemImage: "server.rack")
-                        .font(.footnote.monospaced())
+                        .nxText(NXType.mono)
                 }
                 if let ca = payload.caFingerprint {
                     LabeledContent("CA fingerprint") {
-                        Text(String(ca.prefix(16)) + "…").font(.caption.monospaced())
+                        Text(String(ca.prefix(16)) + "…").nx(NXType.mono)
                     }
                 } else {
                     Label("No CA fingerprint — development Hub", systemImage: "exclamationmark.triangle")
-                        .foregroundStyle(.orange)
-                        .font(.footnote)
+                        .foregroundStyle(NXColor.warn)
+                        .nxText(NXType.footnote)
                 }
             }
+            .listRowBackground(NXColor.surface)
 
             if !KeyManager.shared.isHardwareBacked {
                 Section {
                     Label("Secure Enclave unavailable (Simulator): keys are software keys. Do not use this device for real approvals.", systemImage: "exclamationmark.shield")
-                        .foregroundStyle(.orange)
-                        .font(.footnote)
+                        .foregroundStyle(NXColor.warn)
+                        .nxText(NXType.footnote)
                 }
+                .listRowBackground(NXColor.surface)
             }
 
             if let result {
@@ -167,48 +170,50 @@ struct PairingView: View {
                     Text(result.safetyCode)
                         .font(.system(size: 40))
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, NXSpace.s2)
+                        .accessibilityLabel("Safety code: \(result.safetyCode)")
                     Text("Check that your Hub shows exactly the same emoji, in the same order. If not, cancel — someone may be intercepting the pairing.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .nxText(NXType.footnote)
+                        .foregroundStyle(NXColor.muted)
                 }
+                .listRowBackground(NXColor.surface)
                 Section {
-                    Button {
+                    NXButton("They match — finish pairing", systemImage: "checkmark.seal.fill", kind: .success, fullWidth: true) {
                         confirm(result)
-                    } label: {
-                        Label("They match — finish pairing", systemImage: "checkmark.seal.fill")
                     }
-                    Button("They don't match", role: .destructive) {
+                    NXButton("They don't match", kind: .secondary, fullWidth: true, role: .destructive) {
                         KeyManager.shared.resetAll()
                         self.result = nil
                         dismiss()
                     }
                 }
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets())
             } else {
                 Section("This iPhone") {
                     TextField("Device name", text: $deviceName)
                 }
+                .listRowBackground(NXColor.surface)
                 Section {
-                    Button {
+                    NXButton("Pair with Hub", systemImage: "link", kind: .primary, isLoading: isPairing, fullWidth: true) {
                         Task { await pair() }
-                    } label: {
-                        HStack {
-                            Label("Pair with Hub", systemImage: "link")
-                            if isPairing { Spacer(); ProgressView() }
-                        }
                     }
-                    .disabled(isPairing)
                 } footer: {
                     Text("Creates keys in the Secure Enclave and proves to the Hub that you scanned its code. Pair at home on Wi-Fi — away from home, your UniFi VPN takes over afterwards.")
                 }
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets())
             }
 
             if let errorMessage {
                 Section {
                     ErrorBanner(message: errorMessage)
                 }
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets())
             }
         }
+        .nxForm()
         .navigationTitle("Pair")
     }
 
@@ -255,14 +260,20 @@ struct DevTokenView: View {
             } footer: {
                 Text("Development only: uses `security.dev_token` from nexus.yaml. Approvals still need device keys, so pair with a QR code for real use.")
             }
+            .listRowBackground(NXColor.surface)
             if let errorMessage {
                 Section { ErrorBanner(message: errorMessage) }
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
             }
             Section {
-                Button("Connect") { connect() }
+                NXButton("Connect", kind: .primary, fullWidth: true) { connect() }
                     .disabled(hubURL.isEmpty || token.isEmpty)
             }
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets())
         }
+        .nxForm()
         .navigationTitle("Dev token")
     }
 
@@ -283,18 +294,19 @@ struct DevTokenView: View {
 /// the UniFi VPN, and the first contact should happen on the trusted home network.
 struct PairAtHomeHint: View {
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "house.fill")
-                .foregroundStyle(.tint)
+        HStack(alignment: .top, spacing: NXSpace.s3) {
+            NXIconTile(systemImage: "house", tone: .accent, size: 32)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Pair at home on Wi-Fi").font(.subheadline.weight(.semibold))
+                Text("Pair at home on Wi-Fi")
+                    .nx(NXType.body.weight(.semibold))
+                    .foregroundStyle(NXColor.fg)
                 Text("Afterwards the same Hub address works everywhere: directly at home, and through your UniFi VPN (WireGuard or Teleport) when you're out.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .nx(NXType.footnote)
+                    .foregroundStyle(NXColor.muted)
             }
             Spacer(minLength: 0)
         }
-        .padding(12)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+        .nxCard()
+        .accessibilityElement(children: .combine)
     }
 }

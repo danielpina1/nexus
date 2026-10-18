@@ -94,6 +94,8 @@ public final class EventStream: @unchecked Sendable {
                         attempt = 0
                         await onState(.connected)
                     case .message(let response):
+                        // Keepalives (heartbeat, no event) only prove the stream is alive.
+                        guard response.hasEvent else { continue }
                         let event = response.event
                         if event.seq > lastSeq { lastSeq = event.seq }
                         await onEvent(event)

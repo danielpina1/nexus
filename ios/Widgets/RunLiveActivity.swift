@@ -4,98 +4,109 @@ import NexusCore
 import SwiftUI
 import WidgetKit
 
-/// Run Live Activity — Lock Screen + Dynamic Island (IOS_LIVE.md §2.2).
+/// Run Live Activity — Lock Screen + Dynamic Island (IOS_LIVE.md §2.2), in the design system:
+/// state badge words and tones as in the app, Montserrat numbers, Inter text.
 struct RunLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: RunActivityAttributes.self) { context in
             RunLockScreenView(attributes: context.attributes, state: context.state, isStale: context.isStale)
-                .activitySystemActionForegroundColor(.white)
+                .activityBackgroundTint(NXColor.surface)
+                .activitySystemActionForegroundColor(NXColor.fg)
                 .widgetURL(RunActivityStyle.url(attributes: context.attributes, state: context.state))
         } dynamicIsland: { context in
             let attributes = context.attributes
             let state = context.state
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label {
-                        Text(attributes.agentName).font(.headline).lineLimit(1)
-                    } icon: {
+                    HStack(spacing: 6) {
                         Image(systemName: attributes.agentSymbol)
-                            .foregroundStyle(RunActivityStyle.tint(state.phase))
+                            .foregroundStyle(state.phase.tone.color)
+                            .accessibilityHidden(true)
+                        Text(attributes.agentName)
+                            .nx(NXType.title3)
+                            .lineLimit(1)
                     }
+                    .environment(\.colorScheme, .dark)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     Text(attributes.nodeName)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .nx(NXType.caption.weight(.regular))
+                        .foregroundStyle(NXColor.muted)
                         .lineLimit(1)
+                        .environment(\.colorScheme, .dark)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(state.title).font(.subheadline.weight(.semibold)).lineLimit(1)
+                        HStack(spacing: 6) {
+                            NXBadge(state.phase.label, systemImage: state.phase.symbol, tone: state.phase.tone)
+                            Text(state.title)
+                                .nx(NXType.body.weight(.semibold))
+                                .foregroundStyle(NXColor.fg)
+                                .lineLimit(1)
+                        }
                         if let detail = state.detail {
-                            Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            Text(detail)
+                                .nx(NXType.caption.weight(.regular))
+                                .foregroundStyle(NXColor.muted)
+                                .lineLimit(1)
                         }
                         if let progress = state.progress, state.phase == .running {
-                            ProgressView(value: min(max(progress, 0), 1))
-                                .tint(RunActivityStyle.tint(state.phase))
+                            NXMeter(value: progress, label: "Progress", tone: .info)
                         }
                         RunActionButtons(attributes: attributes, state: state, compact: true)
                     }
+                    .environment(\.colorScheme, .dark)
                 }
             } compactLeading: {
                 HStack(spacing: 4) {
                     Image(systemName: attributes.agentSymbol)
-                        .foregroundStyle(RunActivityStyle.tint(state.phase))
+                        .foregroundStyle(state.phase.tone.color)
                     if let step = state.stepText {
-                        Text(step).font(.caption2.monospacedDigit())
+                        Text(step)
+                            .nx(NXType.caption)
+                            .monospacedDigit()
                     }
                 }
+                .environment(\.colorScheme, .dark)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(attributes.agentName), \(state.phase.label)")
             } compactTrailing: {
-                switch state.phase {
-                case .waitingApproval:
-                    Label("approve?", systemImage: "hourglass")
-                        .labelStyle(.titleAndIcon)
-                        .font(.caption2)
-                        .foregroundStyle(.orange)
-                case .waitingInput:
-                    Image(systemName: "questionmark.bubble.fill").foregroundStyle(.orange)
-                case .done:
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                case .failed:
-                    Image(systemName: "xmark.octagon.fill").foregroundStyle(.red)
-                case .running:
-                    Text(state.costText).font(.caption2.monospacedDigit())
+                Group {
+                    switch state.phase {
+                    case .waitingApproval:
+                        Label("approve?", systemImage: "hand.raised")
+                            .labelStyle(.titleAndIcon)
+                            .nxText(NXType.caption)
+                            .foregroundStyle(NXColor.warn)
+                    case .waitingInput:
+                        Image(systemName: "questionmark.bubble").foregroundStyle(NXColor.warn)
+                            .accessibilityLabel("Waiting input")
+                    case .done:
+                        Image(systemName: "checkmark.circle").foregroundStyle(NXColor.ok)
+                            .accessibilityLabel("Succeeded")
+                    case .failed:
+                        Image(systemName: "xmark.circle").foregroundStyle(NXColor.danger)
+                            .accessibilityLabel("Failed")
+                    case .running:
+                        Text(state.costText)
+                            .nx(NXType.caption)
+                            .monospacedDigit()
+                    }
                 }
+                .environment(\.colorScheme, .dark)
             } minimal: {
-                Image(systemName: state.isWaitingForUser ? "hand.raised.fill" : attributes.agentSymbol)
-                    .foregroundStyle(RunActivityStyle.tint(state.phase))
+                Image(systemName: state.isWaitingForUser ? "hand.raised" : attributes.agentSymbol)
+                    .foregroundStyle(state.phase.tone.color)
+                    .environment(\.colorScheme, .dark)
+                    .accessibilityLabel(state.phase.label)
             }
             .widgetURL(RunActivityStyle.url(attributes: attributes, state: state))
-            .keylineTint(RunActivityStyle.tint(state.phase))
+            .keylineTint(state.phase.tone.color)
         }
     }
 }
 
 enum RunActivityStyle {
-    static func tint(_ phase: RunActivityAttributes.ContentState.Phase) -> Color {
-        switch phase {
-        case .running: return .blue
-        case .waitingApproval, .waitingInput: return .orange
-        case .done: return .green
-        case .failed: return .red
-        }
-    }
-
-    static func phaseLabel(_ phase: RunActivityAttributes.ContentState.Phase) -> String {
-        switch phase {
-        case .running: return "Running"
-        case .waitingApproval: return "Waiting for approval"
-        case .waitingInput: return "Waiting for you"
-        case .done: return "Done"
-        case .failed: return "Failed"
-        }
-    }
-
     /// Tapping the activity opens the approval sheet when one is pending, else the task.
     static func url(attributes: RunActivityAttributes, state: RunActivityAttributes.ContentState) -> URL {
         if state.phase == .waitingApproval, let id = state.approvalId {
@@ -111,47 +122,48 @@ struct RunLockScreenView: View {
     let isStale: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Image(systemName: attributes.agentSymbol)
-                    .font(.title3)
-                    .foregroundStyle(RunActivityStyle.tint(state.phase))
-                Text(attributes.agentName).font(.headline).lineLimit(1)
-                Text("· \(attributes.nodeName)").font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
-                Spacer()
-                Text(RunActivityStyle.phaseLabel(state.phase))
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(RunActivityStyle.tint(state.phase))
-            }
-
-            if let progress = state.progress, state.phase == .running {
-                HStack {
-                    ProgressView(value: min(max(progress, 0), 1))
-                        .tint(RunActivityStyle.tint(state.phase))
-                    Text(state.title + (state.stepText.map { " (\($0))" } ?? ""))
-                        .font(.caption)
+        VStack(alignment: .leading, spacing: NXSpace.s2) {
+            HStack(spacing: NXSpace.s2) {
+                NXIconTile(systemImage: attributes.agentSymbol, tone: state.phase.tone, size: 28)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(attributes.agentName)
+                        .nx(NXType.title3)
+                        .foregroundStyle(NXColor.fg)
+                        .lineLimit(1)
+                    Text(attributes.nodeName)
+                        .nx(NXType.caption.weight(.regular))
+                        .foregroundStyle(NXColor.muted)
                         .lineLimit(1)
                 }
-            } else {
-                Text(state.title).font(.subheadline.weight(.semibold)).lineLimit(2)
+                Spacer(minLength: 0)
+                NXBadge(state.phase.label, systemImage: state.phase.symbol, tone: state.phase.tone)
+            }
+
+            Text(state.title + (state.stepText.map { " (\($0))" } ?? ""))
+                .nx(NXType.body.weight(.semibold))
+                .foregroundStyle(NXColor.fg)
+                .lineLimit(2)
+
+            if let progress = state.progress, state.phase == .running {
+                NXMeter(value: progress, label: "Progress", tone: .info)
             }
 
             HStack(spacing: 6) {
                 if let detail = state.detail {
                     Text(detail).lineLimit(1)
-                    Text("·")
+                    Text("·").accessibilityHidden(true)
                 }
-                Text(state.costText)
+                Text(state.costText).monospacedDigit()
                 if isStale {
                     Text("· last update a while ago")
                 }
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
+            .nxText(NXType.caption.weight(.regular))
+            .foregroundStyle(NXColor.muted)
 
             RunActionButtons(attributes: attributes, state: state, compact: false)
         }
-        .padding()
+        .padding(NXSpace.s4)
     }
 }
 
@@ -162,20 +174,23 @@ struct RunActionButtons: View {
     let state: RunActivityAttributes.ContentState
     let compact: Bool
 
+    private var height: CGFloat { compact ? 36 : NXSize.touchMin }
+
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: NXSpace.s2) {
             switch state.phase {
             case .running:
                 Link(destination: DeepLink.task(attributes.taskId)) {
-                    pill("Open", systemImage: "arrow.up.forward.app")
+                    WidgetPill(title: "Open", systemImage: "arrow.up.forward.app", minHeight: height)
                 }
                 Button(intent: TryHarderIntent(taskID: attributes.taskId)) {
-                    pill("Try harder", systemImage: "bolt.fill")
+                    WidgetPill(title: "Try harder", systemImage: "arrow.up.circle", minHeight: height)
                 }
+                .buttonStyle(.plain)
                 Button(intent: StopTaskIntent(taskID: attributes.taskId)) {
-                    pill("Stop", systemImage: "stop.fill")
+                    WidgetPill(title: "Stop", systemImage: "stop.circle", kind: .destructive, minHeight: height)
                 }
-                .tint(.red)
+                .buttonStyle(.plain)
 
             case .waitingApproval:
                 if let approvalID = state.approvalId {
@@ -183,24 +198,24 @@ struct RunActionButtons: View {
                     // biometric approval key, all decisions — must open the in-app sheet.
                     if state.isBiometric || !ApprovalSignature.backgroundDecisionsSupported {
                         Link(destination: DeepLink.task(attributes.taskId)) {
-                            pill("Review", systemImage: "doc.text.magnifyingglass")
+                            WidgetPill(title: "Review", systemImage: "doc.text.magnifyingglass", minHeight: height)
                         }
                         Link(destination: DeepLink.approval(approvalID)) {
-                            pill(state.isBiometric ? "Approve with Face ID" : "Approve", systemImage: "faceid")
+                            WidgetPill(title: state.isBiometric ? "Approve with Face ID" : "Approve", systemImage: state.isBiometric ? "faceid" : "checkmark", kind: .success, minHeight: height)
                         }
                     } else {
                         Button(intent: ApproveIntent(approvalID: approvalID, approve: false)) {
-                            pill("Deny", systemImage: "xmark")
+                            WidgetPill(title: "Deny", systemImage: "xmark", minHeight: height)
                         }
-                        .tint(.red)
+                        .buttonStyle(.plain)
                         Button(intent: ApproveIntent(approvalID: approvalID, approve: true)) {
-                            pill("Approve", systemImage: "checkmark")
+                            WidgetPill(title: "Approve", systemImage: "checkmark", kind: .success, minHeight: height)
                         }
-                        .tint(.green)
+                        .buttonStyle(.plain)
                     }
                 } else {
                     Link(destination: DeepLink.task(attributes.taskId)) {
-                        pill("Review", systemImage: "doc.text.magnifyingglass")
+                        WidgetPill(title: "Review", systemImage: "doc.text.magnifyingglass", minHeight: height)
                     }
                 }
 
@@ -208,43 +223,30 @@ struct RunActionButtons: View {
                 if let choices = state.choices, !choices.isEmpty {
                     ForEach(Array(choices.prefix(compact ? 2 : 3)), id: \.self) { choice in
                         Button(intent: AnswerChoiceIntent(taskID: attributes.taskId, choice: choice)) {
-                            pill(choice, systemImage: nil)
+                            WidgetPill(title: choice, minHeight: height)
                         }
+                        .buttonStyle(.plain)
                     }
                 } else {
                     Link(destination: DeepLink.task(attributes.taskId)) {
-                        pill("Reply", systemImage: "arrowshape.turn.up.left.fill")
+                        WidgetPill(title: "Reply", systemImage: "arrowshape.turn.up.left", kind: .primary, minHeight: height)
                     }
                 }
 
             case .done:
                 Link(destination: DeepLink.task(attributes.taskId)) {
-                    pill("Open result", systemImage: "checkmark.circle")
+                    WidgetPill(title: "Open result", systemImage: "checkmark.circle", kind: .primary, minHeight: height)
                 }
 
             case .failed:
                 Button(intent: TryHarderIntent(taskID: attributes.taskId)) {
-                    pill("Retry", systemImage: "arrow.clockwise")
+                    WidgetPill(title: "Retry", systemImage: "arrow.clockwise", kind: .primary, minHeight: height)
                 }
+                .buttonStyle(.plain)
                 Link(destination: DeepLink.task(attributes.taskId)) {
-                    pill("Open", systemImage: "arrow.up.forward.app")
+                    WidgetPill(title: "Open", systemImage: "arrow.up.forward.app", minHeight: height)
                 }
             }
-        }
-        .buttonStyle(.bordered)
-        .font(compact ? .caption2 : .caption)
-    }
-
-    @ViewBuilder
-    private func pill(_ title: String, systemImage: String?) -> some View {
-        if let systemImage {
-            Label(title, systemImage: systemImage)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity)
-        } else {
-            Text(title)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity)
         }
     }
 }

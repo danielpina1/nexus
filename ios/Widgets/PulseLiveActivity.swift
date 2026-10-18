@@ -9,56 +9,76 @@ struct PulseLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: PulseActivityAttributes.self) { context in
             PulseLockScreenView(state: context.state, hubName: context.attributes.hubName)
+                .activityBackgroundTint(NXColor.surface)
+                .activitySystemActionForegroundColor(NXColor.fg)
                 .widgetURL(DeepLink.inbox)
         } dynamicIsland: { context in
             let state = context.state
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label("\(state.running) running", systemImage: "play.circle.fill")
-                        .font(.caption)
+                    Label("\(state.running) running", systemImage: "arrow.triangle.2.circlepath")
+                        .nxText(NXType.caption)
+                        .foregroundStyle(NXColor.info)
+                        .environment(\.colorScheme, .dark)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     Text(PulseFormat.cost(state.costCentsToday))
-                        .font(.caption.monospacedDigit())
+                        .nx(NXType.caption)
+                        .monospacedDigit()
+                        .foregroundStyle(NXColor.fg2)
+                        .environment(\.colorScheme, .dark)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 6) {
                         if state.waiting > 0 {
-                            Label("\(state.waiting) waiting for you", systemImage: "hand.raised.fill")
-                                .foregroundStyle(.orange)
+                            NXBadge("\(state.waiting) waiting for you", systemImage: "hand.raised", tone: .warn)
                         }
                         if let headline = state.headline {
                             Label(headline, systemImage: state.headlineSymbol ?? "sparkles")
+                                .nxText(NXType.footnote)
+                                .foregroundStyle(NXColor.fg)
                                 .lineLimit(1)
                         }
                     }
-                    .font(.caption)
+                    .environment(\.colorScheme, .dark)
                 }
             } compactLeading: {
-                Label("\(state.running)", systemImage: "play.circle.fill")
+                Label("\(state.running)", systemImage: "arrow.triangle.2.circlepath")
                     .labelStyle(.titleAndIcon)
-                    .font(.caption2)
+                    .nxText(NXType.caption)
+                    .foregroundStyle(NXColor.info)
+                    .environment(\.colorScheme, .dark)
+                    .accessibilityLabel("\(state.running) running")
             } compactTrailing: {
-                if state.waiting > 0 {
-                    Label("\(state.waiting)", systemImage: "hand.raised.fill")
-                        .labelStyle(.titleAndIcon)
-                        .font(.caption2)
-                        .foregroundStyle(.orange)
-                } else {
-                    Text(PulseFormat.cost(state.costCentsToday)).font(.caption2.monospacedDigit())
+                Group {
+                    if state.waiting > 0 {
+                        Label("\(state.waiting)", systemImage: "hand.raised")
+                            .labelStyle(.titleAndIcon)
+                            .nxText(NXType.caption)
+                            .foregroundStyle(NXColor.warn)
+                            .accessibilityLabel("\(state.waiting) waiting for you")
+                    } else {
+                        Text(PulseFormat.cost(state.costCentsToday))
+                            .nx(NXType.caption)
+                            .monospacedDigit()
+                    }
                 }
+                .environment(\.colorScheme, .dark)
             } minimal: {
-                Image(systemName: state.waiting > 0 ? "hand.raised.fill" : "circle.hexagongrid.fill")
-                    .foregroundStyle(state.waiting > 0 ? Color.orange : Color.blue)
+                Image(systemName: state.waiting > 0 ? "hand.raised" : "circle.hexagongrid.fill")
+                    .foregroundStyle(state.waiting > 0 ? NXColor.warn : NXColor.accent)
+                    .environment(\.colorScheme, .dark)
+                    .accessibilityLabel(state.waiting > 0 ? "\(state.waiting) waiting for you" : "Nexus")
             }
             .widgetURL(DeepLink.inbox)
+            .keylineTint(state.waiting > 0 ? NXColor.warn : NXColor.accent)
         }
     }
 }
 
 enum PulseFormat {
     static func cost(_ cents: Int) -> String {
-        (Decimal(cents) / 100).formatted(.currency(code: "EUR"))
+        NXFormat.money(cents: cents)
     }
 }
 
@@ -67,28 +87,33 @@ struct PulseLockScreenView: View {
     let hubName: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Image(systemName: "circle.hexagongrid.fill").foregroundStyle(.blue)
-                Text("Nexus").font(.headline)
-                Text("· \(hubName)").font(.subheadline).foregroundStyle(.secondary)
-                Spacer()
-                Text(PulseFormat.cost(state.costCentsToday) + " today")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: NXSpace.s3) {
+            WidgetHeader(title: "Nexus · \(hubName)", systemImage: "circle.hexagongrid.fill", trailing: PulseFormat.cost(state.costCentsToday) + " today")
+            HStack(spacing: NXSpace.s4) {
+                stat("\(state.running)", label: "running", tone: state.running > 0 ? .info : .neutral)
+                stat("\(state.waiting)", label: "waiting for you", tone: state.waiting > 0 ? .warn : .neutral)
+                Spacer(minLength: 0)
             }
-            HStack(spacing: 12) {
-                Label("\(state.running) running", systemImage: "play.circle.fill")
-                Label("\(state.waiting) waiting for you", systemImage: "hand.raised.fill")
-                    .foregroundStyle(state.waiting > 0 ? Color.orange : Color.secondary)
-            }
-            .font(.subheadline)
             if let headline = state.headline {
                 Label(headline, systemImage: state.headlineSymbol ?? "sparkles")
-                    .font(.caption)
+                    .nxText(NXType.footnote)
+                    .foregroundStyle(NXColor.fg2)
                     .lineLimit(1)
             }
         }
-        .padding()
+        .padding(NXSpace.s4)
+    }
+
+    private func stat(_ value: String, label: String, tone: NXTone) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text(value)
+                .nx(NXType.title2)
+                .monospacedDigit()
+                .foregroundStyle(tone == .neutral ? NXColor.fg : tone.color)
+            Text(label)
+                .nx(NXType.footnote)
+                .foregroundStyle(NXColor.muted)
+        }
+        .accessibilityElement(children: .combine)
     }
 }

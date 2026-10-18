@@ -165,7 +165,7 @@ enum NotificationResponseHandler {
             } else if let taskID {
                 router.openTask(taskID)
             } else {
-                router.tab = .home
+                router.openInbox()
             }
 
         default:

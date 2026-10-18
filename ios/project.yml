@@ -47,6 +47,10 @@ targets:
       # App Intents are compiled into both the app and the widget extension
       # (Button(intent:) in widgets / Live Activities needs the type; perform runs in the app).
       - path: Intents
+      # Design system shared with the widget extension: generated tokens
+      # (scripts/gen-ios-tokens.mjs), the component kit, and the bundled fonts + OFL licences
+      # (copied as resources; registered with UIAppFonts in Info.plist).
+      - path: DesignSystem
     settings:
       base:
         PRODUCT_NAME: Nexus
@@ -71,6 +75,7 @@ targets:
           - Info.plist
           - NexusWidgets.entitlements
       - path: Intents
+      - path: DesignSystem
     settings:
       base:
         PRODUCT_NAME: NexusWidgets

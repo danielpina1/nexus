@@ -12,7 +12,8 @@ struct ApprovalSheet: View {
 
     @State private var approval: Nexus_V1_Approval?
     @State private var isLoading = true
-    @State private var isSubmitting = false
+    /// The decision being signed / sent (spinner on that button).
+    @State private var deciding: Bool?
     @State private var errorMessage: String?
     @State private var comment = ""
     @State private var remember = false
@@ -28,33 +29,32 @@ struct ApprovalSheet: View {
                 } else if let approval {
                     content(approval)
                 } else if isLoading {
-                    ProgressView("Loading approval…")
+                    NXLoadingState(label: "Loading approval…")
                 } else if store.reachability.isUnavailable {
-                    ContentUnavailableView {
-                        Label("Can't reach your Nexus at home", systemImage: "house.and.flag")
-                    } description: {
-                        Text("Turn on your home VPN (WireGuard / WiFiman Teleport). This approval opens as soon as your Nexus answers.")
-                    } actions: {
-                        Button {
-                            store.retryConnection()
-                        } label: {
-                            if store.isProbing { ProgressView() } else { Text("Retry") }
-                        }
-                        .buttonStyle(.bordered)
+                    NXEmptyState(
+                        systemImage: "house.and.flag",
+                        title: "Can't reach your Nexus at home",
+                        message: "Turn on your home VPN (WireGuard / WiFiman Teleport). This approval opens as soon as your Nexus answers.",
+                        actionTitle: "Retry"
+                    ) {
+                        store.retryConnection()
                     }
                 } else {
-                    ContentUnavailableView(
-                        "Approval not found",
+                    NXEmptyState(
                         systemImage: "checkmark.seal",
-                        description: Text("It may have been decided on another device or expired.")
+                        title: "Approval not found",
+                        message: "It may have been decided on another device or expired."
                     )
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .nxScreenBackground()
             .navigationTitle("Approval")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { dismiss() }
+                        .disabled(deciding != nil)
                 }
             }
         }
@@ -66,7 +66,7 @@ struct ApprovalSheet: View {
             }
             isLoading = false
         }
-        .interactiveDismissDisabled(isSubmitting)
+        .interactiveDismissDisabled(deciding != nil)
     }
 
     @ViewBuilder
@@ -74,35 +74,45 @@ struct ApprovalSheet: View {
         let agent = store.agent(approval.agentID)
         let expires = approval.expiresDate
         let isExpired = expires.map { $0 < Date() } ?? false
+        let hashVerified = (try? ApprovalSigner.verifiedActionHash(for: approval)) != nil
 
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 12) {
-                    AgentIconView(agent: agent, size: 44)
+            VStack(alignment: .leading, spacing: NXSpace.s5) {
+                HStack(spacing: NXSpace.s3) {
+                    AgentIconView(agent: agent, agentID: approval.agentID, size: 44)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(agent?.name ?? approval.agentID).font(.headline)
-                        Text("\(approval.actionClass.label) · \(store.node(approval.nodeID)?.name ?? approval.nodeID)")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                        Text(agent?.name ?? approval.agentID)
+                            .nx(NXType.title3)
+                            .foregroundStyle(NXColor.fg)
+                        Text(store.node(approval.nodeID)?.name ?? approval.nodeID)
+                            .nx(NXType.footnote)
+                            .foregroundStyle(NXColor.muted)
                     }
                     Spacer()
-                    if approval.isBiometric {
-                        Image(systemName: "faceid").font(.title2).foregroundStyle(.orange)
+                }
+
+                VStack(alignment: .leading, spacing: NXSpace.s2) {
+                    HStack(spacing: 6) {
+                        NXApprovalClassBadge(isBiometric: approval.isBiometric)
+                        NXBadge(approval.actionClass.label.lowercased())
                     }
-                }
-
-                Text(approval.title).font(.title2.bold())
-                if !approval.summary.isEmpty {
-                    Text(approval.summary).font(.body)
-                }
-
-                if let expires {
-                    Label(
-                        isExpired ? "Expired" : "Expires " + Format.relative(expires),
-                        systemImage: "timer"
-                    )
-                    .font(.footnote)
-                    .foregroundStyle(isExpired ? Color.red : Color.secondary)
+                    Text(approval.title)
+                        .nx(NXType.title1)
+                        .foregroundStyle(NXColor.fg)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityAddTraits(.isHeader)
+                    if !approval.summary.isEmpty {
+                        Text(approval.summary)
+                            .nx(NXType.bodyLg)
+                            .foregroundStyle(NXColor.fg2)
+                    }
+                    if let expires {
+                        if isExpired {
+                            NXBadge("Expired", systemImage: "clock", tone: .danger)
+                        } else {
+                            NXExpiryLabel(expiresAt: expires)
+                        }
+                    }
                 }
 
                 previewSection(approval)
@@ -112,46 +122,56 @@ struct ApprovalSheet: View {
                         AsyncImage(url: url) { image in
                             image.resizable().scaledToFit()
                         } placeholder: {
-                            ProgressView()
+                            NXSkeleton(height: 180, cornerRadius: NXRadius.lg)
                         }
                         .frame(maxHeight: 260)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .clipShape(RoundedRectangle(cornerRadius: NXRadius.lg, style: .continuous))
+                        .accessibilityLabel("Preview: \(attachment.name)")
                     } else if !attachment.data.isEmpty, let image = UIImage(data: attachment.data) {
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFit()
                             .frame(maxHeight: 260)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .clipShape(RoundedRectangle(cornerRadius: NXRadius.lg, style: .continuous))
+                            .accessibilityLabel("Preview: \(attachment.name)")
                     }
                 }
 
-                VStack(alignment: .leading, spacing: 6) {
-                    if (try? ApprovalSigner.verifiedActionHash(for: approval)) != nil {
+                VStack(alignment: .leading, spacing: NXSpace.s2) {
+                    if hashVerified {
                         Label("Hash recomputed on this iPhone from the action above", systemImage: "checkmark.shield.fill")
-                            .font(.caption)
-                            .foregroundStyle(.green)
+                            .nxText(NXType.footnote.weight(.medium))
+                            .foregroundStyle(NXColor.ok)
                     } else {
                         Label("Action hash does not match the preview — do not approve", systemImage: "exclamationmark.shield.fill")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.red)
+                            .nxText(NXType.footnote.weight(.semibold))
+                            .foregroundStyle(NXColor.danger)
                     }
-                    Text("Action hash").font(.caption.weight(.semibold))
+                    NXOverline("Action hash")
                     Text(WireFormat.hex(approval.payloadHash))
-                        .font(.caption2.monospaced())
+                        .nx(NXType.mono)
+                        .foregroundStyle(NXColor.fg2)
                         .textSelection(.enabled)
-                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("Action hash")
+                        .accessibilityValue(String(WireFormat.hex(approval.payloadHash).prefix(16)) + "…")
                     Text("Your signature covers exactly this action. If a single item or cent changes, the machine rejects it.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .nx(NXType.caption.weight(.regular))
+                        .foregroundStyle(NXColor.muted)
                 }
 
-                TextField("Comment (optional)", text: $comment, axis: .vertical)
-                    .textFieldStyle(.roundedBorder)
-                Toggle("Remember for this agent and action", isOn: $remember)
-                    .font(.subheadline)
+                VStack(alignment: .leading, spacing: NXSpace.s3) {
+                    NXTextField(placeholder: "Comment (optional)", text: $comment, axis: .vertical)
+                    Toggle(isOn: $remember) {
+                        Text("Remember for this agent and action")
+                            .nx(NXType.body)
+                            .foregroundStyle(NXColor.fg)
+                    }
+                    .tint(NXColor.accent)
+                    .frame(minHeight: NXSize.touchMin)
+                }
 
                 if let errorMessage {
-                    ErrorBanner(message: errorMessage) { self.errorMessage = nil }
+                    NXInlineError(errorMessage, retry: nil) { self.errorMessage = nil }
                 }
 
                 if store.reachability.isUnavailable && !isExpired {
@@ -160,38 +180,22 @@ struct ApprovalSheet: View {
                     } icon: {
                         Image(systemName: "tray.and.arrow.up")
                     }
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .nxText(NXType.footnote)
+                    .foregroundStyle(NXColor.muted)
                 }
 
-                VStack(spacing: 10) {
-                    Button {
+                VStack(spacing: NXSpace.s3) {
+                    NXApproveButton(isBiometric: approval.isBiometric, isLoading: deciding == true, size: .large, fullWidth: true) {
                         Task { await decide(approval, approve: true) }
-                    } label: {
-                        Label(
-                            approval.isBiometric ? "Approve with Face ID" : "Approve",
-                            systemImage: approval.isBiometric ? "faceid" : "checkmark"
-                        )
-                        .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .tint(.green)
-
-                    Button(role: .destructive) {
+                    NXButton("Deny", systemImage: "xmark", kind: .secondary, size: .large, isLoading: deciding == false, fullWidth: true) {
                         Task { await decide(approval, approve: false) }
-                    } label: {
-                        Label("Deny", systemImage: "xmark").frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
                 }
-                .disabled(isSubmitting || isExpired)
-                .overlay {
-                    if isSubmitting { ProgressView() }
-                }
+                .disabled(deciding != nil || isExpired)
             }
-            .padding()
+            .padding(NXSpace.s4)
+            .padding(.bottom, NXSpace.s6)
         }
     }
 
@@ -205,57 +209,71 @@ struct ApprovalSheet: View {
 
     /// Shown after a decision was signed but could not be sent yet.
     private func queuedView(_ queued: (approve: Bool, expires: Date?)) -> some View {
-        VStack(spacing: 16) {
-            Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(queued.approve ? Color.green : Color.secondary)
+        VStack(spacing: NXSpace.s4) {
+            NXIconTile(systemImage: "checkmark.seal.fill", tone: queued.approve ? .ok : .neutral, size: 56)
             Text(queued.approve ? "Approved — waiting to send" : "Denied — waiting to send")
-                .font(.title3.bold())
-            Text("Your Face ID–signed decision is stored on this iPhone and will be sent as soon as your Nexus at home is reachable. Turn on your home VPN to send it now.")
+                .nx(NXType.title2)
+                .foregroundStyle(NXColor.fg)
                 .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
+            Text("Your Face ID–signed decision is stored on this iPhone and will be sent as soon as your Nexus at home is reachable. Turn on your home VPN to send it now.")
+                .nx(NXType.body)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(NXColor.fg2)
             if let expires = queued.expires {
                 Label("Valid until \(expires.formatted(date: .omitted, time: .shortened)). If it can't be delivered by then, it is dropped and nothing happens.", systemImage: "timer")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .nxText(NXType.footnote)
+                    .foregroundStyle(NXColor.muted)
             }
-            Button("Done") { dismiss() }
-                .buttonStyle(.borderedProminent)
+            NXButton("Done", kind: .primary, fullWidth: true) { dismiss() }
         }
-        .padding(24)
+        .padding(NXSpace.s6)
     }
 
     @ViewBuilder
     private func previewSection(_ approval: Nexus_V1_Approval) -> some View {
         let preview = approval.payloadPreview
         if !preview.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: NXSpace.s2) {
                 HStack {
-                    Text("Exact action").font(.headline)
+                    Text("Exact action")
+                        .nx(NXType.title3)
+                        .foregroundStyle(NXColor.fg)
+                        .accessibilityAddTraits(.isHeader)
                     Spacer()
                     Button(showRawPayload ? "Fields" : "Raw") { showRawPayload.toggle() }
-                        .font(.caption)
+                        .font(NXType.footnote.weight(.semibold).font)
+                        .foregroundStyle(NXColor.accent)
+                        .frame(minWidth: NXSize.touchMin, minHeight: NXSize.touchMin)
+                        .nxFocusRing()
+                        .accessibilityLabel(showRawPayload ? "Show fields" : "Show raw JSON")
                 }
                 if showRawPayload {
                     Text(preview)
-                        .font(.caption.monospaced())
+                        .nx(NXType.mono)
+                        .foregroundStyle(NXColor.fg2)
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
-                    ForEach(approval.payload.fields.keys.sorted(), id: \.self) { key in
+                    let keys = approval.payload.fields.keys.sorted()
+                    ForEach(Array(keys.enumerated()), id: \.element) { index, key in
                         HStack(alignment: .firstTextBaseline) {
-                            Text(key).font(.subheadline).foregroundStyle(.secondary)
+                            Text(key)
+                                .nx(NXType.body)
+                                .foregroundStyle(NXColor.muted)
                             Spacer()
                             Text(Self.display(approval.payload.fields[key]))
-                                .font(.subheadline.monospacedDigit())
+                                .nx(NXType.body.weight(.medium))
+                                .monospacedDigit()
+                                .foregroundStyle(NXColor.fg)
                                 .multilineTextAlignment(.trailing)
                         }
-                        Divider()
+                        .frame(minHeight: 36)
+                        .accessibilityElement(children: .combine)
+                        if index < keys.count - 1 { NXDivider() }
                     }
                 }
             }
-            .padding(12)
-            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+            .nxCard()
         }
     }
 
@@ -273,9 +291,9 @@ struct ApprovalSheet: View {
     }
 
     private func decide(_ approval: Nexus_V1_Approval, approve: Bool) async {
-        isSubmitting = true
+        deciding = approve
         errorMessage = nil
-        defer { isSubmitting = false }
+        defer { deciding = nil }
         do {
             let delivery = try await store.decide(approval, approve: approve, comment: comment, remember: remember)
             if delivery.isQueued {
