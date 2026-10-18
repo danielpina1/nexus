@@ -18,7 +18,7 @@ import (
 )
 
 // RobustConfig is the part of the "vault" config section for durability and
-// the extended features (see docs/VAULT.md §8):
+// the extended features (see docs/VAULT.md §12):
 //
 //	vault:
 //	  conflicts: keep_both        # keep_both | reject (stale writes that cannot be merged)
@@ -32,7 +32,7 @@ import (
 //	    daily: {folder: daily, format: YYYY-MM-DD, template: templates/daily.md}
 //	  check:
 //	    on_start: true            # quick integrity check at startup
-//	    full_at: "03:30"          # daily full check (local time); "" = off
+//	    full_at: "03:30"          # daily full check (local time, default 03:30); off = never
 //	  backup:
 //	    dir: ~/Backups/nexus-vault  # e.g. an external disk or iCloud Drive folder
 //	    at: "02:30"               # daily backup time; "" = only on demand
@@ -252,8 +252,12 @@ func (m *Module) startRobust(ctx context.Context) {
 			}
 		})
 	}
-	if c.Check.FullAt != "" {
-		m.daily(ctx, c.Check.FullAt, func(ctx context.Context) {
+	fullAt := c.Check.FullAt
+	if fullAt == "" {
+		fullAt = "03:30"
+	}
+	if !strings.EqualFold(fullAt, "off") && !strings.EqualFold(fullAt, "never") {
+		m.daily(ctx, fullAt, func(ctx context.Context) {
 			rep, err := m.V.Check(ctx, true)
 			if err != nil {
 				log.Warn("vault: nightly check failed", "err", err)

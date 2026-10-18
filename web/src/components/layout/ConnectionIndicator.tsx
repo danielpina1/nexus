@@ -45,7 +45,7 @@ export function ConnectionIndicator({ compact }: { compact?: boolean }) {
       title={c.error ? `${label} — ${c.error}${clickable ? " (click to retry now)" : ""}` : label}
       className={cx(
         "flex items-center gap-2 rounded-lg text-xs text-muted",
-        compact ? "p-1.5" : "w-full px-2 py-1.5",
+        compact ? "size-11 justify-center p-1.5" : "w-full px-2 py-1.5",
         clickable ? "cursor-pointer hover:bg-surface-2 hover:text-fg" : "cursor-default",
       )}
     >

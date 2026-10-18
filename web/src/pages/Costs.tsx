@@ -253,10 +253,10 @@ export default function Costs() {
               subtitle="Hover a day for the breakdown"
               actions={
                 <div className="flex rounded-lg bg-surface-2 p-0.5">
-                  <button onClick={() => setMode("chart")} className={cx("rounded-md p-1", mode === "chart" ? "bg-surface text-fg shadow-card" : "text-muted")} aria-label="Chart view">
+                  <button onClick={() => setMode("chart")} className={cx("rounded-md p-1 pointer-coarse:p-3", mode === "chart" ? "bg-surface text-fg shadow-card" : "text-muted")} aria-label="Chart view">
                     <BarChart3 className="size-3.5" />
                   </button>
-                  <button onClick={() => setMode("table")} className={cx("rounded-md p-1", mode === "table" ? "bg-surface text-fg shadow-card" : "text-muted")} aria-label="Table view">
+                  <button onClick={() => setMode("table")} className={cx("rounded-md p-1 pointer-coarse:p-3", mode === "table" ? "bg-surface text-fg shadow-card" : "text-muted")} aria-label="Table view">
                     <Table2 className="size-3.5" />
                   </button>
                 </div>

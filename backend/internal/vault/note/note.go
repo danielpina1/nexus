@@ -19,6 +19,14 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// FileExts are link targets that are files (attachments), not notes.
+var FileExts = map[string]bool{
+	".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".webp": true, ".svg": true, ".bmp": true, ".heic": true,
+	".pdf": true, ".mp3": true, ".m4a": true, ".wav": true, ".ogg": true, ".flac": true, ".mp4": true, ".mov": true,
+	".webm": true, ".mkv": true, ".zip": true, ".csv": true, ".json": true, ".txt": true, ".canvas": true,
+	".excalidraw": true, ".docx": true, ".xlsx": true, ".pptx": true,
+}
+
 // RelLinksTo is the relation of plain body links.
 const RelLinksTo = "links_to"
 
@@ -285,8 +293,8 @@ func (n *Note) scanBody(tags *orderedSet) (h1 string) {
 				target, heading = target[:i], target[i+1:]
 			}
 			if !strings.HasSuffix(strings.ToLower(target), ".md") {
-				if m[1] == "" {
-					continue // only notes; images etc. are attachments
+				if m[1] == "" && !FileExts[strings.ToLower(path.Ext(target))] {
+					continue // only notes and known attachment files
 				}
 			}
 			n.Links = append(n.Links, Link{Target: target, Heading: heading, Alias: m[2], Embed: m[1] != "", Relation: RelLinksTo, Line: lineNo})

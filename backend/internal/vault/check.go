@@ -19,20 +19,20 @@ import (
 
 // Issue kinds reported by Check.
 const (
-	IssueIndexMissing      = "index_missing"      // file not in the index
-	IssueIndexOrphan       = "index_orphan"       // indexed note without a file
-	IssueIndexStale        = "index_stale"        // index content hash differs (full)
-	IssueBrokenLink        = "broken_link"        // link to a missing note (full)
-	IssueDuplicateID       = "duplicate_id"       // two notes share an id
-	IssueMissingID         = "missing_id"         // note without id (full)
+	IssueIndexMissing      = "index_missing"       // file not in the index
+	IssueIndexOrphan       = "index_orphan"        // indexed note without a file
+	IssueIndexStale        = "index_stale"         // index content hash differs (full)
+	IssueBrokenLink        = "broken_link"         // link to a missing note (full)
+	IssueDuplicateID       = "duplicate_id"        // two notes share an id
+	IssueMissingID         = "missing_id"          // note without id (full)
 	IssueInvalidFM         = "invalid_frontmatter" // YAML error (full)
-	IssueOrphanAttachment  = "orphan_attachment"  // attachment nothing links to (full)
-	IssueOversize          = "oversize"           // over the size limits (full)
-	IssueTempFile          = "temp_file"          // leftover temp file from a crash
-	IssueConflictCopy      = "conflict_copy"      // "(conflict …)" copy to merge
-	IssuePendingJournal    = "pending_journal"    // interrupted multi-file operation
-	IssueUnreadable        = "unreadable"         // cannot read/decrypt (full)
-	IssueEncryptionMissing = "plaintext_private"  // plaintext in an encrypted folder (full)
+	IssueOrphanAttachment  = "orphan_attachment"   // attachment nothing links to (full)
+	IssueOversize          = "oversize"            // over the size limits (full)
+	IssueTempFile          = "temp_file"           // leftover temp file from a crash
+	IssueConflictCopy      = "conflict_copy"       // "(conflict …)" copy to merge
+	IssuePendingJournal    = "pending_journal"     // interrupted multi-file operation
+	IssueUnreadable        = "unreadable"          // cannot read/decrypt (full)
+	IssueEncryptionMissing = "plaintext_private"   // plaintext in an encrypted folder (full)
 )
 
 // Issue is one integrity problem.

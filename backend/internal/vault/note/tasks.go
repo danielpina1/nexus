@@ -7,9 +7,9 @@ import (
 
 // Task is a Markdown checkbox item, Obsidian Tasks / Dataview compatible:
 //
-//	- [ ] Call João 📅 2026-10-20 ⏳ 2026-10-18 🔼 #work
-//	- [x] Pay rent ✅ 2026-10-01
-//	- [ ] Renew passport [due:: 2026-11-01] [priority:: high]
+//   - [ ] Call João 📅 2026-10-20 ⏳ 2026-10-18 🔼 #work
+//   - [x] Pay rent ✅ 2026-10-01
+//   - [ ] Renew passport [due:: 2026-11-01] [priority:: high]
 type Task struct {
 	Line      int    // 1-based line in the file
 	Status    string // checkbox character: " ", "x", "/", "-", ">"…

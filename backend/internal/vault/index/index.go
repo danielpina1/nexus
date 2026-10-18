@@ -696,12 +696,7 @@ func baseName(rel string) string {
 }
 
 // attachmentExts are link targets that are files, not notes.
-var attachmentExts = map[string]bool{
-	".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".webp": true, ".svg": true, ".bmp": true, ".heic": true,
-	".pdf": true, ".mp3": true, ".m4a": true, ".wav": true, ".ogg": true, ".flac": true, ".mp4": true, ".mov": true,
-	".webm": true, ".mkv": true, ".zip": true, ".csv": true, ".json": true, ".txt": true, ".canvas": true,
-	".excalidraw": true, ".docx": true, ".xlsx": true, ".pptx": true,
-}
+var attachmentExts = note.FileExts
 
 func isAttachment(target string) bool {
 	return attachmentExts[strings.ToLower(path.Ext(target))]

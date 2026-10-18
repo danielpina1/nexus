@@ -9,7 +9,8 @@ export default tseslint.config(
   {
     extends: [js.configs.recommended],
     files: ["e2e/**/*.mjs", "scripts/**/*.mjs"],
-    languageOptions: { ecmaVersion: 2022, globals: globals.node },
+    // Playwright scripts: Node, plus browser globals inside page.evaluate callbacks.
+    languageOptions: { ecmaVersion: 2022, globals: { ...globals.node, ...globals.browser } },
   },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],

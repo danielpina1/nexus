@@ -14,7 +14,7 @@ import (
 	nexusv1 "github.com/danielpina1/nexus/backend/gen/nexus/v1"
 )
 
-// Handlers for the robustness and feature RPCs (see docs/VAULT.md §8).
+// Handlers for the robustness and feature RPCs (see docs/VAULT.md §11).
 
 func idOrPath(id, path string) (string, error) {
 	if id != "" {
@@ -370,6 +370,11 @@ func (h VaultHandler) VerifyBackup(ctx context.Context, r *connect.Request[nexus
 }
 
 func (h VaultHandler) WatchVault(ctx context.Context, r *connect.Request[nexusv1.WatchVaultRequest], stream *connect.ServerStream[nexusv1.WatchVaultResponse]) error {
+	// Flush the response headers now so clients see the stream open before
+	// the first change.
+	if err := stream.Send(nil); err != nil {
+		return err
+	}
 	err := h.V.WatchChanges(ctx, r.Msg.GetSinceRev(), r.Msg.GetPathPrefix(), func(c Change) error {
 		return stream.Send(&nexusv1.WatchVaultResponse{Change: c.Proto()})
 	})

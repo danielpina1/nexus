@@ -62,7 +62,7 @@ export function AppShell() {
       <a href="#main" className="sr-only z-[80] rounded-lg bg-primary px-3 py-2 text-primary-fg focus:not-sr-only focus:fixed focus:top-3 focus:left-3">
         Skip to content
       </a>
-      <aside className="glass hidden w-[232px] shrink-0 border-r lg:block">
+      <aside className="hidden w-[232px] shrink-0 border-r border-glass-border bg-glass lg:block">
         <Sidebar />
       </aside>
 

@@ -9,8 +9,18 @@
 //
 // The "vault" hub module (module.go) wires it into the kernel: it provides
 // kernel.SvcVault and kernel.SvcAgents, the VaultService and AgentService
-// Connect handlers, and the hub tools memory.search, vault.read, vault.write,
-// vault.link, vault.daily_append and facts.propose.
+// Connect handlers, and the hub tools (tools.go, tools_ext.go).
+//
+// Durability (docs/VAULT.md §8): atomic fsynced writes (fsutil.go), a
+// single-writer flock (lock.go), a write-ahead journal for multi-file
+// operations (journal.go), git or snapshot history (history.go,
+// snapshot.go), trash (trash.go), Check/Repair (check.go), backups
+// (backup.go), three-way merge on conflicts (conflict.go, diff.go) and
+// encryption at rest (crypt.go). Features (§9): rename/merge/split
+// (rename.go, linkrewrite.go), templates and periodic notes (template.go),
+// the query language (query.go), analytics (analytics.go), tasks
+// (tasks.go), attachments (attachments.go), the change feed (feed.go) and
+// import/web clips (import.go).
 package vault
 
 import (
@@ -644,9 +654,9 @@ func (v *Vault) revision(ctx context.Context, rel string, content []byte) string
 func (v *Vault) toNote(ctx context.Context, rel string, content []byte) (*nexusv1.Note, error) {
 	n := note.Parse(rel, content)
 	out := &nexusv1.Note{
-		Ref:    &nexusv1.NoteRef{Id: noteKey(n.ID, rel), Path: rel, Title: n.Title},
-		Type:   n.Type,
-		Tags:   n.Tags,
+		Ref:       &nexusv1.NoteRef{Id: noteKey(n.ID, rel), Path: rel, Title: n.Title},
+		Type:      n.Type,
+		Tags:      n.Tags,
 		Body:      n.Body,
 		Commit:    v.revision(ctx, rel, content),
 		Encrypted: v.crypt.covers(rel),

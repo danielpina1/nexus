@@ -30,7 +30,8 @@ export function Switch({ checked, onChange, label, disabled }: { checked: boolea
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cx(
-        "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-50",
+        // The hit area extends to 44×44 on touch screens without changing the visual size.
+        "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 pointer-coarse:after:absolute pointer-coarse:after:-inset-x-1 pointer-coarse:after:-inset-y-3 pointer-coarse:after:content-['']",
         checked ? "bg-accent" : "bg-surface-3 ring-1 ring-border-strong",
       )}
     >

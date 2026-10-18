@@ -59,7 +59,7 @@ export function ArtifactView({ att }: { att: Attachment }) {
         <span className="text-muted">{formatBytes(att.sizeBytes || BigInt(att.data.length))}</span>
         <span className="flex-1" />
         {url && (
-          <a href={url} download={att.name} className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-muted hover:bg-surface-2 hover:text-fg">
+          <a href={url} download={att.name} aria-label={`Download ${att.name}`} className="inline-flex min-h-8 min-w-8 items-center justify-center gap-1 rounded-md px-1.5 py-0.5 text-muted hover:bg-surface-2 hover:text-fg pointer-coarse:size-11">
             <Download className="size-3.5" />
           </a>
         )}
