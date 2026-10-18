@@ -176,7 +176,7 @@ func TestModule(t *testing.T) {
 	for _, s := range h.Tools().List() {
 		names = append(names, s.Name)
 	}
-	if strings.Join(names, ",") != "facts.propose,memory.search,vault.daily_append,vault.link,vault.read,vault.write" {
+	if strings.Join(names, ",") != "facts.propose,memory.search,vault.complete_task,vault.daily_append,vault.history,vault.link,vault.query,vault.read,vault.related,vault.rename,vault.restore,vault.tasks,vault.write" {
 		t.Fatalf("tools = %v", names)
 	}
 

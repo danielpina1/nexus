@@ -114,10 +114,22 @@ await step("Inbox: approve it (optimistic)", async () => {
   await go("/inbox");
   const card = page.locator("[data-testid=approval-card]").filter({ hasText: /echo|approve|smoke/i }).first();
   await card.waitFor({ timeout: 15_000 });
-  const t0 = Date.now();
-  await card.getByRole("button", { name: "Approve" }).click();
-  await card.waitFor({ state: "detached", timeout: 5_000 });
-  console.log(`       card left the inbox in ${Date.now() - t0} ms`);
+  const ms = await card.evaluate(
+    (el) =>
+      new Promise((done) => {
+        const btn = [...el.querySelectorAll("button")].find((b) => b.textContent.trim() === "Approve");
+        const t0 = performance.now();
+        const mo = new MutationObserver(() => {
+          if (!el.isConnected) {
+            mo.disconnect();
+            done(performance.now() - t0);
+          }
+        });
+        mo.observe(document.body, { childList: true, subtree: true });
+        btn.click();
+      }),
+  );
+  console.log(`       card left the inbox ${ms.toFixed(1)} ms after the click (optimistic)`);
   await page.getByText("Approved", { exact: true }).first().waitFor({ timeout: 10_000 });
 });
 
@@ -177,6 +189,30 @@ await step("Reload resumes from the cached seq (no Connect screen)", async () =>
   await page.getByRole("heading", { name: "Inbox" }).waitFor({ timeout: 10_000 });
   await page.getByText("Live", { exact: true }).first().waitFor({ timeout: 10_000 });
   console.log(`       live again ${Date.now() - t0} ms after reload`);
+});
+
+await step("Offline → online catches up on missed events", async () => {
+  await go("/tasks");
+  await page.getByRole("heading", { name: "Tasks" }).waitFor();
+  await ctx.setOffline(true);
+  await page.getByText(/Offline|Reconnecting/).first().waitFor({ timeout: 15_000 });
+  // Meanwhile, another session starts a task.
+  const other = await browser.newContext({ ignoreHTTPSErrors: true });
+  await other.addInitScript((t) => localStorage.setItem("nexus.settings", JSON.stringify({ token: t })), token);
+  const p2 = await other.newPage();
+  await p2.goto(base + "/chat");
+  const marker = `catchup ${Date.now().toString(36)}`;
+  await p2.getByTestId("command-input").fill(`@echo ${marker}`);
+  await p2.getByTestId("command-input").press("Enter");
+  await p2.getByTestId("run-view").getByText("Succeeded").first().waitFor({ timeout: 30_000 });
+  await other.close();
+  // DevTools offline emulation only affects new requests, so make sure the old stream is really gone.
+  const seenEarly = await page.getByText(marker).count();
+  if (seenEarly) console.log("       (note: event arrived over the old connection while offline)");
+  const t0 = Date.now();
+  await ctx.setOffline(false);
+  await page.getByText(marker).first().waitFor({ timeout: 20_000 });
+  console.log(`       caught up ${Date.now() - t0} ms after coming back online`);
 });
 
 await browser.close();

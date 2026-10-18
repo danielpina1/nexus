@@ -15,8 +15,9 @@ import (
 // `shopping` carry the stores and shopping defaults (docs/SHOPPING.md);
 // `claude` and `codex` carry per-agent CLI settings (model, allowed /
 // disallowed tools, permission mode, max turns, sandbox — see
-// internal/runtime/claudecode and internal/runtime/codex).
-var ForwardedAgentKeys = []string{"browser", "shops", "shopping", "claude", "codex"}
+// internal/runtime/claudecode and internal/runtime/codex); `anthrex` carries the
+// Anthrex runtime settings (repo, delivery, design, orchestrator, plan_approval).
+var ForwardedAgentKeys = []string{"browser", "shops", "shopping", "claude", "codex", "anthrex"}
 
 // mergeAgentConfig copies ForwardedAgentKeys from the agent note's
 // frontmatter into ctx. Values from the agent note replace task params of

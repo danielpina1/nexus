@@ -222,6 +222,11 @@ func (v *Vault) Query(ctx context.Context, q string, limit int) (*QueryResult, e
 	}
 	if sortKey != "" && sortKey != "score" {
 		sort.SliceStable(out, func(i, j int) bool {
+			// Notes without the sort field always go last.
+			mi, mj := missingSortKey(out[i].Entry, sortKey), missingSortKey(out[j].Entry, sortKey)
+			if mi != mj {
+				return mj
+			}
 			c := compareEntries(out[i].Entry, out[j].Entry, sortKey)
 			if desc {
 				return c > 0
@@ -243,6 +248,15 @@ func (v *Vault) Query(ctx context.Context, q string, limit int) (*QueryResult, e
 	res.Hits = out
 	res.Warnings = uniqueStrings(res.Warnings, "")
 	return res, nil
+}
+
+func missingSortKey(e *index.Entry, key string) bool {
+	switch key {
+	case "updated", "modified", "mtime", "created", "ctime", "title", "name", "path", "file", "type", "size":
+		return false
+	}
+	_, ok := lookupField(e.Frontmatter, key)
+	return !ok
 }
 
 func compareEntries(a, b *index.Entry, key string) int {

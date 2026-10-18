@@ -13,7 +13,8 @@ import (
 // VaultHandler implements nexusv1connect.VaultServiceHandler.
 type VaultHandler struct {
 	V *Vault
-	nexusv1connect.UnimplementedVaultServiceHandler
+	// BackupConfig returns the configured backup options (nil = backups disabled).
+	BackupConfig func() *BackupOptions
 }
 
 // AgentHandler implements nexusv1connect.AgentServiceHandler.
@@ -42,6 +43,12 @@ func connectErr(err error) error {
 		return connect.NewError(connect.CodeInvalidArgument, err)
 	case errors.Is(err, ErrConflict):
 		return connect.NewError(connect.CodeAborted, err)
+	case errors.Is(err, ErrTooLarge):
+		return connect.NewError(connect.CodeResourceExhausted, err)
+	case errors.Is(err, ErrNoKey):
+		return connect.NewError(connect.CodeFailedPrecondition, err)
+	case errors.Is(err, ErrLocked):
+		return connect.NewError(connect.CodeUnavailable, err)
 	case errors.Is(err, context.Canceled):
 		return connect.NewError(connect.CodeCanceled, err)
 	case errors.Is(err, context.DeadlineExceeded):
@@ -82,11 +89,11 @@ func (h VaultHandler) GetNote(ctx context.Context, r *connect.Request[nexusv1.Ge
 }
 
 func (h VaultHandler) WriteNote(ctx context.Context, r *connect.Request[nexusv1.WriteNoteRequest]) (*connect.Response[nexusv1.WriteNoteResponse], error) {
-	n, err := h.V.WriteNote(ctx, r.Msg.GetPath(), []byte(r.Msg.GetMarkdown()), r.Msg.GetCommitMessage(), r.Msg.GetBaseCommit())
+	res, err := h.V.WriteNoteEx(ctx, r.Msg.GetPath(), []byte(r.Msg.GetMarkdown()), r.Msg.GetCommitMessage(), r.Msg.GetBaseCommit())
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	return connect.NewResponse(&nexusv1.WriteNoteResponse{Note: n}), nil
+	return connect.NewResponse(&nexusv1.WriteNoteResponse{Note: res.Note, Merged: res.Merged}), nil
 }
 
 func (h VaultHandler) Capture(ctx context.Context, r *connect.Request[nexusv1.CaptureRequest]) (*connect.Response[nexusv1.CaptureResponse], error) {

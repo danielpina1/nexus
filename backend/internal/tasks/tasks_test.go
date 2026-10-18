@@ -53,6 +53,7 @@ func newFixture(t *testing.T, opts ...opt) *fixture {
 		t.Fatal(err)
 	}
 	f.e = m.Engine
+	t.Cleanup(m.Engine.Close)
 	return f
 }
 

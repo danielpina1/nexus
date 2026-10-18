@@ -11,6 +11,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
+	nexusv1 "github.com/danielpina1/nexus/backend/gen/nexus/v1"
 	"github.com/danielpina1/nexus/backend/internal/vault/index"
 )
 
@@ -77,7 +78,7 @@ func (v *Vault) Watch(ctx context.Context, debounce time.Duration) (stop func(),
 				switch {
 				case newDir:
 					full = true
-				case index.IsNotePath(rel):
+				case index.IsNotePath(rel), index.IsAttachmentPath(rel):
 					pending[rel] = true
 				case ev.Op&(fsnotify.Remove|fsnotify.Rename) != 0 && filepath.Ext(rel) == "":
 					full = true // probably a directory
@@ -101,21 +102,62 @@ func (v *Vault) Watch(ctx context.Context, debounce time.Duration) (stop func(),
 }
 
 func (v *Vault) applyChanges(ctx context.Context, pending map[string]bool, full bool) {
+	ctx = WithOrigin(ctx, "external")
 	if full {
 		if _, err := v.Sync(ctx); err != nil {
 			v.log.Warn("vault: sync after external change", "err", err)
 		}
+		v.emit(ctx, nexusv1.VaultChangeKind_VAULT_CHANGE_KIND_RESYNC, "", "", "")
 		return
 	}
 	var changed []string
 	for rel := range pending {
+		if !index.IsNotePath(rel) {
+			if _, err := v.ix.UpsertAttachmentFile(ctx, v.root, rel); err != nil {
+				v.log.Warn("vault: reindex attachment", "path", rel, "err", err)
+			}
+			continue
+		}
+		before, wasIndexed := v.ix.Get(ctx, rel)
+		p := filepath.Join(v.root, filepath.FromSlash(rel))
+		raw, rerr := os.ReadFile(p)
+		if rerr != nil && !wasIndexed {
+			continue // created and deleted again, or our own delete
+		}
 		ok, err := v.ix.UpsertFile(ctx, v.root, rel)
 		if err != nil {
 			v.log.Warn("vault: reindex", "path", rel, "err", err)
 			continue
 		}
-		if ok {
-			changed = append(changed, rel)
+		if !ok {
+			continue
+		}
+		changed = append(changed, rel)
+		id := ""
+		if e, ok := v.ix.Get(ctx, rel); ok {
+			id = e.ID
+		} else if before != nil {
+			id = before.ID
+		}
+		switch {
+		case rerr != nil:
+			v.emit(ctx, nexusv1.VaultChangeKind_VAULT_CHANGE_KIND_DELETED, rel, "", id)
+			if v.snaps != nil {
+				_ = v.snaps.record(snapEntry{Path: rel, At: v.now().UnixMilli(), Message: "deleted outside Nexus"}, nil)
+			}
+		case wasIndexed:
+			v.emit(ctx, nexusv1.VaultChangeKind_VAULT_CHANGE_KIND_UPDATED, rel, "", id)
+		default:
+			v.emit(ctx, nexusv1.VaultChangeKind_VAULT_CHANGE_KIND_CREATED, rel, "", id)
+		}
+		if rerr == nil && v.snaps != nil {
+			// Undo covers edits made in Obsidian or other editors too.
+			_ = v.snaps.record(snapEntry{Path: rel, At: v.now().UnixMilli(), Message: "edited outside Nexus", PH: v.plainHash(raw)}, raw)
+		}
+		if rerr == nil {
+			if plain, err := v.decode(raw); err == nil {
+				v.recent.put(index.Hash(plain), plain)
+			}
 		}
 	}
 	if len(changed) > 0 {

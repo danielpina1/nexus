@@ -57,7 +57,13 @@ type stageResult struct {
 	ranked    []string
 	top       float64
 	margin    float64
+	// evidence is the best absolute similarity (description/example or a
+	// past request): low for requests unlike anything known.
+	evidence float64
 }
+
+// Conf is the calibrated confidence of a stage result.
+func (p Platt) Conf(r *stageResult) float64 { return p.Apply(r.top, r.margin, r.evidence) }
 
 const (
 	descTemp   = 10.0
@@ -106,6 +112,9 @@ func (s *scorer) score(input string, q []float32, exclude string, useClf bool) *
 		d[id] = p[i]
 	}
 	r.dists[StageDesc], r.weights[StageDesc] = d, 1
+	for _, v := range r.descSim {
+		r.evidence = math.Max(r.evidence, v)
+	}
 	// kNN over past requests.
 	var hits []neighbor
 	for _, e := range s.examples {
@@ -124,6 +133,11 @@ func (s *scorer) score(input string, q []float32, exclude string, useClf bool) *
 		hits = hits[:s.cfg.K]
 	}
 	r.neighbors = hits
+	for _, h := range hits {
+		if !h.ex.Negative {
+			r.evidence = math.Max(r.evidence, h.sim)
+		}
+	}
 	votes := map[string]float64{}
 	var strength float64
 	for _, h := range hits {

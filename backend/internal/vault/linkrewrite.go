@@ -236,7 +236,8 @@ func (rw *rewriter) md(sub []string, from, to string) (string, bool) {
 		return "", false
 	}
 	rel := relPath(path.Dir(to), newPath)
-	if encoded {
+	if encoded || strings.Contains(rel, " ") {
+		// Markdown link destinations cannot contain raw spaces.
 		rel = strings.ReplaceAll(rel, " ", "%20")
 	}
 	return bang + "[" + text + "](" + rel + frag + title + ")", true

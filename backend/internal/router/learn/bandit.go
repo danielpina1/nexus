@@ -12,8 +12,9 @@ import (
 // request cluster with Thompson sampling over Beta posteriors of a reward in
 // [0, 1] (success minus cost, latency and correction penalties). Every
 // update also feeds a global (cluster −1) posterior used while a cluster has
-// fewer than minClusterN observations. Arms keep a small prior bonus in the
-// order of the policy list so the policy's preference holds without data.
+// fewer than minClusterN observations. Arms get prior pseudo-observations
+// in the order of the policy list so the policy's preference holds without
+// data.
 type Bandit struct {
 	mu    sync.Mutex
 	stats map[string]*ArmStats
@@ -33,7 +34,9 @@ func NewBandit(seed uint64) *Bandit {
 	return &Bandit{stats: map[string]*ArmStats{}, rng: rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15))}
 }
 
-func armKey(cluster int, agent, arm string) string { return fmt.Sprintf("%d|%s|%s", cluster, agent, arm) }
+func armKey(cluster int, agent, arm string) string {
+	return fmt.Sprintf("%d|%s|%s", cluster, agent, arm)
+}
 
 func (b *Bandit) get(cluster int, agent, arm string) *ArmStats {
 	k := armKey(cluster, agent, arm)
@@ -93,8 +96,10 @@ func (b *Bandit) Choose(cluster int, agent string, arms []string) ArmChoice {
 			s = b.get(-1, agent, arm)
 			pooled = true
 		}
-		bonus := 0.5 * float64(len(arms)-i) / float64(len(arms))
-		a, bb := s.A+bonus, s.B
+		// Prior pseudo-observations in policy order: the first arm starts
+		// at Beta(2, 1), the last near Beta(1+1/n, 2−1/n).
+		n := float64(len(arms))
+		a, bb := s.A+(n-float64(i))/n, s.B+float64(i)/n
 		v := betaSample(b.rng, a, bb)
 		out.Samples[arm] = v
 		out.Means[arm] = a / (a + bb)

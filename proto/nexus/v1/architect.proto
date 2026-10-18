@@ -1,0 +1,182 @@
+syntax = "proto3";
+
+package nexus.v1;
+
+import "google/protobuf/timestamp.proto";
+import "nexus/v1/approval.proto";
+
+// What the architect is asked to design.
+enum DraftKind {
+  DRAFT_KIND_UNSPECIFIED = 0;
+  // Let the architect decide (an agent, plus a workflow note when the
+  // request implies a schedule/trigger, or a team for multi-specialist work).
+  DRAFT_KIND_AUTO = 1;
+  DRAFT_KIND_AGENT = 2;
+  DRAFT_KIND_TEAM = 3;
+  DRAFT_KIND_WORKFLOW = 4;
+}
+
+enum DraftState {
+  DRAFT_STATE_UNSPECIFIED = 0;
+  DRAFT_STATE_DRAFTING = 1; // the model / agent-architect task is working
+  DRAFT_STATE_READY = 2; // valid (possibly auto-fixed); can be tested and published
+  DRAFT_STATE_INVALID = 3; // problems the auto-fix could not solve
+  DRAFT_STATE_TESTING = 4; // sandbox test run in progress
+  DRAFT_STATE_PENDING_APPROVAL = 5; // waiting for the owner's approval to publish
+  DRAFT_STATE_PUBLISHED = 6;
+  DRAFT_STATE_DISCARDED = 7;
+  DRAFT_STATE_FAILED = 8; // drafting failed (see error)
+}
+
+// DraftNote is one vault note of a draft.
+message DraftNote {
+  string kind = 1; // agent | workflow | team
+  string id = 2;
+  string path = 3; // agents/<id>.md, workflows/<id>.md, teams/<id>.md
+  string markdown = 4;
+  // Unified diff against the current note (empty for new notes).
+  string diff = 5;
+  bool exists = 6; // the note already exists (an update)
+}
+
+// DraftTestCase is a sample input with expected properties. Expectations
+// starting with "contains:", "not_contains:", "calls:", "no_calls:" or
+// "json" are checked automatically; others are listed for the owner.
+message DraftTestCase {
+  string name = 1;
+  string input = 2;
+  repeated string expect = 3;
+}
+
+message DraftTestResult {
+  string name = 1;
+  string input = 2;
+  bool passed = 3;
+  string output = 4;
+  repeated string checks = 5; // "✓ contains: total" / "✗ no_calls: browser"
+  // Actions the sandbox refused (≥ write_internal), e.g. "email.send".
+  repeated string blocked_actions = 6;
+  repeated string tool_calls = 7;
+  // sandbox_task (an ephemeral sandboxed task), native_loop (in-process
+  // model loop with sandboxed tools) or simulated (agent-architect dry run).
+  string mode = 8;
+  string task_id = 9;
+  string error = 10;
+}
+
+// AgentDraft is a proposed agent (and optional workflow / team) note set.
+message AgentDraft {
+  string id = 1; // drf_…
+  DraftKind kind = 2;
+  DraftState state = 3;
+  string request = 4;
+  string context = 5;
+  repeated DraftNote notes = 6;
+  string rationale = 7;
+  repeated string risks = 8;
+  repeated DraftTestCase test_cases = 9;
+  // Validation problems left after auto-fix (state INVALID when non-empty).
+  repeated string problems = 10;
+  // Auto-fixes applied, each with its explanation.
+  repeated string fixes = 11;
+  repeated DraftTestResult test_results = 12;
+  string approval_id = 13;
+  // The agent-architect task that drafted it (agent path).
+  string task_id = 14;
+  // "llm:<model>" or "agent:agent-architect".
+  string via = 15;
+  int32 revision = 16;
+  repeated string feedback = 17;
+  string error = 18;
+  // Set when the draft updates an existing agent (agent tuning).
+  string update_agent_id = 19;
+  google.protobuf.Timestamp created_at = 20;
+  google.protobuf.Timestamp updated_at = 21;
+}
+
+// ArchitectService designs agents from requests, validates and tests them in
+// a sandbox, and publishes them to the vault after the owner approves.
+service ArchitectService {
+  rpc Draft(DraftRequest) returns (DraftResponse);
+  // Refine iterates on a draft with feedback (a new revision).
+  rpc Refine(RefineRequest) returns (RefineResponse);
+  // TestRun runs the draft's test cases in a sandbox (no external,
+  // spend or destructive actions).
+  rpc TestRun(TestRunRequest) returns (TestRunResponse);
+  // Publish asks the owner to approve writing the notes; they are written
+  // when the approval is granted.
+  rpc Publish(PublishRequest) returns (PublishResponse);
+  rpc ListDrafts(ListDraftsRequest) returns (ListDraftsResponse);
+  rpc GetDraft(GetDraftRequest) returns (GetDraftResponse);
+  rpc Discard(DiscardRequest) returns (DiscardResponse);
+}
+
+message DraftRequest {
+  string request = 1;
+  DraftKind kind = 2;
+  string context = 3;
+  // Wait for the draft (up to the server's timeout) instead of returning
+  // it in state DRAFTING.
+  bool wait = 4;
+  // Draft an improved version of this existing agent.
+  string update_agent_id = 5;
+}
+
+message DraftResponse {
+  AgentDraft draft = 1;
+}
+
+message RefineRequest {
+  string draft_id = 1;
+  string feedback = 2;
+  bool wait = 3;
+}
+
+message RefineResponse {
+  AgentDraft draft = 1;
+}
+
+message TestRunRequest {
+  string draft_id = 1;
+  // Extra cases (the draft's own cases run when empty).
+  repeated DraftTestCase cases = 2;
+  bool wait = 3;
+}
+
+message TestRunResponse {
+  AgentDraft draft = 1;
+}
+
+message PublishRequest {
+  string draft_id = 1;
+}
+
+message PublishResponse {
+  AgentDraft draft = 1;
+  Approval approval = 2;
+}
+
+message ListDraftsRequest {
+  repeated DraftState states = 1;
+  int32 limit = 2;
+}
+
+message ListDraftsResponse {
+  repeated AgentDraft drafts = 1;
+}
+
+message GetDraftRequest {
+  string id = 1;
+}
+
+message GetDraftResponse {
+  AgentDraft draft = 1;
+}
+
+message DiscardRequest {
+  string id = 1;
+}
+
+message DiscardResponse {
+  AgentDraft draft = 1;
+}

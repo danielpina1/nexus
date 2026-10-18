@@ -44,6 +44,7 @@ function Shell({
   onSelect,
   className,
   testId,
+  urgent,
 }: {
   tone: Tone;
   icon: React.ReactNode;
@@ -57,26 +58,28 @@ function Shell({
   onSelect?: (v: boolean) => void;
   className?: string;
   testId?: string;
+  urgent?: boolean;
 }) {
+  // Only things waiting on you get a tinted border; everything else stays quiet.
   const bar: Record<Tone, string> = {
-    warn: "before:bg-warn",
-    danger: "before:bg-danger",
-    info: "before:bg-info",
-    ok: "before:bg-ok",
-    accent: "before:bg-accent",
-    neutral: "before:bg-border-strong",
+    warn: "border-warn/40",
+    danger: "border-danger/40",
+    info: "border-info/35",
+    ok: "border-border",
+    accent: "border-border",
+    neutral: "border-border",
   };
   return (
     <div
       data-testid={testId}
       className={cx(
-        "relative overflow-hidden rounded-xl border border-border bg-surface shadow-card before:absolute before:inset-y-0 before:left-0 before:w-[3px]",
-        bar[tone],
+        "relative overflow-hidden rounded-xl border bg-surface shadow-card transition-colors duration-150",
+        urgent ? bar[tone] : "border-border",
         selected && "ring-2 ring-accent/50",
         className,
       )}
     >
-      <div className="flex gap-3 p-4 pl-5">
+      <div className="flex gap-3 p-4">
         {selectable && (
           <input
             type="checkbox"
@@ -142,6 +145,7 @@ export function ApprovalCard({
       icon={biometric ? <Fingerprint className="size-3" /> : <ShieldCheck className="size-3" />}
       kind={biometric ? "Face ID approval" : "Approval"}
       testId="approval-card"
+      urgent={pending}
       selectable={selectable && pending}
       selected={selected}
       onSelect={onSelect}
@@ -249,6 +253,7 @@ export function QuestionCard({ item, compact }: { item: QuestionItem; compact?: 
       tone="info"
       icon={<MessageCircleQuestion className="size-3" />}
       kind="Question"
+      urgent={!item.answered}
       meta={<span>{timeAgo(item.at, now)}</span>}
       title={q.text}
       actions={

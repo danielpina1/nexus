@@ -10,7 +10,12 @@
 //     phrases ("remember…", "note…") return immediately with high confidence.
 //     Keyword matching of the input against agent ids, names and descriptions
 //     and a "question about my stuff" heuristic produce weaker candidates.
-//  2. LLM classifier (when an LLM is available and no rule matched): the
+//  2. Learning stage (module "router.learn", package router/learn, when
+//     enabled): embeddings kNN + an online classifier + calibration decide,
+//     and call the LLM classifier below only when unsure; it also adds a
+//     runtime hint (params.runtime_hint) and a no-fit flag (params.no_fit).
+//     See docs/ROUTING.md. Without it:
+//  3. LLM classifier (when an LLM is available and no rule matched): the
 //     catalog and stage-1 candidates are given to the model alias `model`
 //     (default "fast-local"); if its confidence is below `threshold` the
 //     `fallback_model` (default "smart") is asked. LLM failures fall back to
@@ -48,6 +53,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	nexusv1 "github.com/danielpina1/nexus/backend/gen/nexus/v1"
+	"github.com/danielpina1/nexus/backend/internal/router/learn"
 	"github.com/danielpina1/nexus/backend/kernel"
 )
 
@@ -201,6 +207,27 @@ func (r *Router) Route(ctx context.Context, input string, attachments []*nexusv1
 	agents := r.listAgents(ctx)
 
 	d, strong := r.rulesStage(input, attachments, c, agents)
+	// The learning stage (module router.learn, optional) blends retrieval,
+	// a learned classifier and — only when unsure — the LLM stage below.
+	ls, hasLearn := lookupLearn(r.h)
+	var ld *learn.Decision
+	if hasLearn {
+		q := learn.Query{Input: input, Attachments: attachments, Context: c, Rule: d.route, RuleStage: d.stage,
+			Strong: strong, Agents: agents}
+		if llm, ok := lookupLLM(r.h); ok && !strong {
+			rule := d.route
+			q.LLM = func(ctx context.Context) (*nexusv1.Route, string, error) {
+				res, err := r.llmStage(ctx, llm, input, attachments, c, agents, rule)
+				return res.route, res.model, err
+			}
+		}
+		if res, err := ls.Decide(ctx, q); err != nil {
+			r.log.Warn("router learning stage failed; using rules/LLM", "err", err)
+		} else {
+			ld, strong = res, true
+			d = decision{route: res.Route, stage: res.Stage, model: res.Model}
+		}
+	}
 	if !strong {
 		if llm, ok := lookupLLM(r.h); ok {
 			if ld, err := r.llmStage(ctx, llm, input, attachments, c, agents, d.route); err != nil {
@@ -232,8 +259,22 @@ func (r *Router) Route(ctx context.Context, input string, attachments []*nexusv1
 			route.Params = &structpb.Struct{Fields: map[string]*structpb.Value{}}
 		}
 		route.Params.Fields["decision_id"] = structpb.NewStringValue(id)
+		if ld != nil {
+			ls.Record(ctx, id, ld)
+		}
 	}
 	return route, nil
+}
+
+// LearnStage is the optional learning stage (service learn.SvcLearn).
+type LearnStage interface {
+	Decide(ctx context.Context, q learn.Query) (*learn.Decision, error)
+	Record(ctx context.Context, decisionID string, d *learn.Decision)
+}
+
+func lookupLearn(h kernel.Host) (LearnStage, bool) {
+	l, err := kernel.Resolve[LearnStage](h, learn.SvcLearn)
+	return l, err == nil
 }
 
 func lookupLLM(h kernel.Host) (kernel.LLM, bool) {

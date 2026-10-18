@@ -89,10 +89,10 @@ const (
 
 type historyRow struct {
 	id, input, agent, corrected, taskID, chosen, state, runtime string
-	created                                                      int64
-	kind                                                         int32
-	denied, escalated                                            bool
-	reward                                                       float64
+	created                                                     int64
+	kind                                                        int32
+	denied, escalated                                           bool
+	reward                                                      float64
 }
 
 // LoadHistory turns logged decisions joined with their outcomes into

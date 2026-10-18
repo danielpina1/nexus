@@ -83,10 +83,15 @@ function newer(a: Task | undefined, b: Task): boolean {
   return tsMs(b.updatedAt) >= tsMs(a.updatedAt);
 }
 
+/** Highest seq an event stands for (coalesced output chunks cover a range). */
+export function throughSeq(e: Event): bigint {
+  return (e as Event & { $through?: bigint }).$through ?? e.seq;
+}
+
 /**
- * Merge a batch of events into a seq-ordered timeline, ignoring duplicates. The common case (all
- * new events are newer than the tail) is a single concat; out-of-order history is merge-sorted.
- * Returns null when nothing changed. One copy per task per flush keeps streaming O(n).
+ * Merge a batch of events into a seq-ordered timeline, ignoring duplicates and events already
+ * covered by a coalesced chunk. The common case (all new events are newer than the tail) is a
+ * single concat; out-of-order history is merge-sorted. Returns null when nothing changed.
  */
 function mergeTimeline(list: Event[] | undefined, add: Event[]): Event[] | null {
   if (add.length === 0) return null;
@@ -94,30 +99,71 @@ function mergeTimeline(list: Event[] | undefined, add: Event[]): Event[] | null 
   let next: Event[];
   if (!list || list.length === 0) {
     next = dedupeSorted(add);
-  } else if (add[0].seq > list[list.length - 1].seq) {
+  } else if (add[0].seq > throughSeq(list[list.length - 1])) {
     next = list.concat(dedupeSorted(add));
   } else {
     next = [];
     let i = 0;
     let j = 0;
+    let added = 0;
+    const pushB = (b: Event) => {
+      const last = next[next.length - 1];
+      if (last && b.seq <= throughSeq(last)) return; // duplicate or covered
+      next.push(b);
+      added++;
+    };
     while (i < list.length || j < add.length) {
       const a = list[i];
       const b = add[j];
-      const pick = b === undefined || (a !== undefined && a.seq <= b.seq) ? a : b;
-      if (pick === a) i++;
-      else j++;
-      if (next.length === 0 || next[next.length - 1].seq !== pick.seq) next.push(pick);
+      if (b === undefined) {
+        next.push(a);
+        i++;
+      } else if (a === undefined || b.seq < a.seq) {
+        pushB(b);
+        j++;
+      } else if (b.seq <= throughSeq(a)) {
+        j++; // already have it
+      } else {
+        next.push(a);
+        i++;
+      }
     }
-    if (next.length === list.length) return null;
+    if (added === 0) return null;
   }
-  return next.length > TIMELINE_CAP ? next.slice(next.length - TIMELINE_CAP) : next;
+  return next.length > TIMELINE_CAP ? compact(next) : next;
 }
 
 function dedupeSorted(list: Event[]): Event[] {
   if (list.length < 2) return list;
   const out = [list[0]];
-  for (let i = 1; i < list.length; i++) if (list[i].seq !== out[out.length - 1].seq) out.push(list[i]);
+  for (let i = 1; i < list.length; i++) if (list[i].seq > throughSeq(out[out.length - 1])) out.push(list[i]);
   return out;
+}
+
+/**
+ * Chunk coalescing: merge runs of consecutive output chunks of the same run into one event (keeping
+ * the first seq, so the rendered block keeps its identity, and remembering the last seq it covers).
+ * Long streams stay complete in a bounded array; only if that is not enough are the oldest dropped.
+ */
+function compact(list: Event[]): Event[] {
+  const out: Event[] = [];
+  for (const e of list) {
+    const prev = out[out.length - 1];
+    if (
+      prev &&
+      e.body.case === "runOutput" &&
+      prev.body.case === "runOutput" &&
+      prev.runId === e.runId &&
+      !prev.body.value.isFinal
+    ) {
+      const merged = { ...prev, body: { case: "runOutput" as const, value: { ...prev.body.value, text: prev.body.value.text + e.body.value.text, isFinal: e.body.value.isFinal } } } as Event;
+      Object.defineProperty(merged, "$through", { value: throughSeq(e), enumerable: false });
+      out[out.length - 1] = merged;
+    } else {
+      out.push(e);
+    }
+  }
+  return out.length > TIMELINE_CAP ? out.slice(out.length - TIMELINE_CAP) : out;
 }
 
 const initial = () => ({

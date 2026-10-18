@@ -35,6 +35,8 @@ type Config struct {
 	EmbedModel  string `yaml:"embed_model"`
 	// Episodes writes an episode note per finished top-level task (default true).
 	Episodes *bool `yaml:"episodes"`
+	// Robustness and feature settings (module_robust.go).
+	RobustConfig `yaml:",inline"`
 }
 
 // Module is the "vault" hub module.
@@ -79,16 +81,21 @@ func (m *Module) Init(ctx context.Context, h kernel.Host) error {
 		delay = d
 	}
 	git := m.cfg.Git == nil || *m.cfg.Git
-	v, err := Open(Options{
+	opts := Options{
 		Root:        m.cfg.Path,
 		IndexPath:   filepath.Join(h.DataDir(), "index.db"),
 		Git:         git,
 		CommitDelay: delay,
 		Logger:      h.Logger(),
-	})
+	}
+	if err := m.robustOptions(&opts); err != nil {
+		return err
+	}
+	v, err := Open(opts)
 	if err != nil {
 		return err
 	}
+	m.wireVault(v)
 	v.LLM = func() (kernel.LLM, bool) {
 		l, err := kernel.Resolve[kernel.LLM](h, kernel.SvcLLM)
 		return l, err == nil
@@ -124,7 +131,7 @@ func (m *Module) Init(ctx context.Context, h kernel.Host) error {
 	h.Provide(kernel.SvcAgents, kernel.AgentCatalog(cat))
 	h.Provide(kernel.SvcSkills, kernel.SkillCatalog(skills))
 	h.Provide(kernel.SvcTeams, kernel.TeamCatalog(teams))
-	h.Handle(nexusv1connect.NewVaultServiceHandler(VaultHandler{V: v}))
+	h.Handle(nexusv1connect.NewVaultServiceHandler(VaultHandler{V: v, BackupConfig: m.backupConfig}))
 	h.Handle(nexusv1connect.NewAgentServiceHandler(AgentHandler{C: cat, S: skills}))
 	for _, t := range Tools(v) {
 		if err := h.Tools().Register(t); err != nil {
@@ -157,6 +164,7 @@ func (m *Module) Start(ctx context.Context) error {
 	if m.cfg.Embeddings {
 		m.startVectors(bg)
 	}
+	m.startRobust(bg)
 	return nil
 }
 

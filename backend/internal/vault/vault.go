@@ -117,8 +117,9 @@ type Vault struct {
 	templates         string
 	periodic          map[string]PeriodicConfig
 
-	nmu     sync.RWMutex
-	notices func(Notice)
+	nmu        sync.RWMutex
+	notices    func(Notice)
+	lastReport *Report
 	// Fetch, when set, fetches a URL as readable text (web clips).
 	Fetch func(ctx context.Context, url string) (*Clip, error)
 }
@@ -138,6 +139,19 @@ func (v *Vault) SetNoticeSink(fn func(Notice)) {
 	v.nmu.Lock()
 	v.notices = fn
 	v.nmu.Unlock()
+}
+
+func (v *Vault) setLastReport(r *Report) {
+	v.nmu.Lock()
+	v.lastReport = r
+	v.nmu.Unlock()
+}
+
+// LastReport returns the latest integrity report (nil before the first check).
+func (v *Vault) LastReport() *Report {
+	v.nmu.RLock()
+	defer v.nmu.RUnlock()
+	return v.lastReport
 }
 
 func (v *Vault) notice(n Notice) {

@@ -174,26 +174,32 @@ func UnmarshalClassifier(b []byte) (*Classifier, error) {
 // ---------------------------------------------------------------- calibration
 
 // Platt maps blended evidence to a calibrated probability that the top
-// candidate is right: σ(A·top + B·margin + C).
+// candidate is right: σ(A·top + B·margin + D·evidence + C), where top and
+// margin come from the blended distribution and evidence is the best
+// absolute similarity (to a description/example or a past request), so
+// requests unlike anything known get a low confidence.
 type Platt struct {
 	A float64 `json:"a"`
 	B float64 `json:"b"`
 	C float64 `json:"c"`
+	D float64 `json:"d"`
 	N int     `json:"n"` // pairs fitted (0 = hand-tuned defaults)
 }
 
 // DefaultPlatt is the hand-tuned mapping used until enough outcomes exist.
-func DefaultPlatt() Platt { return Platt{A: 5, B: 3, C: -3} }
+func DefaultPlatt() Platt { return Platt{A: 4, B: 3, C: -3.5, D: 2} }
 
 func sigmoid(x float64) float64 { return 1 / (1 + math.Exp(-x)) }
 
 // Apply returns the calibrated confidence.
-func (p Platt) Apply(top, margin float64) float64 { return sigmoid(p.A*top + p.B*margin + p.C) }
+func (p Platt) Apply(top, margin, evidence float64) float64 {
+	return sigmoid(p.A*top + p.B*margin + p.D*evidence + p.C)
+}
 
 // CalPair is one observation for calibration.
 type CalPair struct {
-	Top, Margin float64
-	Correct     bool
+	Top, Margin, Evidence float64
+	Correct               bool
 }
 
 // FitPlatt fits the mapping by gradient descent on log loss, starting from
@@ -206,22 +212,24 @@ func FitPlatt(pairs []CalPair, minPairs int) Platt {
 	}
 	d := DefaultPlatt()
 	const lr, prior = 0.5, 0.01
-	for it := 0; it < 300; it++ {
-		var ga, gb, gc float64
+	for it := 0; it < 400; it++ {
+		var ga, gb, gc, gd float64
 		for _, q := range pairs {
 			y := 0.0
 			if q.Correct {
 				y = 1
 			}
-			e := p.Apply(q.Top, q.Margin) - y
+			e := p.Apply(q.Top, q.Margin, q.Evidence) - y
 			ga += e * q.Top
 			gb += e * q.Margin
 			gc += e
+			gd += e * q.Evidence
 		}
 		n := float64(len(pairs))
 		p.A -= lr * (ga/n + prior*(p.A-d.A))
 		p.B -= lr * (gb/n + prior*(p.B-d.B))
 		p.C -= lr * (gc/n + prior*(p.C-d.C))
+		p.D -= lr * (gd/n + prior*(p.D-d.D))
 	}
 	p.N = len(pairs)
 	return p

@@ -123,11 +123,11 @@ type Learner struct {
 	prefs prefsCache
 	now   func() time.Time
 
-	mu     sync.RWMutex
-	emb    Embedder // active embedding space
-	sc     *scorer  // swapped on rebuild
-	cents  [][]float32
-	bandit *Bandit
+	mu      sync.RWMutex
+	emb     Embedder // active embedding space
+	sc      *scorer  // swapped on rebuild
+	cents   [][]float32
+	bandit  *Bandit
 	candSig string
 
 	rebuildMu sync.Mutex
@@ -294,7 +294,7 @@ func (l *Learner) Decide(ctx context.Context, q Query) (*Decision, error) {
 	sc = l.sc
 	res := sc.score(q.Input, qv, "", true)
 	l.mu.RUnlock()
-	conf := sc.platt.Apply(res.top, res.margin)
+	conf := sc.platt.Conf(res)
 	unsure := conf < l.cfg.Accept || res.disagree()
 	d.Stage = "learned"
 	if unsure && q.LLM != nil {
@@ -309,7 +309,7 @@ func (l *Learner) Decide(ctx context.Context, q Query) (*Decision, error) {
 			return d, nil
 		case lr != nil:
 			res.addRoute(StageLLM, sc.ids, lr.AgentId, float64(lr.Confidence), 2)
-			conf = sc.platt.Apply(res.top, res.margin)
+			conf = sc.platt.Conf(res)
 			d.Stage, d.Model, d.usedLLM = "learned+llm", model, true
 		}
 	} else if unsure && rule.Kind != nexusv1.CommandKind_COMMAND_KIND_TASK && rule.Kind != nexusv1.CommandKind_COMMAND_KIND_UNSPECIFIED {
@@ -590,12 +590,24 @@ func train(sc *scorer, idx []*indexed, model string, dim int, seed uint64, calib
 		if calibrate && e.Confirmed() && len(sc.examples) > 0 {
 			r := sc.score(e.Input, e.vec, "", sc.labeled > 0)
 			if len(r.ranked) > 0 {
-				pairs = append(pairs, CalPair{Top: r.top, Margin: r.margin, Correct: r.ranked[0] == e.Label})
+				pairs = append(pairs, CalPair{Top: r.top, Margin: r.margin, Evidence: r.evidence, Correct: r.ranked[0] == e.Label})
 			}
 		}
 		learnOne(sc, e)
 	}
 	r := rand.New(rand.NewPCG(seed, 3))
+	if calibrate && len(pairs) > 0 && dim > 0 {
+		// Background negatives: random directions are unrelated to every
+		// candidate; the calibrated confidence must be low for them.
+		for i := 0; i < max(10, len(pairs)/5); i++ {
+			v := make([]float32, dim)
+			for j := range v {
+				v[j] = float32(r.NormFloat64())
+			}
+			res := sc.score("", normalize(v), "", sc.labeled > 0)
+			pairs = append(pairs, CalPair{Top: res.top, Margin: res.margin, Evidence: res.evidence})
+		}
+	}
 	order := make([]*indexed, len(idx))
 	copy(order, idx)
 	for epoch := 0; epoch < 3; epoch++ {

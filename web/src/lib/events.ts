@@ -162,6 +162,13 @@ async function run(signal: AbortSignal) {
   const store = useEvents.getState;
   let failures = 0;
   while (!signal.aborted) {
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      // No network: don't spin; the "online" event wakes us and we resume from the last seq.
+      store().setConnection({ status: "offline", error: "This device is offline", retryAt: undefined });
+      catchUp = true;
+      await sleep(Infinity, signal);
+      continue;
+    }
     store().setConnection({ status: failures === 0 ? "connecting" : "reconnecting", retryAt: undefined });
     const ac = new AbortController();
     attempt = ac;
@@ -279,8 +286,8 @@ if (typeof window !== "undefined") {
   let hiddenAt = 0;
   window.addEventListener("online", () => forceReconnect());
   window.addEventListener("offline", () => {
-    const c = useEvents.getState().connection;
-    if (c.status !== "unauthorized") useEvents.getState().setConnection({ status: "offline", error: "This device is offline" });
+    // The socket under the stream is gone (or about to be); drop it instead of waiting for a timeout.
+    if (useEvents.getState().connection.status !== "unauthorized") forceReconnect();
   });
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") {

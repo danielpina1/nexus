@@ -162,7 +162,7 @@ func EvaluateExamples(ctx context.Context, emb Embedder, cands []Candidate, hist
 			if len(r.ranked) == 0 {
 				continue
 			}
-			conf := sc.platt.Apply(r.top, r.margin)
+			conf := sc.platt.Conf(r)
 			p := pred{conf: conf, correct: r.ranked[0] == e.Label}
 			p.top2 = p.correct || (len(r.ranked) > 1 && r.ranked[1] == e.Label)
 			preds = append(preds, p)

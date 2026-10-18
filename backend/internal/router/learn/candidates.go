@@ -165,7 +165,9 @@ func (l *Learner) candidates(ctx context.Context, agents []*nexusv1.Agent) []Can
 	}
 	var out []Candidate
 	for _, a := range agents {
-		if a == nil || !a.Enabled || a.Id == "" {
+		// The router lists teams as pseudo-agents "team:<id>"; they are
+		// added below from the team catalog.
+		if a == nil || !a.Enabled || a.Id == "" || strings.HasPrefix(a.Id, TeamPrefix) {
 			continue
 		}
 		md := ""

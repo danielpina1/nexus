@@ -13,8 +13,14 @@ import (
 )
 
 // Tools returns the hub tools backed by the vault: memory.search, vault.read,
-// vault.write, vault.link, vault.daily_append and facts.propose.
+// vault.write, vault.link, vault.daily_append, facts.propose and the
+// extended tools (vault.query, vault.history, vault.restore, vault.rename,
+// vault.tasks, vault.complete_task, vault.related; see tools_ext.go).
 func Tools(v *Vault) []kernel.Tool {
+	return append(baseTools(v), extTools(v)...)
+}
+
+func baseTools(v *Vault) []kernel.Tool {
 	read := nexusv1.ActionClass_ACTION_CLASS_READ
 	write := nexusv1.ActionClass_ACTION_CLASS_WRITE_INTERNAL
 	return []kernel.Tool{
@@ -79,6 +85,9 @@ func Tools(v *Vault) []kernel.Tool {
 				}
 				n, err := v.Read(ctx, key)
 				if err != nil {
+					return kernel.ToolResult{}, err
+				}
+				if err := checkAgentReadable(v, n.GetRef().GetPath()); err != nil {
 					return kernel.ToolResult{}, err
 				}
 				return kernel.ToolOutput(noteJSON(n))
@@ -281,7 +290,7 @@ func noteJSON(n *nexusv1.Note) noteOut {
 // agents/ or shops/ could widen its own tools, policies or allowed domains.
 // The owner edits them from the dashboard, the app or Obsidian, which use
 // VaultService, not these tools.
-var protectedDirs = []string{"agents/", "policies/", "workflows/", "shops/"}
+var protectedDirs = []string{"agents/", "policies/", "workflows/", "shops/", "teams/", "skills/"}
 
 // checkAgentWritable rejects agent writes to configuration folders.
 func checkAgentWritable(path string) error {
@@ -290,6 +299,15 @@ func checkAgentWritable(path string) error {
 		if strings.HasPrefix(p, d) {
 			return fmt.Errorf("%w: %s is configuration; only the owner can change it (from the dashboard, the app or Obsidian)", ErrInvalid, d)
 		}
+	}
+	return nil
+}
+
+// checkAgentReadable rejects agent reads of encrypted notes unless
+// vault.encryption.agent_access is set.
+func checkAgentReadable(v *Vault, path string) error {
+	if !v.AgentMayRead(path) {
+		return fmt.Errorf("%w: %s is in an encrypted folder; agents may not read it (vault.encryption.agent_access)", ErrInvalid, path)
 	}
 	return nil
 }

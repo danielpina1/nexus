@@ -111,4 +111,8 @@ func TestMergeAgentConfig(t *testing.T) {
 	if s["id"] != "x" || s["added"] != "2024-01-02" {
 		t.Fatalf("shops = %v", s)
 	}
+	if err := mergeAgentConfig(ctx, "---\nanthrex: {repo: ~/src/app, plan_approval: true}\n---\n"); err != nil ||
+		ctx.AsMap()["anthrex"].(map[string]any)["repo"] != "~/src/app" {
+		t.Fatalf("anthrex not forwarded: %v %v", err, ctx.AsMap()["anthrex"])
+	}
 }

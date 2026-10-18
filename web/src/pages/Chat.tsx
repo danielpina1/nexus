@@ -224,7 +224,7 @@ export default function Chat() {
             )}
             <div ref={end} />
           </div>
-          <div className="border-t border-border p-3">
+          <div className="border-t border-border px-3 pt-3 pb-2">
             <CommandBar autoFocus onSent={() => setMobilePane("chat")} suggestions={messages.length === 0} placeholder="Message Nexus…  @ picks an agent" />
           </div>
         </section>

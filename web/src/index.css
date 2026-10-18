@@ -145,6 +145,12 @@
   animation: flash-in 1.2s ease-out;
 }
 
+/* Off-screen streamed blocks skip layout/paint (sizes are remembered once rendered). */
+.stream-md > * {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 120px;
+}
+
 /* Markdown rendering */
 .stream-md > .prose-nexus > :first-child { margin-top: 0; }
 .stream-md > .prose-nexus > :last-child { margin-bottom: 0; }
