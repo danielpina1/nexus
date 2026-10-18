@@ -18,6 +18,10 @@
 // agent ids, preceded by the literal "search" / "capture" when the router
 // leaned towards those kinds. Clients answer by calling Execute again with a
 // forced Route ({kind: TASK, agent_id: choice} or {kind: SEARCH|CAPTURE}).
+// When the route says no agent fits (params.no_fit, set by the learning
+// router) and the architect module is enabled, the last choice is
+// "Create a new agent for this"; choosing it starts an architect draft
+// (docs/ARCHITECT.md) instead of a task.
 //
 // Config (nexus.yaml):
 //
@@ -41,6 +45,7 @@ import (
 
 	nexusv1 "github.com/danielpina1/nexus/backend/gen/nexus/v1"
 	"github.com/danielpina1/nexus/backend/gen/nexus/v1/nexusv1connect"
+	"github.com/danielpina1/nexus/backend/internal/architect"
 	"github.com/danielpina1/nexus/backend/internal/router"
 	"github.com/danielpina1/nexus/backend/kernel"
 )
@@ -132,6 +137,12 @@ func (s *Service) Execute(ctx context.Context, req *connect.Request[nexusv1.Exec
 		return nil, err
 	}
 	resp := &nexusv1.ExecuteResponse{Route: route}
+	if route.AgentId == architect.ChoiceCreateAgent { // "Create a new agent for this"
+		if err := s.createAgent(ctx, m, resp); err != nil {
+			return nil, err
+		}
+		return connect.NewResponse(resp), nil
+	}
 
 	if q, choices := s.needsChoice(ctx, route); q != "" {
 		resp.Question, resp.Choices = q, choices
@@ -217,6 +228,15 @@ func (s *Service) needsChoice(ctx context.Context, r *nexusv1.Route) (string, []
 		if !seen[a] && len(choices) < s.cfg.MaxChoices {
 			seen[a] = true
 			choices = append(choices, a)
+		}
+	}
+	// No agent fits well (learning router): offer to design one.
+	if r.GetParams().GetFields()["no_fit"].GetBoolValue() {
+		if _, ok := lookup[agentDrafter](s.h, architect.SvcArchitect); ok {
+			if len(choices) >= s.cfg.MaxChoices {
+				choices = choices[:s.cfg.MaxChoices-1]
+			}
+			choices = append(choices, architect.ChoiceCreateAgent)
 		}
 	}
 	q := "Which agent should handle this?"
@@ -439,5 +459,28 @@ func (s *Service) workflow(ctx context.Context, m *nexusv1.ExecuteRequest, route
 	route.WorkflowId = id
 	resp.WorkflowRunId = runID
 	resp.Answer = fmt.Sprintf("Started workflow %s (run %s).", id, runID)
+	return nil
+}
+
+// agentDrafter is the architect service (module "architect").
+type agentDrafter interface {
+	DraftFromCommand(ctx context.Context, input string, c *nexusv1.CommandContext) (*nexusv1.AgentDraft, error)
+}
+
+// createAgent answers the "Create a new agent for this" choice: the
+// architect drafts an agent for the input (reviewed and approved later).
+func (s *Service) createAgent(ctx context.Context, m *nexusv1.ExecuteRequest, resp *nexusv1.ExecuteResponse) error {
+	ad, ok := lookup[agentDrafter](s.h, architect.SvcArchitect)
+	if !ok {
+		return connect.NewError(connect.CodeUnavailable, errors.New("the architect module is not enabled"))
+	}
+	d, err := ad.DraftFromCommand(ctx, m.Input, m.Context)
+	if err != nil {
+		return err
+	}
+	resp.Answer = "Designing a new agent for this (draft " + d.Id + "). You'll get a notice to review, test and approve it."
+	if st, err := structpb.NewStruct(map[string]any{"architect_draft_id": d.Id}); err == nil {
+		resp.Route.Params = st
+	}
 	return nil
 }

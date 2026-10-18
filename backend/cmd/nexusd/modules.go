@@ -5,6 +5,7 @@ package main
 // Adding a capability to the hub = one blank import here.
 import (
 	_ "github.com/danielpina1/nexus/backend/internal/approvals"
+	_ "github.com/danielpina1/nexus/backend/internal/architect"
 	_ "github.com/danielpina1/nexus/backend/internal/command"
 	_ "github.com/danielpina1/nexus/backend/internal/events"
 	_ "github.com/danielpina1/nexus/backend/internal/llm"
@@ -12,6 +13,7 @@ import (
 	_ "github.com/danielpina1/nexus/backend/internal/notify"
 	_ "github.com/danielpina1/nexus/backend/internal/policy"
 	_ "github.com/danielpina1/nexus/backend/internal/router"
+	_ "github.com/danielpina1/nexus/backend/internal/router/learn"
 	_ "github.com/danielpina1/nexus/backend/internal/security"
 	_ "github.com/danielpina1/nexus/backend/internal/shops"
 	_ "github.com/danielpina1/nexus/backend/internal/store"

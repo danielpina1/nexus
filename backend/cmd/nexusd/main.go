@@ -5,6 +5,7 @@
 //	nexusd init    [-dir .] [-template path/to/vault-template] [-force]
 //	nexusd modules [-config nexus.yaml]
 //	nexusd llm     check|models|status [-config nexus.yaml]
+//	nexusd router  eval [-config nexus.yaml] [-hash] [-folds 10]
 //	nexusd version
 package main
 
@@ -28,6 +29,8 @@ Usage:
   nexusd modules [-config nexus.yaml]        list hub modules and whether they run
   nexusd llm check|models|status [-config nexus.yaml]
                                              diagnose model providers and aliases
+  nexusd router eval [-config nexus.yaml] [-hash] [-folds N]
+                                             replay logged routing decisions (accuracy, calibration)
   nexusd version                             print the version
 `
 
@@ -56,6 +59,8 @@ func main() {
 		err = cmdPair(args)
 	case "llm":
 		err = cmdLLM(args)
+	case "router":
+		err = cmdRouter(args)
 	case "version", "-v", "--version":
 		fmt.Println("nexusd", version)
 	case "help", "-h", "--help":

@@ -61,13 +61,22 @@ func Evaluate(ctx context.Context, db *sql.DB, emb Embedder, cands []Candidate, 
 	if err != nil {
 		return nil, err
 	}
-	return EvaluateExamples(ctx, emb, cands, hist, cfg, folds)
+	// Cached vectors of the hub's embedding model are reused (and new ones
+	// stored) when the store has the learner's tables.
+	cache := newVectorCache(nil)
+	if _, err := db.ExecContext(ctx, `SELECT 1 FROM router_learn_vectors LIMIT 1`); err == nil {
+		cache = newVectorCache(db)
+	}
+	return evaluate(ctx, cache, emb, cands, hist, cfg, folds)
 }
 
 // EvaluateExamples evaluates on an explicit example list (synthetic data).
 func EvaluateExamples(ctx context.Context, emb Embedder, cands []Candidate, hist []Example, cfg Config, folds int) (*EvalReport, error) {
+	return evaluate(ctx, newVectorCache(nil), emb, cands, hist, cfg, folds)
+}
+
+func evaluate(ctx context.Context, cache *vectorCache, emb Embedder, cands []Candidate, hist []Example, cfg Config, folds int) (*EvalReport, error) {
 	cfg.defaults()
-	cache := newVectorCache(nil)
 	exs := append(noteExamples(cands), hist...)
 	texts := make([]string, len(exs))
 	for i, e := range exs {
