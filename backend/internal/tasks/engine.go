@@ -454,7 +454,7 @@ func (e *Engine) route(ctx context.Context, id, input string) (*nexusv1.Task, er
 		return e.routeToTeam(ctx, id, route.TeamId)
 	}
 	if route.GetAgentId() != "" && route.GetConfidence() >= float32(e.cfg.RouteThreshold) {
-		return e.assign(ctx, id, route.AgentId, assignOpts{tier: route.Tier})
+		return e.assign(ctx, id, route.AgentId, assignOpts{tier: route.Tier, runtimeHint: route.GetParams().GetFields()[ParamRuntimeHint].GetStringValue()})
 	}
 	text := "Which agent should handle this?"
 	if route.GetReason() != "" {
@@ -533,6 +533,9 @@ type assignOpts struct {
 	tier        nexusv1.Tier
 	hint        string
 	previousRun *runRec
+	// runtimeHint is the router's preferred runtime (route.params.runtime_hint);
+	// it moves to the front of the candidates when the agent allows it.
+	runtimeHint string
 	// runtimes, when non-nil, replaces the agent's runtime candidates (the
 	// remaining runtimes after a rate-limited run).
 	runtimes []string
@@ -628,6 +631,11 @@ func (e *Engine) assign(ctx context.Context, id, agentID string, o assignOpts) (
 	cands := o.runtimes
 	if cands == nil {
 		cands = RuntimeCandidates(agent, markdown, tier, e.runtimePrefs())
+		hint := o.runtimeHint
+		if hint == "" {
+			hint = r.req.GetParams().GetFields()[ParamRuntimeHint].GetStringValue()
+		}
+		cands = preferRuntime(cands, hint)
 	}
 	// First runtime of the list that a connected node (matching the agent's
 	// node tags) has available; the assignment carries it in its agent copy.
@@ -686,7 +694,9 @@ func (e *Engine) assign(ctx context.Context, id, agentID string, o assignOpts) (
 func (e *Engine) assignmentContext(r *taskRec, tier nexusv1.Tier, o assignOpts) (*structpb.Struct, error) {
 	m := map[string]any{}
 	for k, v := range r.req.GetParams().AsMap() {
-		m[k] = v
+		if k != ParamRuntimeHint {
+			m[k] = v
+		}
 	}
 	m["task_id"] = r.task.Id
 	m["root_id"] = r.task.RootId

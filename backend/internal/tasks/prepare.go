@@ -300,6 +300,7 @@ func (e *Engine) prepare(ctx context.Context, r *taskRec, ra *resolvedAgent, tie
 		params := map[string]any{}
 		if r.req.GetParams() != nil {
 			params = r.req.Params.AsMap()
+			delete(params, ParamRuntimeHint)
 		}
 		if err := sch.Validate(params); err != nil {
 			return nil, fmt.Errorf("task inputs do not match agent %q's input schema: %v", ra.agent.GetId(), err)

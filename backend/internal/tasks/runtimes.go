@@ -170,7 +170,30 @@ func (e *Engine) runtimeFallback(ctx context.Context, run *runRec, nt *nexusv1.T
 	if err != nil {
 		return nil
 	}
-	return runtimesAfter(RuntimeCandidates(agent, markdown, run.tier, e.runtimePrefs()), run.runtime)
+	cands := RuntimeCandidates(agent, markdown, run.tier, e.runtimePrefs())
+	// A router-preferred runtime was moved to the front at assignment; keep
+	// that order so its failure still falls back through the whole list.
+	if r, err := e.loadTask(ctx, run.taskID); err == nil {
+		cands = preferRuntime(cands, r.req.GetParams().GetFields()[ParamRuntimeHint].GetStringValue())
+	}
+	return runtimesAfter(cands, run.runtime)
+}
+
+// ParamRuntimeHint is the task/route param carrying the learning router's
+// preferred runtime. It only reorders the candidates; it never adds one.
+const ParamRuntimeHint = "runtime_hint"
+
+// preferRuntime moves rt to the front of cands when it is one of them.
+func preferRuntime(cands []string, rt string) []string {
+	for i, c := range cands {
+		if c == rt && i > 0 {
+			out := make([]string, 0, len(cands))
+			out = append(out, rt)
+			out = append(out, cands[:i]...)
+			return append(out, cands[i+1:]...)
+		}
+	}
+	return cands
 }
 
 // runtimeLabel is the human name of a runtime.
