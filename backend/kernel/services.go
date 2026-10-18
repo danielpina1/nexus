@@ -209,6 +209,24 @@ type LLM interface {
 	Embed(ctx context.Context, model string, inputs []string) ([][]float32, error)
 }
 
+// LLMAvailability is optionally implemented by an LLM service. Available
+// reports, cheaply and without network access, whether a call for model
+// could reach a provider that is not degraded or cooling down. Callers on a
+// latency-sensitive path (the command bar router) skip the LLM when it is
+// false instead of waiting for a call that is known to fail.
+type LLMAvailability interface {
+	Available(model string) bool
+}
+
+// LLMAvailable reports whether l can serve model right now. LLMs that do
+// not implement LLMAvailability are assumed available.
+func LLMAvailable(l LLM, model string) bool {
+	if a, ok := l.(LLMAvailability); ok {
+		return a.Available(model)
+	}
+	return true
+}
+
 // HubToolClient lets node-side runtimes call tools that live on the hub
 // (memory.search, vault.write, ask_user, request_approval, spawn_agent…).
 type HubToolClient interface {

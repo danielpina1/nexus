@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"math"
@@ -33,7 +34,15 @@ type llmEmbedder struct {
 
 func (e *llmEmbedder) Model() string { return "llm:" + e.alias }
 
+// ErrEmbedUnavailable is returned when the embedding provider is degraded
+// or cooling down (kernel.LLMAvailability); the learner then falls back to
+// the hashing embedder at once instead of waiting for the call to fail.
+var ErrEmbedUnavailable = errors.New("learn: embedding provider degraded or cooling down")
+
 func (e *llmEmbedder) Embed(ctx context.Context, texts []string) ([][]float32, error) {
+	if !kernel.LLMAvailable(e.llm, e.alias) {
+		return nil, fmt.Errorf("%s: %w", e.alias, ErrEmbedUnavailable)
+	}
 	vecs, err := e.llm.Embed(ctx, e.alias, texts)
 	if err != nil {
 		return nil, err

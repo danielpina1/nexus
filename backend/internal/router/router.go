@@ -41,6 +41,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -536,7 +537,16 @@ func (r *Router) llmStage(ctx context.Context, llm kernel.LLM, input string, att
 	return fd, nil
 }
 
+// ErrLLMUnavailable is returned by the LLM stage when the provider behind a
+// model is degraded or cooling down (kernel.LLMAvailability): the router
+// answers from rules/learned results at once instead of waiting for a call
+// that is known to fail.
+var ErrLLMUnavailable = errors.New("router: LLM provider degraded or cooling down")
+
 func (r *Router) ask(ctx context.Context, llm kernel.LLM, model string, msgs []kernel.ChatMessage, agents []*nexusv1.Agent) (decision, error) {
+	if !kernel.LLMAvailable(llm, model) {
+		return decision{}, fmt.Errorf("%s: %w", model, ErrLLMUnavailable)
+	}
 	ctx, cancel := context.WithTimeout(ctx, r.cfg.LLMTimeout)
 	defer cancel()
 	zero := 0.0
