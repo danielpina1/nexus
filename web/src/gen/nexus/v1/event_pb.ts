@@ -20,7 +20,7 @@ import type { JsonObject, Message } from "@bufbuild/protobuf";
  * Describes the file nexus/v1/event.proto.
  */
 export const file_nexus_v1_event: GenFile = /*@__PURE__*/
-  fileDesc("ChRuZXh1cy92MS9ldmVudC5wcm90bxIIbmV4dXMudjEihAUKBUV2ZW50EgsKA3NlcRgBIAEoAxImCgJhdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDwoHdGFza19pZBgDIAEoCRIOCgZydW5faWQYBCABKAkSDQoFYWN0b3IYBSABKAkSFAoMcm9vdF90YXNrX2lkGAYgASgJEi0KDHRhc2tfdXBkYXRlZBgKIAEoCzIVLm5leHVzLnYxLlRhc2tVcGRhdGVkSAASKQoKcnVuX291dHB1dBgLIAEoCzITLm5leHVzLnYxLlJ1bk91dHB1dEgAEicKCXRvb2xfY2FsbBgMIAEoCzISLm5leHVzLnYxLlRvb2xDYWxsSAASKwoLdG9vbF9yZXN1bHQYDSABKAsyFC5uZXh1cy52MS5Ub29sUmVzdWx0SAASJgoIcXVlc3Rpb24YDiABKAsyEi5uZXh1cy52MS5RdWVzdGlvbkgAEiYKCGFwcHJvdmFsGA8gASgLMhIubmV4dXMudjEuQXBwcm92YWxIABImCgRjb3N0GBAgASgLMhYubmV4dXMudjEuQ29zdFJlY29yZGVkSAASKwoIYXJ0aWZhY3QYESABKAsyFy5uZXh1cy52MS5BcnRpZmFjdEFkZGVkSAASKwoLbm9kZV9zdGF0dXMYEiABKAsyFC5uZXh1cy52MS5Ob2RlU3RhdHVzSAASIgoGbm90aWNlGBMgASgLMhAubmV4dXMudjEuTm90aWNlSAASLQoMdXNlcl9tZXNzYWdlGBQgASgLMhUubmV4dXMudjEuVXNlck1lc3NhZ2VIABIjCgR0ZWFtGBUgASgLMhMubmV4dXMudjEuVGVhbUV2ZW50SABCBgoEYm9keSLMAQoJVGVhbUV2ZW50EiUKBGtpbmQYASABKA4yFy5uZXh1cy52MS5UZWFtRXZlbnRLaW5kEg8KB3RlYW1faWQYAiABKAkSFAoMcm9vdF90YXNrX2lkGAMgASgJEg8KB3Rhc2tfaWQYBCABKAkSDAoEcm9sZRgFIAEoCRIQCghhZ2VudF9pZBgGIAEoCRIMCgR0ZXh0GAcgASgJEgsKA2tleRgIIAEoCRIlCgRkYXRhGAkgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdCIrCgtUYXNrVXBkYXRlZBIcCgR0YXNrGAEgASgLMg4ubmV4dXMudjEuVGFzayIrCglSdW5PdXRwdXQSDAoEdGV4dBgBIAEoCRIQCghpc19maW5hbBgCIAEoCCJ+CghUb29sQ2FsbBIPCgdjYWxsX2lkGAEgASgJEgwKBHRvb2wYAiABKAkSJgoFaW5wdXQYAyABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0EisKDGFjdGlvbl9jbGFzcxgEIAEoDjIVLm5leHVzLnYxLkFjdGlvbkNsYXNzImoKClRvb2xSZXN1bHQSDwoHY2FsbF9pZBgBIAEoCRInCgZvdXRwdXQYAiABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0Eg0KBWVycm9yGAMgASgJEhMKC2R1cmF0aW9uX21zGAQgASgDIlcKCFF1ZXN0aW9uEhMKC3F1ZXN0aW9uX2lkGAEgASgJEgwKBHRleHQYAiABKAkSDwoHY2hvaWNlcxgDIAMoCRIXCg9hbGxvd19mcmVlX3RleHQYBCABKAgiLAoMQ29zdFJlY29yZGVkEhwKBGNvc3QYASABKAsyDi5uZXh1cy52MS5Db3N0IjkKDUFydGlmYWN0QWRkZWQSKAoKYXR0YWNobWVudBgBIAEoCzIULm5leHVzLnYxLkF0dGFjaG1lbnQiRgoLVXNlck1lc3NhZ2USDAoEdGV4dBgBIAEoCRIpCgthdHRhY2htZW50cxgCIAMoCzIULm5leHVzLnYxLkF0dGFjaG1lbnQingEKBk5vdGljZRIKCgJpZBgBIAEoCRIiCgRraW5kGAIgASgOMhQubmV4dXMudjEuTm90aWNlS2luZBINCgV0aXRsZRgDIAEoCRIMCgRib2R5GAQgASgJEiUKBGRhdGEYBSABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0EiAKBW5vdGVzGAYgAygLMhEubmV4dXMudjEuTm90ZVJlZiJiChBTdWJzY3JpYmVSZXF1ZXN0EhEKCXNpbmNlX3NlcRgBIAEoAxIQCgh0YXNrX2lkcxgCIAMoCRISCgppbmJveF9vbmx5GAMgASgIEhUKDXJvb3RfdGFza19pZHMYBCADKAkiRgoRU3Vic2NyaWJlUmVzcG9uc2USHgoFZXZlbnQYASABKAsyDy5uZXh1cy52MS5FdmVudBIRCgloZWFydGJlYXQYAiABKAgq2gMKDVRlYW1FdmVudEtpbmQSHwobVEVBTV9FVkVOVF9LSU5EX1VOU1BFQ0lGSUVEEAASGwoXVEVBTV9FVkVOVF9LSU5EX1NUQVJURUQQARIdChlURUFNX0VWRU5UX0tJTkRfREVMRUdBVEVEEAISGwoXVEVBTV9FVkVOVF9LSU5EX1NQQVdORUQQAxIjCh9URUFNX0VWRU5UX0tJTkRfTUVNQkVSX0ZJTklTSEVEEAQSJgoiVEVBTV9FVkVOVF9LSU5EX0JMQUNLQk9BUkRfVVBEQVRFRBAFEiAKHFRFQU1fRVZFTlRfS0lORF9NRVNTQUdFX1NFTlQQBhIcChhURUFNX0VWRU5UX0tJTkRfUkVQT1JURUQQBxIcChhURUFNX0VWRU5UX0tJTkRfQVdBSVRJTkcQCBIhCh1URUFNX0VWRU5UX0tJTkRfU1RSQVRFR1lfU1RFUBAJEhoKFlRFQU1fRVZFTlRfS0lORF9SRVZJRVcQChIhCh1URUFNX0VWRU5UX0tJTkRfTElNSVRfUkVBQ0hFRBALEiQKIFRFQU1fRVZFTlRfS0lORF9BUFBST1ZBTF9QRU5ESU5HEAwSHAoYVEVBTV9FVkVOVF9LSU5EX0ZJTklTSEVEEA0qqAEKCk5vdGljZUtpbmQSGwoXTk9USUNFX0tJTkRfVU5TUEVDSUZJRUQQABIWChJOT1RJQ0VfS0lORF9SRVNVTFQQARIVChFOT1RJQ0VfS0lORF9BTEVSVBACEhoKFk5PVElDRV9LSU5EX1NVR0dFU1RJT04QAxIbChdOT1RJQ0VfS0lORF9GQUNUX1JFVklFVxAEEhUKEU5PVElDRV9LSU5EX0JSSUVGEAUyVgoMRXZlbnRTZXJ2aWNlEkYKCVN1YnNjcmliZRIaLm5leHVzLnYxLlN1YnNjcmliZVJlcXVlc3QaGy5uZXh1cy52MS5TdWJzY3JpYmVSZXNwb25zZTABQpYBCgxjb20ubmV4dXMudjFCCkV2ZW50UHJvdG9QAVo5Z2l0aHViLmNvbS9kYW5pZWxwaW5hMS9uZXh1cy9iYWNrZW5kL2dlbi9uZXh1cy92MTtuZXh1c3YxogIDTlhYqgIITmV4dXMuVjHKAghOZXh1c1xWMeICFE5leHVzXFYxXEdQQk1ldGFkYXRh6gIJTmV4dXM6OlYxYgZwcm90bzM", [file_google_protobuf_struct, file_google_protobuf_timestamp, file_nexus_v1_approval, file_nexus_v1_common, file_nexus_v1_node, file_nexus_v1_task]);
+  fileDesc("ChRuZXh1cy92MS9ldmVudC5wcm90bxIIbmV4dXMudjEihAUKBUV2ZW50EgsKA3NlcRgBIAEoAxImCgJhdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDwoHdGFza19pZBgDIAEoCRIOCgZydW5faWQYBCABKAkSDQoFYWN0b3IYBSABKAkSFAoMcm9vdF90YXNrX2lkGAYgASgJEi0KDHRhc2tfdXBkYXRlZBgKIAEoCzIVLm5leHVzLnYxLlRhc2tVcGRhdGVkSAASKQoKcnVuX291dHB1dBgLIAEoCzITLm5leHVzLnYxLlJ1bk91dHB1dEgAEicKCXRvb2xfY2FsbBgMIAEoCzISLm5leHVzLnYxLlRvb2xDYWxsSAASKwoLdG9vbF9yZXN1bHQYDSABKAsyFC5uZXh1cy52MS5Ub29sUmVzdWx0SAASJgoIcXVlc3Rpb24YDiABKAsyEi5uZXh1cy52MS5RdWVzdGlvbkgAEiYKCGFwcHJvdmFsGA8gASgLMhIubmV4dXMudjEuQXBwcm92YWxIABImCgRjb3N0GBAgASgLMhYubmV4dXMudjEuQ29zdFJlY29yZGVkSAASKwoIYXJ0aWZhY3QYESABKAsyFy5uZXh1cy52MS5BcnRpZmFjdEFkZGVkSAASKwoLbm9kZV9zdGF0dXMYEiABKAsyFC5uZXh1cy52MS5Ob2RlU3RhdHVzSAASIgoGbm90aWNlGBMgASgLMhAubmV4dXMudjEuTm90aWNlSAASLQoMdXNlcl9tZXNzYWdlGBQgASgLMhUubmV4dXMudjEuVXNlck1lc3NhZ2VIABIjCgR0ZWFtGBUgASgLMhMubmV4dXMudjEuVGVhbUV2ZW50SABCBgoEYm9keSLMAQoJVGVhbUV2ZW50EiUKBGtpbmQYASABKA4yFy5uZXh1cy52MS5UZWFtRXZlbnRLaW5kEg8KB3RlYW1faWQYAiABKAkSFAoMcm9vdF90YXNrX2lkGAMgASgJEg8KB3Rhc2tfaWQYBCABKAkSDAoEcm9sZRgFIAEoCRIQCghhZ2VudF9pZBgGIAEoCRIMCgR0ZXh0GAcgASgJEgsKA2tleRgIIAEoCRIlCgRkYXRhGAkgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdCIrCgtUYXNrVXBkYXRlZBIcCgR0YXNrGAEgASgLMg4ubmV4dXMudjEuVGFzayIrCglSdW5PdXRwdXQSDAoEdGV4dBgBIAEoCRIQCghpc19maW5hbBgCIAEoCCJ+CghUb29sQ2FsbBIPCgdjYWxsX2lkGAEgASgJEgwKBHRvb2wYAiABKAkSJgoFaW5wdXQYAyABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0EisKDGFjdGlvbl9jbGFzcxgEIAEoDjIVLm5leHVzLnYxLkFjdGlvbkNsYXNzImoKClRvb2xSZXN1bHQSDwoHY2FsbF9pZBgBIAEoCRInCgZvdXRwdXQYAiABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0Eg0KBWVycm9yGAMgASgJEhMKC2R1cmF0aW9uX21zGAQgASgDIqgBCghRdWVzdGlvbhITCgtxdWVzdGlvbl9pZBgBIAEoCRIMCgR0ZXh0GAIgASgJEg8KB2Nob2ljZXMYAyADKAkSFwoPYWxsb3dfZnJlZV90ZXh0GAQgASgIEg4KBmhlYWRlchgFIAEoCRIpCgdvcHRpb25zGAYgAygLMhgubmV4dXMudjEuUXVlc3Rpb25PcHRpb24SFAoMbXVsdGlfc2VsZWN0GAcgASgIIjQKDlF1ZXN0aW9uT3B0aW9uEg0KBWxhYmVsGAEgASgJEhMKC2Rlc2NyaXB0aW9uGAIgASgJIiwKDENvc3RSZWNvcmRlZBIcCgRjb3N0GAEgASgLMg4ubmV4dXMudjEuQ29zdCI5Cg1BcnRpZmFjdEFkZGVkEigKCmF0dGFjaG1lbnQYASABKAsyFC5uZXh1cy52MS5BdHRhY2htZW50IkYKC1VzZXJNZXNzYWdlEgwKBHRleHQYASABKAkSKQoLYXR0YWNobWVudHMYAiADKAsyFC5uZXh1cy52MS5BdHRhY2htZW50Ip4BCgZOb3RpY2USCgoCaWQYASABKAkSIgoEa2luZBgCIAEoDjIULm5leHVzLnYxLk5vdGljZUtpbmQSDQoFdGl0bGUYAyABKAkSDAoEYm9keRgEIAEoCRIlCgRkYXRhGAUgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdBIgCgVub3RlcxgGIAMoCzIRLm5leHVzLnYxLk5vdGVSZWYiYgoQU3Vic2NyaWJlUmVxdWVzdBIRCglzaW5jZV9zZXEYASABKAMSEAoIdGFza19pZHMYAiADKAkSEgoKaW5ib3hfb25seRgDIAEoCBIVCg1yb290X3Rhc2tfaWRzGAQgAygJIkYKEVN1YnNjcmliZVJlc3BvbnNlEh4KBWV2ZW50GAEgASgLMg8ubmV4dXMudjEuRXZlbnQSEQoJaGVhcnRiZWF0GAIgASgIKtoDCg1UZWFtRXZlbnRLaW5kEh8KG1RFQU1fRVZFTlRfS0lORF9VTlNQRUNJRklFRBAAEhsKF1RFQU1fRVZFTlRfS0lORF9TVEFSVEVEEAESHQoZVEVBTV9FVkVOVF9LSU5EX0RFTEVHQVRFRBACEhsKF1RFQU1fRVZFTlRfS0lORF9TUEFXTkVEEAMSIwofVEVBTV9FVkVOVF9LSU5EX01FTUJFUl9GSU5JU0hFRBAEEiYKIlRFQU1fRVZFTlRfS0lORF9CTEFDS0JPQVJEX1VQREFURUQQBRIgChxURUFNX0VWRU5UX0tJTkRfTUVTU0FHRV9TRU5UEAYSHAoYVEVBTV9FVkVOVF9LSU5EX1JFUE9SVEVEEAcSHAoYVEVBTV9FVkVOVF9LSU5EX0FXQUlUSU5HEAgSIQodVEVBTV9FVkVOVF9LSU5EX1NUUkFURUdZX1NURVAQCRIaChZURUFNX0VWRU5UX0tJTkRfUkVWSUVXEAoSIQodVEVBTV9FVkVOVF9LSU5EX0xJTUlUX1JFQUNIRUQQCxIkCiBURUFNX0VWRU5UX0tJTkRfQVBQUk9WQUxfUEVORElORxAMEhwKGFRFQU1fRVZFTlRfS0lORF9GSU5JU0hFRBANKqgBCgpOb3RpY2VLaW5kEhsKF05PVElDRV9LSU5EX1VOU1BFQ0lGSUVEEAASFgoSTk9USUNFX0tJTkRfUkVTVUxUEAESFQoRTk9USUNFX0tJTkRfQUxFUlQQAhIaChZOT1RJQ0VfS0lORF9TVUdHRVNUSU9OEAMSGwoXTk9USUNFX0tJTkRfRkFDVF9SRVZJRVcQBBIVChFOT1RJQ0VfS0lORF9CUklFRhAFMlYKDEV2ZW50U2VydmljZRJGCglTdWJzY3JpYmUSGi5uZXh1cy52MS5TdWJzY3JpYmVSZXF1ZXN0GhsubmV4dXMudjEuU3Vic2NyaWJlUmVzcG9uc2UwAUKWAQoMY29tLm5leHVzLnYxQgpFdmVudFByb3RvUAFaOWdpdGh1Yi5jb20vZGFuaWVscGluYTEvbmV4dXMvYmFja2VuZC9nZW4vbmV4dXMvdjE7bmV4dXN2MaICA05YWKoCCE5leHVzLlYxygIITmV4dXNcVjHiAhROZXh1c1xWMVxHUEJNZXRhZGF0YeoCCU5leHVzOjpWMWIGcHJvdG8z", [file_google_protobuf_struct, file_google_protobuf_timestamp, file_nexus_v1_approval, file_nexus_v1_common, file_nexus_v1_node, file_nexus_v1_task]);
 
 /**
  * Event is one entry of the Hub's ordered event log.
@@ -334,6 +334,8 @@ export type Question = Message<"nexus.v1.Question"> & {
   text: string;
 
   /**
+   * option labels (also in options, with descriptions)
+   *
    * @generated from field: repeated string choices = 3;
    */
   choices: string[];
@@ -342,6 +344,29 @@ export type Question = Message<"nexus.v1.Question"> & {
    * @generated from field: bool allow_free_text = 4;
    */
   allowFreeText: boolean;
+
+  /**
+   * Short label shown above the question (e.g. "Product/category").
+   *
+   * @generated from field: string header = 5;
+   */
+  header: string;
+
+  /**
+   * Choices with descriptions; labels equal `choices`. Clients that know
+   * options render them as cards; older clients use `choices`.
+   *
+   * @generated from field: repeated nexus.v1.QuestionOption options = 6;
+   */
+  options: QuestionOption[];
+
+  /**
+   * Several options may be picked; the answer (RunInput.choice) joins the
+   * chosen labels with ", ".
+   *
+   * @generated from field: bool multi_select = 7;
+   */
+  multiSelect: boolean;
 };
 
 /**
@@ -350,6 +375,28 @@ export type Question = Message<"nexus.v1.Question"> & {
  */
 export const QuestionSchema: GenMessage<Question> = /*@__PURE__*/
   messageDesc(file_nexus_v1_event, 6);
+
+/**
+ * @generated from message nexus.v1.QuestionOption
+ */
+export type QuestionOption = Message<"nexus.v1.QuestionOption"> & {
+  /**
+   * @generated from field: string label = 1;
+   */
+  label: string;
+
+  /**
+   * @generated from field: string description = 2;
+   */
+  description: string;
+};
+
+/**
+ * Describes the message nexus.v1.QuestionOption.
+ * Use `create(QuestionOptionSchema)` to create a new message.
+ */
+export const QuestionOptionSchema: GenMessage<QuestionOption> = /*@__PURE__*/
+  messageDesc(file_nexus_v1_event, 7);
 
 /**
  * @generated from message nexus.v1.CostRecorded
@@ -366,7 +413,7 @@ export type CostRecorded = Message<"nexus.v1.CostRecorded"> & {
  * Use `create(CostRecordedSchema)` to create a new message.
  */
 export const CostRecordedSchema: GenMessage<CostRecorded> = /*@__PURE__*/
-  messageDesc(file_nexus_v1_event, 7);
+  messageDesc(file_nexus_v1_event, 8);
 
 /**
  * @generated from message nexus.v1.ArtifactAdded
@@ -383,7 +430,7 @@ export type ArtifactAdded = Message<"nexus.v1.ArtifactAdded"> & {
  * Use `create(ArtifactAddedSchema)` to create a new message.
  */
 export const ArtifactAddedSchema: GenMessage<ArtifactAdded> = /*@__PURE__*/
-  messageDesc(file_nexus_v1_event, 8);
+  messageDesc(file_nexus_v1_event, 9);
 
 /**
  * @generated from message nexus.v1.UserMessage
@@ -405,7 +452,7 @@ export type UserMessage = Message<"nexus.v1.UserMessage"> & {
  * Use `create(UserMessageSchema)` to create a new message.
  */
 export const UserMessageSchema: GenMessage<UserMessage> = /*@__PURE__*/
-  messageDesc(file_nexus_v1_event, 9);
+  messageDesc(file_nexus_v1_event, 10);
 
 /**
  * Notice is an Inbox card that needs no immediate response.
@@ -449,7 +496,7 @@ export type Notice = Message<"nexus.v1.Notice"> & {
  * Use `create(NoticeSchema)` to create a new message.
  */
 export const NoticeSchema: GenMessage<Notice> = /*@__PURE__*/
-  messageDesc(file_nexus_v1_event, 10);
+  messageDesc(file_nexus_v1_event, 11);
 
 /**
  * @generated from message nexus.v1.SubscribeRequest
@@ -485,7 +532,7 @@ export type SubscribeRequest = Message<"nexus.v1.SubscribeRequest"> & {
  * Use `create(SubscribeRequestSchema)` to create a new message.
  */
 export const SubscribeRequestSchema: GenMessage<SubscribeRequest> = /*@__PURE__*/
-  messageDesc(file_nexus_v1_event, 11);
+  messageDesc(file_nexus_v1_event, 12);
 
 /**
  * @generated from message nexus.v1.SubscribeResponse
@@ -514,7 +561,7 @@ export type SubscribeResponse = Message<"nexus.v1.SubscribeResponse"> & {
  * Use `create(SubscribeResponseSchema)` to create a new message.
  */
 export const SubscribeResponseSchema: GenMessage<SubscribeResponse> = /*@__PURE__*/
-  messageDesc(file_nexus_v1_event, 12);
+  messageDesc(file_nexus_v1_event, 13);
 
 /**
  * @generated from enum nexus.v1.TeamEventKind

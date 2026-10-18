@@ -95,8 +95,21 @@ message ToolResult {
 message Question {
   string question_id = 1;
   string text = 2;
-  repeated string choices = 3;
+  repeated string choices = 3; // option labels (also in options, with descriptions)
   bool allow_free_text = 4;
+  // Short label shown above the question (e.g. "Product/category").
+  string header = 5;
+  // Choices with descriptions; labels equal `choices`. Clients that know
+  // options render them as cards; older clients use `choices`.
+  repeated QuestionOption options = 6;
+  // Several options may be picked; the answer (RunInput.choice) joins the
+  // chosen labels with ", ".
+  bool multi_select = 7;
+}
+
+message QuestionOption {
+  string label = 1;
+  string description = 2;
 }
 
 message CostRecorded {

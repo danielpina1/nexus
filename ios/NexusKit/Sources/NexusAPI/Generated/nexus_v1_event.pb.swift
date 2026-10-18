@@ -468,9 +468,35 @@ public nonisolated struct Nexus_V1_Question: Sendable {
 
   public var text: String = String()
 
+  /// option labels (also in options, with descriptions)
   public var choices: [String] = []
 
   public var allowFreeText: Bool = false
+
+  /// Short label shown above the question (e.g. "Product/category").
+  public var header: String = String()
+
+  /// Choices with descriptions; labels equal `choices`. Clients that know
+  /// options render them as cards; older clients use `choices`.
+  public var options: [Nexus_V1_QuestionOption] = []
+
+  /// Several options may be picked; the answer (RunInput.choice) joins the
+  /// chosen labels with ", ".
+  public var multiSelect: Bool = false
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+public nonisolated struct Nexus_V1_QuestionOption: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var label: String = String()
+
+  public var description_p: String = String()
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -1138,7 +1164,7 @@ nonisolated extension Nexus_V1_ToolResult: SwiftProtobuf.Message, SwiftProtobuf.
 
 nonisolated extension Nexus_V1_Question: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Question"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}question_id\0\u{1}text\0\u{1}choices\0\u{3}allow_free_text\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}question_id\0\u{1}text\0\u{1}choices\0\u{3}allow_free_text\0\u{1}header\0\u{1}options\0\u{3}multi_select\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -1150,6 +1176,9 @@ nonisolated extension Nexus_V1_Question: SwiftProtobuf.Message, SwiftProtobuf._M
       case 2: try { try decoder.decodeSingularStringField(value: &self.text) }()
       case 3: try { try decoder.decodeRepeatedStringField(value: &self.choices) }()
       case 4: try { try decoder.decodeSingularBoolField(value: &self.allowFreeText) }()
+      case 5: try { try decoder.decodeSingularStringField(value: &self.header) }()
+      case 6: try { try decoder.decodeRepeatedMessageField(value: &self.options) }()
+      case 7: try { try decoder.decodeSingularBoolField(value: &self.multiSelect) }()
       default: break
       }
     }
@@ -1168,6 +1197,15 @@ nonisolated extension Nexus_V1_Question: SwiftProtobuf.Message, SwiftProtobuf._M
     if self.allowFreeText != false {
       try visitor.visitSingularBoolField(value: self.allowFreeText, fieldNumber: 4)
     }
+    if !self.header.isEmpty {
+      try visitor.visitSingularStringField(value: self.header, fieldNumber: 5)
+    }
+    if !self.options.isEmpty {
+      try visitor.visitRepeatedMessageField(value: self.options, fieldNumber: 6)
+    }
+    if self.multiSelect != false {
+      try visitor.visitSingularBoolField(value: self.multiSelect, fieldNumber: 7)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1176,6 +1214,44 @@ nonisolated extension Nexus_V1_Question: SwiftProtobuf.Message, SwiftProtobuf._M
     if lhs.text != rhs.text {return false}
     if lhs.choices != rhs.choices {return false}
     if lhs.allowFreeText != rhs.allowFreeText {return false}
+    if lhs.header != rhs.header {return false}
+    if lhs.options != rhs.options {return false}
+    if lhs.multiSelect != rhs.multiSelect {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Nexus_V1_QuestionOption: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".QuestionOption"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}label\0\u{1}description\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.label) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.description_p) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.label.isEmpty {
+      try visitor.visitSingularStringField(value: self.label, fieldNumber: 1)
+    }
+    if !self.description_p.isEmpty {
+      try visitor.visitSingularStringField(value: self.description_p, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Nexus_V1_QuestionOption, rhs: Nexus_V1_QuestionOption) -> Bool {
+    if lhs.label != rhs.label {return false}
+    if lhs.description_p != rhs.description_p {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

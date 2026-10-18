@@ -167,6 +167,10 @@ func TestSendMidRun(t *testing.T) {
 		t.Fatal(err)
 	}
 	first := <-run.Events()
+	if m := first.GetCost().GetCost(); m.GetModel() != "claude-sonnet-4-5" || m.GetRuntime() != "claude-code" {
+		t.Fatalf("model announcement %v", first)
+	}
+	first = <-run.Events()
 	if first.GetRunOutput().GetText() != "Working…" {
 		t.Fatalf("first %v", first)
 	}

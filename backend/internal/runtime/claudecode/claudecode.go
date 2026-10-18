@@ -101,7 +101,10 @@ import (
 	"github.com/danielpina1/nexus/backend/internal/runtime/agentloop"
 	"github.com/danielpina1/nexus/backend/internal/runtime/agentloop/cliproc"
 	"github.com/danielpina1/nexus/backend/internal/runtime/approvalgate"
+	"github.com/danielpina1/nexus/backend/internal/runtime/chatsession"
 	"github.com/danielpina1/nexus/backend/kernel"
+
+	nexusv1 "github.com/danielpina1/nexus/backend/gen/nexus/v1"
 )
 
 func init() {
@@ -130,6 +133,12 @@ type Config struct {
 	MaxConcurrent *int `yaml:"max_concurrent"`
 	// NonCodingDisallowed replaces DefaultNonCodingDisallowed ([] = none).
 	NonCodingDisallowed []string `yaml:"non_coding_disallowed_tools"`
+	// PartialMessages (default true) passes --include-partial-messages so
+	// text streams token by token (see chat.go).
+	PartialMessages *bool `yaml:"partial_messages"`
+	// ChatSessions (default true) resumes one Claude Code session per chat
+	// conversation (see chat.go).
+	ChatSessions *bool `yaml:"chat_sessions"`
 }
 
 // DefaultMaxConcurrent is the default per-node limit of claude runs.
@@ -230,6 +239,9 @@ func (r *Runtime) ArgsWithNexus(model, instructions, nexusConfig string) []strin
 
 func (r *Runtime) args(model, instructions, nexusConfig, mode string) []string {
 	args := []string{"-p", "--output-format", "stream-json", "--input-format", "stream-json", "--verbose"}
+	if r.cfg.PartialMessages == nil || *r.cfg.PartialMessages {
+		args = append(args, "--include-partial-messages")
+	}
 	if m := r.claudeModel(model); m != "" {
 		args = append(args, "--model", m)
 	}
@@ -268,8 +280,9 @@ func (r *Runtime) Start(ctx context.Context, spec kernel.RunSpec) (kernel.Run, e
 		"NEXUS_TASK_ID": a.GetTaskId(),
 	}
 	nexusConfig := ""
+	extra := map[string]any{"cwd": dir, "runtime": "claude-code"} // approval payload extras
 	if r.nexusMCP() {
-		file, err := r.startBridge(run, spec)
+		file, err := r.startBridge(run, spec, extra)
 		if err != nil {
 			return nil, fmt.Errorf("claude-code: nexus mcp: %w", err)
 		}
@@ -278,14 +291,61 @@ func (r *Runtime) Start(ctx context.Context, spec kernel.RunSpec) (kernel.Run, e
 			env["MCP_TOOL_TIMEOUT"] = strconv.FormatInt((approvalgate.DefaultTTL + 2*time.Minute).Milliseconds(), 10)
 		}
 	}
-	cmd := exec.Command(r.cfg.Binary, r.ArgsFor(a, nexusConfig)...)
-	cmd.Dir = dir
-	cmd.Env = cliproc.Env(spec.Env, r.cfg.Env, env)
-	if err := run.start(cmd, agentloop.BuildPrompt(a)); err != nil {
+	args := r.ArgsFor(a, nexusConfig)
+	prompt := agentloop.BuildPrompt(a)
+	if chatsession.IsChat(a) {
+		dir, args, prompt = r.chatSetup(run, a, spec, dir, args)
+		extra["cwd"] = dir // read by the bridge only once the CLI runs
+	}
+	newCmd := func(args []string) *exec.Cmd {
+		cmd := exec.Command(r.cfg.Binary, args...)
+		cmd.Dir = dir
+		cmd.Env = cliproc.Env(spec.Env, r.cfg.Env, env)
+		return cmd
+	}
+	if c := run.chat; c != nil && c.resumed {
+		fresh := r.ArgsFor(a, nexusConfig)
+		freshPrompt := chatsession.Prompt(a, c.store.Get(c.key).Turns)
+		c.retry = func() error { return run.start(newCmd(fresh), freshPrompt) }
+	}
+	if err := run.start(newCmd(args), prompt); err != nil {
 		run.stopBridge()
 		return nil, err
 	}
 	return run, nil
+}
+
+// chatSetup prepares a chat run: stable session directory, --resume of the
+// conversation's session, and the chat prompt (history only for a fresh
+// session). See chat.go.
+func (r *Runtime) chatSetup(run *run, a *nexusv1.RunAssignment, spec kernel.RunSpec, dir string, args []string) (string, []string, string) {
+	conv := chatsession.ConversationID(a)
+	if conv == "" || (r.cfg.ChatSessions != nil && !*r.cfg.ChatSessions) {
+		return dir, args, chatsession.Prompt(a, nil)
+	}
+	store := chatsession.Open(r.host.DataDir())
+	key := chatsession.Key("claude-code", a.GetAgent().GetId(), conv)
+	e := store.Get(key)
+	c := &chatState{store: store, key: key, user: strings.TrimSpace(a.GetPrompt())}
+	run.chat = c
+	if dir == spec.Workdir { // no agent workdir / repo_dir: a stable per-agent dir
+		if e.Dir != "" {
+			dir = e.Dir
+		} else if d, err := chatsession.Dir(r.host.DataDir(), "claude-code", a.GetAgent().GetId()); err == nil {
+			dir = d
+		} else {
+			run.log.Warn("claude-code: chat dir", "err", err)
+		}
+	}
+	c.dir = dir
+	if e.SessionID != "" && (e.Dir == "" || e.Dir == dir) {
+		c.resumed = true
+		// Before the operator's extra args, like the agent settings.
+		n := len(args) - len(r.cfg.Args)
+		args = append(append(append([]string(nil), args[:n]...), "--resume", e.SessionID), args[n:]...)
+		return dir, args, chatsession.Prompt(a, nil)
+	}
+	return dir, args, chatsession.Prompt(a, e.Turns)
 }
 
 func envSet(key string, maps ...map[string]string) bool {
@@ -300,7 +360,7 @@ func envSet(key string, maps ...map[string]string) bool {
 
 // startBridge starts the run's Nexus MCP endpoint and writes its client
 // config into the run workspace; it returns the config path.
-func (r *Runtime) startBridge(run *run, spec kernel.RunSpec) (string, error) {
+func (r *Runtime) startBridge(run *run, spec kernel.RunSpec, extra map[string]any) (string, error) {
 	a := spec.Assignment
 	run.gate = approvalgate.New(approvalgate.Config{
 		TaskID: a.GetTaskId(), RunID: a.GetRunId(), Agent: a.GetAgent(), NodeID: spec.Env["NEXUS_NODE_ID"],
@@ -314,6 +374,8 @@ func (r *Runtime) startBridge(run *run, spec kernel.RunSpec) (string, error) {
 	}
 	bridge, err := mcp.NewBridge(mcp.RunConfig{
 		Tools: spec.Tools, Gate: run.gate, Permission: true, Classify: PermissionClass, Who: who,
+		Intercept: run.interceptPermission, Describe: DescribePermission,
+		PayloadExtra: extra,
 		TaskID: a.GetTaskId(), RunID: a.GetRunId(), AgentID: a.GetAgent().GetId(), NodeID: spec.Env["NEXUS_NODE_ID"],
 		Log: run.log,
 	})

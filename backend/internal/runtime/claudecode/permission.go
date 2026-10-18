@@ -2,6 +2,7 @@ package claudecode
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	nexusv1 "github.com/danielpina1/nexus/backend/gen/nexus/v1"
@@ -149,3 +150,67 @@ func gitPush(args []string) (nexusv1.ActionClass, bool) {
 	}
 	return nexusv1.ActionClass_ACTION_CLASS_CODE_PUSH, true
 }
+
+// DescribePermission is the human action of a permission prompt for the
+// approval title ("<Who> wants to " + it): "run: git push origin main",
+// "edit src/app.ts (+12 −3)", "write notes.md (40 lines)", "fetch https://…",
+// "search the web for “…”", "use github · create_issue". "" = generic title.
+func DescribePermission(tool string, input json.RawMessage) string {
+	var in struct {
+		Command   string `json:"command"`
+		FilePath  string `json:"file_path"`
+		Path      string `json:"path"`
+		Pattern   string `json:"pattern"`
+		URL       string `json:"url"`
+		Query     string `json:"query"`
+		Content   string `json:"content"`
+		OldString string `json:"old_string"`
+		NewString string `json:"new_string"`
+		Edits     []struct {
+			OldString string `json:"old_string"`
+			NewString string `json:"new_string"`
+		} `json:"edits"`
+	}
+	_ = json.Unmarshal(input, &in)
+	switch tool {
+	case "Bash":
+		if c := oneLine(in.Command); c != "" {
+			return "run: " + truncate(c, 100)
+		}
+	case "Edit", "MultiEdit":
+		add, del := lineCount(in.NewString), lineCount(in.OldString)
+		for _, e := range in.Edits {
+			add += lineCount(e.NewString)
+			del += lineCount(e.OldString)
+		}
+		return fmt.Sprintf("edit %s (+%d −%d)", in.FilePath, add, del)
+	case "Write":
+		return fmt.Sprintf("write %s (%d lines)", in.FilePath, lineCount(in.Content))
+	case "NotebookEdit":
+		return "edit notebook " + firstNonEmpty(in.FilePath, in.Path)
+	case "WebFetch":
+		return "fetch " + in.URL
+	case "WebSearch":
+		return "search the web for “" + in.Query + "”"
+	case "Read", "Grep", "Glob", "LS":
+		if t := firstNonEmpty(in.FilePath, in.Path, in.Pattern); t != "" {
+			return "read " + t
+		}
+	}
+	if strings.HasPrefix(tool, "mcp__") {
+		parts := strings.SplitN(strings.TrimPrefix(tool, "mcp__"), "__", 2)
+		if len(parts) == 2 {
+			return "use " + parts[0] + " · " + parts[1]
+		}
+	}
+	return ""
+}
+
+func lineCount(s string) int {
+	if s == "" {
+		return 0
+	}
+	return strings.Count(strings.TrimSuffix(s, "\n"), "\n") + 1
+}
+
+func oneLine(s string) string { return strings.Join(strings.Fields(s), " ") }

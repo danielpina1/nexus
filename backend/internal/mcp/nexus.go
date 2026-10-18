@@ -54,6 +54,16 @@ type RunConfig struct {
 	ServerName string
 	// Who names the agent in approval titles ("Claude Code", "coder"…).
 	Who string
+	// Intercept, when set, sees every permission prompt for a client-native
+	// tool first; handled=true returns its decision without the approval gate
+	// (Claude Code's AskUserQuestion becomes a Nexus Question this way).
+	Intercept func(ctx context.Context, tool string, input json.RawMessage) (d PermissionDecision, handled bool)
+	// Describe, when set, gives the approval title of a client-native tool's
+	// permission prompt ("" = "<Who> wants to use <tool>").
+	Describe func(tool string, input json.RawMessage) string
+	// PayloadExtra is merged into permission-prompt approval payloads
+	// (e.g. {"cwd": …} so clients can show where a command runs).
+	PayloadExtra map[string]any
 
 	TaskID, RunID, AgentID, NodeID string
 	Version                        string
@@ -289,18 +299,37 @@ func (b *Bridge) permission(ctx context.Context, args json.RawMessage) (*CallRes
 		} else if strings.TrimPrefix(in.ToolName, prefix) == PermissionToolName {
 			return decisionResult(PermissionDecision{Behavior: "deny", Message: "the permission tool cannot be called directly"}), nil
 		}
-	} else if b.cfg.Classify != nil {
-		class, summary = b.cfg.Classify(in.ToolName, input)
+	} else {
+		if b.cfg.Intercept != nil {
+			if d, ok := b.cfg.Intercept(ctx, in.ToolName, input); ok {
+				return decisionResult(d), nil
+			}
+		}
+		if b.cfg.Classify != nil {
+			class, summary = b.cfg.Classify(in.ToolName, input)
+		}
 	}
 	if summary == "" {
 		summary = truncate(string(input), 500)
 	}
+	title := fmt.Sprintf("%s wants to use %s", b.cfg.Who, toolName)
+	if nexusTool == nil && b.cfg.Describe != nil {
+		if d := b.cfg.Describe(in.ToolName, input); d != "" {
+			title = b.cfg.Who + " wants to " + d
+		}
+	}
+	payload := map[string]any{"tool": toolName, "input": decodeInput(input)}
+	for k, v := range b.cfg.PayloadExtra {
+		if _, taken := payload[k]; !taken {
+			payload[k] = v
+		}
+	}
 	msg := b.gateMessage(ctx, approvalgate.Request{
 		Class:    class,
 		MinLevel: minLevel,
-		Title:    fmt.Sprintf("%s wants to use %s", b.cfg.Who, toolName),
+		Title:    title,
 		Summary:  summary,
-		Payload:  map[string]any{"tool": toolName, "input": decodeInput(input)},
+		Payload:  payload,
 	})
 	if msg != "" {
 		return decisionResult(PermissionDecision{Behavior: "deny", Message: msg}), nil
