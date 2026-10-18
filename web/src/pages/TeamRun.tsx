@@ -46,7 +46,8 @@ import { costMinor, cx, formatClock, formatDuration, formatMoney, isActive, task
 import { useNow } from "../lib/useNow";
 import { Card, CardHeader } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
-import { Button, buttonClass } from "../components/ui/Button";
+import { Button } from "../components/ui/Button";
+import { buttonClass } from "../components/ui/buttonStyles";
 import { ConfirmButton } from "../components/ui/ConfirmButton";
 import { Input } from "../components/ui/Input";
 import { LimitMeter } from "../components/ui/LimitMeter";

@@ -4,7 +4,7 @@ import { AlertTriangle, Bot, GitBranch, Plus, TriangleAlert, Users } from "lucid
 import { PageHeader } from "../components/ui/PageHeader";
 import { Card } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
-import { buttonClass } from "../components/ui/Button";
+import { buttonClass } from "../components/ui/buttonStyles";
 import { Skeleton } from "../components/ui/Skeleton";
 import { ErrorState } from "../components/ui/ErrorState";
 import { EmptyState } from "../components/ui/EmptyState";

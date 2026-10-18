@@ -79,6 +79,8 @@ const CAPTURES = [
   ["inbox/recipe.md", "salmon recipe for Sunday", "[[Shopping preferences]]"],
 ];
 
+export const CREATE_AGENT_CHOICE = "Create a new agent for this";
+
 export class MockHub {
   seq = 0n;
   log: Event[] = [];
@@ -115,6 +117,7 @@ export class MockHub {
       seq: this.seq,
       at: ts(opts.at ?? Date.now()),
       taskId,
+      rootTaskId: task ? task.rootId || task.id : "",
       runId: opts.runId ?? task?.currentRunId ?? "",
       actor: opts.actor ?? (task?.agentId ? `agent:${task.agentId}` : "hub"),
       body,
@@ -124,14 +127,16 @@ export class MockHub {
     return ev;
   }
 
-  async *subscribe(sinceSeq: bigint, taskIds: string[], inboxOnly: boolean, signal: AbortSignal): AsyncGenerator<Event> {
+  async *subscribe(sinceSeq: bigint, taskIds: string[], inboxOnly: boolean, signal: AbortSignal, rootTaskIds: string[] = []): AsyncGenerator<Event> {
     let cursor = Number(sinceSeq < 0n ? 0n : sinceSeq);
     if (cursor > this.log.length) cursor = 0; // client remembers a seq from a previous mock session
     const filter = new Set(taskIds);
+    const roots = new Set(rootTaskIds);
     while (!signal.aborted) {
       while (cursor < this.log.length) {
         const ev = this.log[cursor++];
         if (filter.size && !filter.has(ev.taskId)) continue;
+        if (roots.size && !roots.has(ev.rootTaskId)) continue;
         if (inboxOnly && !["approval", "question", "notice"].includes(ev.body.case ?? "")) continue;
         yield ev;
       }
@@ -149,7 +154,10 @@ export class MockHub {
 
   // ---- task helpers ---------------------------------------------------------------------------
 
-  newTask(init: { title: string; prompt?: string; agentId?: string; workflowId?: string; parentId?: string; tier?: Tier; source?: string }, at = Date.now()): Task {
+  newTask(
+    init: { title: string; prompt?: string; agentId?: string; workflowId?: string; parentId?: string; tier?: Tier; source?: string; teamId?: string; role?: string; depth?: number; phase?: string },
+    at = Date.now(),
+  ): Task {
     const id = newId("tsk", at);
     const parent = init.parentId ? this.tasks.get(init.parentId) : undefined;
     const t = create(TaskSchema, {
@@ -224,15 +232,27 @@ export class MockHub {
 
   approval(
     taskId: string,
-    init: { cls: ActionClass; level: TrustLevel; title: string; summary: string; payload: Record<string, unknown>; previews?: MessageInitShape<typeof ApprovalSchema>["previews"]; expiresIn?: number },
+    init: {
+      cls: ActionClass;
+      level: TrustLevel;
+      title: string;
+      summary: string;
+      payload: Record<string, unknown>;
+      previews?: MessageInitShape<typeof ApprovalSchema>["previews"];
+      expiresIn?: number;
+      agentId?: string;
+    },
     at = Date.now(),
   ): Approval {
-    const t = this.tasks.get(taskId)!;
+    const t = this.tasks.get(taskId);
     const a = create(ApprovalSchema, {
       id: newId("apr", at),
       taskId,
-      runId: t.currentRunId,
-      agentId: t.agentId,
+      runId: t?.currentRunId ?? "",
+      agentId: init.agentId ?? t?.agentId ?? "",
+      rootTaskId: t ? t.rootId || t.id : "",
+      teamId: t?.teamId ?? "",
+      role: t?.role ?? "",
       actionClass: init.cls,
       level: init.level,
       title: init.title,
@@ -244,7 +264,7 @@ export class MockHub {
       state: ApprovalState.PENDING,
       createdAt: ts(at),
       expiresAt: ts(at + (init.expiresIn ?? 2 * HOUR)),
-      nodeId: t.nodeId,
+      nodeId: t?.nodeId ?? "",
     });
     this.approvals.set(a.id, a);
     this.emit(taskId, { case: "approval", value: clone(ApprovalSchema, a) }, { at });
@@ -700,6 +720,11 @@ export class MockHub {
 
   // ---- service operations ----------------------------------------------------------------------
 
+  /** Run `cb` when an approval is decided (team runs, architect publishes). */
+  onDecided(approvalId: string, cb: (approved: boolean) => void) {
+    this.onDecision.set(approvalId, cb);
+  }
+
   decideInternal(approvalId: string, approve: boolean, actor: string) {
     const a = this.approvals.get(approvalId);
     if (!a) throw new ConnectError("approval not found", Code.NotFound);
@@ -799,6 +824,8 @@ export class MockHub {
     if (/(fix|bug|test|refactor|pr\b|pull request|compile|lint|repo)/.test(s)) return mk(CommandKind.TASK, "code-fixer", 0.88, "Code change in a repository", ["assistant"]);
     if (/(server|disk|restart|backup|machine|cpu|vps|gpu-box|mac-studio|logs?)\b/.test(s)) return mk(CommandKind.TASK, "ops", 0.84, "Machine operations", ["assistant"]);
     if (s.split(/\s+/).length <= 2) return mk(CommandKind.TASK, "", 0.41, "Too short to route confidently", ["assistant", "ops", "code-fixer"]);
+    if (/(tell me when|alert me|notify me|watch|track|every (day|week|monday|tuesday|wednesday|thursday|friday|saturday|sunday|morning))/.test(s))
+      return mk(CommandKind.TASK, "", 0.28, "No agent fits this well (no_fit)", ["assistant", CREATE_AGENT_CHOICE]);
     return mk(CommandKind.TASK, "assistant", 0.79, "General request; no specialist matched", ["ops"]);
   }
 
