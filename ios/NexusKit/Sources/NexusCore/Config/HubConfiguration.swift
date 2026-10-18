@@ -69,6 +69,7 @@ public struct HubConfiguration: Codable, Equatable, Sendable {
         AppGroup.defaults.removeObject(forKey: AppGroup.Key.hubConfiguration)
         AppGroup.defaults.removeObject(forKey: AppGroup.Key.lastEventSeq)
         HubRouteMemory.clear()
+        HubTrust.forgetRememberedCA()
         Outbox.clear()
         ApprovalCache.clear()
     }

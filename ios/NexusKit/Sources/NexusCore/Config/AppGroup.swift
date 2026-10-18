@@ -40,6 +40,9 @@ public enum AppGroup {
         public static let lastWorkingHubURL = "nexus.hub.lastWorkingURL"
         public static let lastHubContact = "nexus.hub.lastContact"
         public static let lastHubContactViaVPN = "nexus.hub.lastContactViaVPN"
+        /// DER of the Hub CA that last validated a connection (HubTrust; checked against
+        /// `HubConfiguration.caFingerprint` before use).
+        public static let hubCACertificate = "nexus.hub.caCertificate"
         /// Commands, replies, captures and signed decisions waiting for the Hub.
         public static let outbox = "nexus.outbox"
         /// Pending approvals (serialized protobuf) so the approval sheet works while away.

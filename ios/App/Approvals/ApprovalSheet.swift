@@ -119,14 +119,10 @@ struct ApprovalSheet: View {
 
                 ForEach(approval.previews, id: \.id) { attachment in
                     if let url = URL(string: attachment.url), attachment.mimeType.hasPrefix("image/") {
-                        AsyncImage(url: url) { image in
-                            image.resizable().scaledToFit()
-                        } placeholder: {
-                            NXSkeleton(height: 180, cornerRadius: NXRadius.lg)
-                        }
-                        .frame(maxHeight: 260)
-                        .clipShape(RoundedRectangle(cornerRadius: NXRadius.lg, style: .continuous))
-                        .accessibilityLabel("Preview: \(attachment.name)")
+                        HubPreviewImage(url: url)
+                            .frame(maxHeight: 260)
+                            .clipShape(RoundedRectangle(cornerRadius: NXRadius.lg, style: .continuous))
+                            .accessibilityLabel("Preview: \(attachment.name)")
                     } else if !attachment.data.isEmpty, let image = UIImage(data: attachment.data) {
                         Image(uiImage: image)
                             .resizable()
@@ -303,6 +299,53 @@ struct ApprovalSheet: View {
             }
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+}
+
+/// Preview image from the Hub. `AsyncImage` uses `URLSession.shared`, which rejects the Hub's
+/// private CA, so Hub URLs load through `HubDownloads` (CA pinned with `HubTrust`, bearer
+/// token); any other URL keeps `AsyncImage`.
+private struct HubPreviewImage: View {
+    let url: URL
+
+    @State private var image: UIImage?
+    @State private var failed = false
+
+    var body: some View {
+        if HubDownloads.isHubURL(url) {
+            Group {
+                if let image {
+                    Image(uiImage: image).resizable().scaledToFit()
+                } else if failed {
+                    Image(systemName: "photo")
+                        .font(.largeTitle)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, minHeight: 120)
+                } else {
+                    NXSkeleton(height: 180, cornerRadius: NXRadius.lg)
+                }
+            }
+            .task(id: url) {
+                image = nil
+                failed = false
+                do {
+                    let (data, _) = try await HubDownloads.data(from: url)
+                    if let loaded = UIImage(data: data) {
+                        image = loaded
+                    } else {
+                        failed = true
+                    }
+                } catch {
+                    failed = true
+                }
+            }
+        } else {
+            AsyncImage(url: url) { image in
+                image.resizable().scaledToFit()
+            } placeholder: {
+                NXSkeleton(height: 180, cornerRadius: NXRadius.lg)
+            }
         }
     }
 }

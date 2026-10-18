@@ -153,22 +153,19 @@ public enum HubProbe {
         case offline
     }
 
-    private static let session: URLSession = {
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.timeoutIntervalForRequest = timeout
-        configuration.timeoutIntervalForResource = timeout + 1
-        configuration.waitsForConnectivity = false
-        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
-        configuration.urlCache = nil
-        configuration.httpMaximumConnectionsPerHost = 2
-        return URLSession(configuration: configuration)
-    }()
+    /// Probe sessions, one per pinned CA fingerprint (usually exactly one).
+    private static let sessions = ProbeSessions()
 
     /// Probes one base URL. Any HTTP answer from `/healthz` with a 2xx status counts.
-    public static func probe(_ baseURL: URL) async -> Result<Void, Error> {
+    ///
+    /// - Parameter caFingerprint: the Hub CA pin (pairing QR `ca=`); the server certificate
+    ///   must chain to that CA (`HubTrust`). nil: system trust (not paired).
+    /// - Returns: on a pin failure, `.failure(HubTrustError)`.
+    public static func probe(_ baseURL: URL, caFingerprint: String? = nil) async -> Result<Void, Error> {
         let url = baseURL.appendingPathComponent("healthz")
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: timeout)
         request.httpMethod = "GET"
+        let (session, trust) = sessions.session(for: caFingerprint)
         do {
             let (_, response) = try await session.data(for: request)
             if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
@@ -176,33 +173,83 @@ public enum HubProbe {
             }
             return .success(())
         } catch {
+            if let trustError = trust.trustError(for: error, url: url) {
+                return .failure(trustError)
+            }
             return .failure(error)
         }
     }
 
     /// Tries `urls` in order (callers put the last working URL first) and returns the first
-    /// that answers.
-    public static func firstReachable(_ urls: [URL], path: NetworkPathInfo?) async -> Outcome {
+    /// that answers. When none answers, the reason is the most informative failure across all
+    /// URLs (a certificate problem on one URL is not hidden by a timeout on a later one).
+    public static func firstReachable(
+        _ urls: [URL],
+        path: NetworkPathInfo?,
+        caFingerprint: String? = nil
+    ) async -> Outcome {
         if let path, !path.isSatisfied { return .offline }
         guard !urls.isEmpty else { return .unreachable(reason: "No Hub address configured.") }
-        var lastError: Error?
+        var errors: [Error] = []
         for url in urls {
             if Task.isCancelled { break }
-            switch await probe(url) {
+            switch await probe(url, caFingerprint: caFingerprint) {
             case .success:
                 return .reachable(url)
             case .failure(let error):
-                lastError = error
+                errors.append(error)
                 if let urlError = error as? URLError, urlError.code == .notConnectedToInternet {
                     return .offline
                 }
             }
         }
-        return .unreachable(reason: describe(lastError))
+        return .unreachable(reason: describe(mostInformative(errors)))
     }
 
-    /// Calm, user-facing reason for the last probe failure.
+    /// The failure that says the most about why the Hub could not be used: the first error of
+    /// the highest `informativeness`.
+    static func mostInformative(_ errors: [Error]) -> Error? {
+        var best: Error?
+        var bestRank = Int.min
+        for error in errors {
+            let rank = informativeness(error)
+            if rank > bestRank {
+                best = error
+                bestRank = rank
+            }
+        }
+        return best
+    }
+
+    /// Higher is more informative. A pin or certificate failure means a Hub-like server answered
+    /// and was refused; an HTTP error means it answered; a refused connection or a DNS failure
+    /// still says something about the address; a timeout says the least.
+    static func informativeness(_ error: Error) -> Int {
+        if error is HubTrustError { return 6 }
+        guard let urlError = error as? URLError else { return 0 }
+        switch urlError.code {
+        case .serverCertificateUntrusted, .serverCertificateHasBadDate,
+             .serverCertificateNotYetValid, .serverCertificateHasUnknownRoot,
+             .secureConnectionFailed, .clientCertificateRejected, .clientCertificateRequired:
+            return 5
+        case .badServerResponse:
+            return 4
+        case .cannotConnectToHost, .networkConnectionLost:
+            return 3
+        case .cannotFindHost, .dnsLookupFailed:
+            return 2
+        case .timedOut:
+            return 1
+        default:
+            return 0
+        }
+    }
+
+    /// Calm, user-facing reason for a probe failure.
     static func describe(_ error: Error?) -> String {
+        if let trustError = error as? HubTrustError {
+            return trustError.errorDescription ?? HubTrust.mismatchMessage
+        }
         guard let urlError = error as? URLError else {
             return "Your Nexus did not answer."
         }
@@ -216,6 +263,8 @@ public enum HubProbe {
         case .secureConnectionFailed, .serverCertificateUntrusted, .serverCertificateHasBadDate,
              .serverCertificateNotYetValid, .serverCertificateHasUnknownRoot:
             return "The Hub's certificate was not accepted."
+        case .clientCertificateRejected, .clientCertificateRequired:
+            return "The Hub asked for a device certificate this iPhone doesn't have."
         case .badServerResponse:
             return "The Hub answered with an error."
         case .notConnectedToInternet:
@@ -223,6 +272,41 @@ public enum HubProbe {
         default:
             return "Your Nexus did not answer."
         }
+    }
+}
+
+/// Probe URLSessions keyed by CA fingerprint, each with its pinning delegate. Kept small: the
+/// app pins one Hub at a time, so older entries are dropped when a new fingerprint shows up.
+private final class ProbeSessions: @unchecked Sendable {
+    private static let maxEntries = 2
+
+    private let lock = NSLock()
+    private var entries: [String: (session: URLSession, trust: HubTrustDelegate)] = [:]
+    private var order: [String] = []
+
+    func session(for caFingerprint: String?) -> (session: URLSession, trust: HubTrustDelegate) {
+        let key = HubTrust.normalize(caFingerprint) ?? ""
+        lock.lock()
+        defer { lock.unlock() }
+        if let entry = entries[key] { return entry }
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = HubProbe.timeout
+        configuration.timeoutIntervalForResource = HubProbe.timeout + 1
+        configuration.waitsForConnectivity = false
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        configuration.urlCache = nil
+        configuration.httpMaximumConnectionsPerHost = 2
+        let made = HubTrust.makeSession(caFingerprint: caFingerprint, configuration: configuration)
+        let entry = (session: made.session, trust: made.delegate)
+
+        entries[key] = entry
+        order.append(key)
+        while order.count > Self.maxEntries {
+            let evicted = order.removeFirst()
+            entries.removeValue(forKey: evicted)?.session.finishTasksAndInvalidate()
+        }
+        return entry
     }
 }
 

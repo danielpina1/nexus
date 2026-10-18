@@ -150,7 +150,11 @@ approvals and timelines from `MockData` — no Hub needed. SwiftUI previews use 
   Live Activity / notification Approve & Deny currently open the in-app approval sheet. If the
   Hub starts accepting the auth key for `approve`-level decisions, flip
   `ApprovalSignature.backgroundDecisionsUseAuthKey`.
-- Not yet implemented: mTLS client certificate + CA pinning (fingerprint is stored), Layer-3
+- Hub CA pinning: every HTTPS connection to the Hub (connect-swift calls through
+  `PinnedURLSessionHTTPClient`, `HubProbe`, `HubDownloads` for attachments and previews) is
+  validated by `HubTrust` against the CA fingerprint from the pairing QR (`ca=`), with that CA as
+  the only anchor; host name and dates are still checked.
+- Not yet implemented: mTLS client certificate, Layer-3
   signed request headers on every call (the signer exists: `WireFormat.signedRequestHeaders`),
   App Attest at pairing, owner root key / signed kill-switch statement, sealed approval previews,
   Watch app, share extension.

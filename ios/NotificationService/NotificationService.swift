@@ -105,24 +105,14 @@ final class NotificationService: UNNotificationServiceExtension {
 
     /// Architecture rule: only fetch from the paired Hub (never third-party hosts).
     private static func isHubURL(_ url: URL) -> Bool {
-        guard let configuration = HubConfiguration.load() else { return false }
-        return configuration.hubURLs.contains { hub in
-            hub.host?.lowercased() == url.host?.lowercased() && hub.scheme == url.scheme
-        }
+        HubDownloads.isHubURL(url)
     }
 
+    /// Downloads through `HubDownloads`: a URLSession that pins the Hub's private CA
+    /// (`HubTrust`, the fingerprint scanned at pairing) and sends the bearer token.
     private static func downloadAttachment(from url: URL) async -> UNNotificationAttachment? {
         do {
-            var request = URLRequest(url: url)
-            request.timeoutInterval = 20
-            if let hub = try? HubClient.shared(),
-               let headers = try? await hub.authHeaders() {
-                for (name, values) in headers {
-                    request.setValue(values.joined(separator: ","), forHTTPHeaderField: name)
-                }
-            }
-            let (temporaryURL, response) = try await URLSession.shared.download(for: request)
-            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { return nil }
+            let (temporaryURL, http) = try await HubDownloads.download(from: url, timeout: 20)
 
             let ext = Self.fileExtension(mimeType: http.mimeType, url: url)
             let destination = FileManager.default.temporaryDirectory
