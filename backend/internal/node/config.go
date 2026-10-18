@@ -19,7 +19,7 @@ import (
 //	  ca_file: ""              # hub CA (PEM); when set it is the ONLY trusted root
 //	  cert_file: ""            # mTLS client certificate (from pairing)
 //	  key_file: ""             # node identity key (PKCS#8 PEM, 0600)
-//	  status_interval: 15s
+//	  status_interval: 5s
 //	  strict_approvals: false  # true: reject approvals when no verifier is installed
 //	  max_concurrent:          # per-runtime parallel runs (overrides the runtime's own
 //	    claude-code: 2         # default, e.g. runtime.claudecode.max_concurrent); 0 = unlimited.
@@ -63,7 +63,7 @@ func (c *Config) Defaults(dataDir string) {
 		c.WorkspacesDir = abs
 	}
 	if c.StatusInterval <= 0 {
-		c.StatusInterval = 15 * time.Second
+		c.StatusInterval = 5 * time.Second
 	}
 	if c.BackoffMin <= 0 {
 		c.BackoffMin = 500 * time.Millisecond

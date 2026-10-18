@@ -27,7 +27,7 @@ node:
   # code-fixer needs `dev`, the rest run anywhere).
   tags: [mac, dev, browser]
   workspaces_dir: ./data/workspaces
-  status_interval: 15s
+  status_interval: 5s
   # Reject approvals unless the edge verifier (node.trust) has an owner
   # trust store. Turn on once the iPhone is paired.
   strict_approvals: false
