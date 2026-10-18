@@ -319,6 +319,11 @@ func (e *Engine) prepare(ctx context.Context, r *taskRec, ra *resolvedAgent, tie
 		}
 	}
 
+	// Sandbox test runs: strict policy, whatever the definition says.
+	if x.Sandbox {
+		e.prepareSandbox(p, set)
+	}
+
 	// Structured output.
 	if doc := outputSchema(ra, x); doc != nil {
 		p.instructions = strings.TrimSpace(p.instructions + "\n\n" + outputInstructions(doc))

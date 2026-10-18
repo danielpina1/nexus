@@ -19,7 +19,7 @@ import { prefetchPath } from "../app/registry";
 import { DraftKind, DraftState, type AgentDraft } from "../gen/nexus/v1/architect_pb";
 
 const KINDS: Array<{ id: DraftKind; label: string; hint: string; icon: React.ReactNode }> = [
-  { id: DraftKind.AUTO, label: "Let it decide", hint: "An agent, plus a workflow or team when the request needs one", icon: <Sparkles /> },
+  { id: DraftKind.AUTO, label: "Let it decide", hint: "Agent, plus a workflow or team if needed", icon: <Sparkles /> },
   { id: DraftKind.AGENT, label: "Agent", hint: "One agent note", icon: <Bot /> },
   { id: DraftKind.TEAM, label: "Team", hint: "An orchestrator and members", icon: <Users /> },
   { id: DraftKind.WORKFLOW, label: "Workflow", hint: "A scheduled or triggered workflow", icon: <Workflow /> },
@@ -73,8 +73,8 @@ function StartCard() {
           value={mode}
           onChange={setMode}
           items={[
-            { id: "new", label: "Create something new" },
-            { id: "improve", label: "Improve an existing agent" },
+            { id: "new", label: "Create new" },
+            { id: "improve", label: "Improve an agent" },
           ]}
         />
 
@@ -216,7 +216,7 @@ function DraftRow({ d, now }: { d: AgentDraft; now: number }) {
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="truncate font-mono text-[13px] font-medium text-fg">{draftTitle(d)}</span>
+          <span className={cx("truncate text-[13px] font-medium text-fg", d.notes.length > 0 && "font-mono")}>{draftTitle(d)}</span>
           {d.updateAgentId && <Badge>update</Badge>}
           {d.problems.length > 0 && (
             <Badge tone="danger">

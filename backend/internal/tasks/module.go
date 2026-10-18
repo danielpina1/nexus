@@ -21,6 +21,10 @@
 //	    await_default: 10m   # team.await / wait:true block this long per call by default
 //	    await_max: 55m       # hard cap per call (below the CLI runtimes' MCP tool timeout)
 //	    blackboard_notes: true  # mirror blackboards to teams/runs/<root>/blackboard.md
+//	  resume_wait: 30s       # after a restart, wait this long for a node before resuming team runs
+//	  sandbox:               # architect sandbox test runs (CreateSandboxTask)
+//	    timeout: 5m          # wall-clock cap per sandbox task
+//	    max_cost_eur: 0.20   # LLM budget cap per sandbox task
 //
 // The module also provides the team tools (team.*) and mounts TeamService.
 package tasks
@@ -28,6 +32,7 @@ package tasks
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/danielpina1/nexus/backend/gen/nexus/v1/nexusv1connect"
 	"github.com/danielpina1/nexus/backend/kernel"
@@ -41,6 +46,10 @@ type Config struct {
 	MaxDepth       int        `yaml:"max_depth"`
 	MaxChoices     int        `yaml:"max_choices"`
 	Teams          TeamConfig `yaml:"teams"`
+	// ResumeWait bounds how long Start waits for a connected node before
+	// resuming unfinished team runs (strategy drivers, queued members).
+	ResumeWait time.Duration `yaml:"resume_wait"`
+	Sandbox    SandboxConfig `yaml:"sandbox"`
 }
 
 func (c *Config) defaults() {
@@ -54,6 +63,10 @@ func (c *Config) defaults() {
 		c.MaxChoices = 6
 	}
 	c.Teams.defaults()
+	if c.ResumeWait <= 0 {
+		c.ResumeWait = 30 * time.Second
+	}
+	c.Sandbox.defaults()
 }
 
 // Module is the tasks module.
@@ -98,6 +111,26 @@ func (m *Module) Init(_ context.Context, h kernel.Host) error {
 	h.Provide(kernel.SvcTasks, e)
 	h.Handle(nexusv1connect.NewTaskServiceHandler(Handler{E: e}))
 	h.Handle(nexusv1connect.NewTeamServiceHandler(TeamHandler{E: e}))
+	return nil
+}
+
+// Start resumes unfinished task trees (docs/SWARMS.md §9): deadlines at
+// once, strategy drivers and queued members once a node is connected.
+func (m *Module) Start(context.Context) error {
+	e := m.Engine
+	if e == nil {
+		return nil
+	}
+	e.resumeDeadlines(e.bg)
+	e.goBG(func(bg context.Context) {
+		e.waitForNodes(bg, e.cfg.ResumeWait)
+		if bg.Err() != nil {
+			return
+		}
+		if err := e.Resume(bg); err != nil {
+			e.log.Warn("tasks: resume", "err", err)
+		}
+	})
 	return nil
 }
 

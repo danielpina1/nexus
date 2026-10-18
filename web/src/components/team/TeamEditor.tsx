@@ -192,6 +192,7 @@ export function TeamEditor({ initial, isNew, teamId }: { initial: string; isNew:
               }
             }}
             spellCheck={false}
+            wrap="off"
             data-testid="team-markdown"
             className="min-h-[460px] resize-y rounded-none border-0 bg-surface font-mono text-[12.5px] leading-relaxed sm:min-h-[560px]"
           />

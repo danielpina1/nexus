@@ -79,6 +79,14 @@ const MODE: Record<string, { label: string; hint: string; tone: "ok" | "info" | 
   simulated: { label: "simulated", hint: "No sandbox or model available: the agent-architect role-played the draft. Treat results as indicative.", tone: "neutral" },
 };
 
+/** Frontmatter values as people write them: lists comma-separated, maps as `k: v`. */
+function fmValue(v: unknown): string {
+  if (v == null) return "—";
+  if (Array.isArray(v)) return v.map(fmValue).join(", ");
+  if (typeof v === "object") return Object.entries(v as Record<string, unknown>).map(([k, x]) => `${k}: ${Array.isArray(x) ? `[${fmValue(x)}]` : fmValue(x)}`).join(" · ");
+  return String(v);
+}
+
 function noteIcon(kind: string) {
   return kind === "team" ? <Users className="size-3.5" aria-hidden /> : kind === "workflow" ? <Workflow className="size-3.5" aria-hidden /> : <Bot className="size-3.5" aria-hidden />;
 }
@@ -110,7 +118,7 @@ function NoteView({ note }: { note: DraftNote }) {
                 {fm.map(([k, v]) => (
                   <div key={k} className="contents">
                     <dt className="font-medium text-muted">{k}</dt>
-                    <dd className="min-w-0 font-mono break-words text-fg">{typeof v === "string" ? v : JSON.stringify(v)}</dd>
+                    <dd className="min-w-0 font-mono break-words text-fg">{fmValue(v)}</dd>
                   </div>
                 ))}
               </dl>
@@ -171,7 +179,6 @@ function TestResult({ r }: { r: DraftTestResult }) {
           </Link>
         )}
       </div>
-      {m.hint && <p className="text-[11.5px] text-muted">{m.hint}</p>}
       {r.error && (
         <p role="alert" className="text-[12.5px] text-danger">
           {r.error}
@@ -241,6 +248,11 @@ function Tests({ draft, onRun, running, disabledReason }: { draft: AgentDraft; o
           </Button>
         }
       />
+      {draft.testResults[0] && MODE[draft.testResults[0].mode] && (
+        <p className="border-b border-border bg-surface-2/50 px-4 py-2 text-[12px] text-muted">
+          <span className="font-medium text-fg-2">Mode: {MODE[draft.testResults[0].mode].label}.</span> {MODE[draft.testResults[0].mode].hint}
+        </p>
+      )}
       {cases.length === 0 ? (
         <EmptyState compact icon={<FlaskConical />} title="No test cases" body="Refine the draft and ask for test cases." />
       ) : (
@@ -261,7 +273,7 @@ function Tests({ draft, onRun, running, disabledReason }: { draft: AgentDraft; o
                 {c.expect.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1">
                     {c.expect.map((e) => (
-                      <Badge key={e} className="font-mono" title={/^(contains|not_contains|calls|no_calls|json)/.test(e) ? "Checked automatically" : "Listed for you to judge"}>
+                      <Badge key={e} className={/^(contains|not_contains|calls|no_calls|json)/.test(e) ? "font-mono" : ""} title={/^(contains|not_contains|calls|no_calls|json)/.test(e) ? "Checked automatically" : "Listed for you to judge"}>
                         {!/^(contains|not_contains|calls|no_calls|json)/.test(e) && <CircleHelp className="size-3" aria-hidden />}
                         {e}
                       </Badge>
@@ -283,7 +295,8 @@ function Progress({ draft }: { draft: AgentDraft }) {
   const busy = BUSY_STATES.has(draft.state);
   const now = useNow(busy ? 1000 : 30_000);
   const recent = notices.slice(-4).reverse();
-  if (!busy && recent.length === 0) return null;
+  // Idle drafts don't need the progress card; the state badge says enough.
+  if (!busy) return null;
   return (
     <Card className={cx("mb-5 p-4", busy && "border-info/35")} role="status" aria-live="polite" data-testid="draft-progress">
       <div className="flex items-center gap-2 text-[13px] font-semibold text-fg">
@@ -299,7 +312,7 @@ function Progress({ draft }: { draft: AgentDraft }) {
         <ol className="mt-2 space-y-1">
           {recent.map((n) => (
             <li key={n.notice.id} className="flex gap-2 text-[12.5px]">
-              <span className="w-[62px] shrink-0 text-muted tabular">{formatClock(new Date(n.at))}</span>
+              <span className="shrink-0 whitespace-nowrap text-muted tabular">{formatClock(new Date(n.at))}</span>
               <span className="min-w-0 text-fg-2">
                 <span className="font-medium text-fg">{n.notice.title}</span>
                 {n.notice.body && <span className="text-muted"> — {n.notice.body}</span>}

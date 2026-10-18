@@ -35,7 +35,7 @@ function RunLine({ run, now }: { run: Task; now: number }) {
       </span>
       <span className="min-w-0 flex-1 truncate text-fg-2">{run.title || run.prompt}</span>
       <span className="shrink-0 text-muted tabular">{formatMoney(cost, run.treeCost?.amount?.currency || run.cost?.amount?.currency)}</span>
-      <span className="hidden w-16 shrink-0 text-right text-muted sm:block">{timeAgo(tsMs(run.createdAt), now)}</span>
+      <span className="hidden w-[84px] shrink-0 text-right whitespace-nowrap text-muted sm:block">{timeAgo(tsMs(run.createdAt), now)}</span>
     </Link>
   );
 }

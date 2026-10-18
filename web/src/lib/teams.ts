@@ -150,10 +150,16 @@ export function useTeamEvents(rootId: string | undefined): TeamEventItem[] {
   }, [tl]);
 }
 
+/** Blackboard values for people: strings as is, lists as bullets, objects as indented JSON. */
+export function jsonText(j: unknown): string {
+  if (typeof j === "string") return j;
+  if (Array.isArray(j) && j.every((x) => typeof x === "string" || typeof x === "number")) return j.map((x) => `• ${x}`).join("\n");
+  return JSON.stringify(j, null, 2);
+}
+
 export function valueText(v: Value | undefined): string {
   if (!v) return "";
-  const j = toJson(ValueSchema, v);
-  return typeof j === "string" ? j : JSON.stringify(j, null, 2);
+  return jsonText(toJson(ValueSchema, v));
 }
 
 export interface BoardItem {
@@ -180,8 +186,7 @@ export function mergeBoard(entries: BlackboardEntry[] | undefined, events: TeamE
     if (cur && cur.version >= version && version > 0) continue;
     let text = ev.text;
     try {
-      const j = JSON.parse(ev.text);
-      text = typeof j === "string" ? j : JSON.stringify(j, null, 2);
+      text = jsonText(JSON.parse(ev.text));
     } catch {
       /* truncated JSON: show as is */
     }

@@ -354,7 +354,7 @@ export function NoticeCard({
               </Button>
             </>
           )}
-          {n.kind === NoticeKind.SUGGESTION && (
+          {n.kind === NoticeKind.SUGGESTION && !n.data?.draft_id && (
             <Button size="sm" variant="primary" onClick={() => dismiss([n.id])}>
               Apply
             </Button>

@@ -57,6 +57,9 @@ type Engine struct {
 	sig     chan struct{} // closed at every task end (waitTasks)
 	timerMu sync.Mutex
 	timers  map[string]*time.Timer // team run deadlines by root id
+	// driverMu guards drivers: roots whose strategy driver is running.
+	driverMu sync.Mutex
+	drivers  map[string]bool
 	// bg lives as long as the engine (strategy drivers, timers).
 	bg       context.Context
 	bgCancel context.CancelFunc
@@ -299,6 +302,10 @@ type createOpts struct {
 	agentID string // overrides req.AgentId (ephemeral agents)
 	ext     *taskExt
 	phase   string
+	// newRoot makes a child task the root of its own tree (sub-team runs).
+	newRoot bool
+	// sandbox marks an architect sandbox test run (hidden from lists).
+	sandbox bool
 }
 
 // insertNew persists a new task (queued) and publishes it. existing is true
@@ -321,7 +328,7 @@ func (e *Engine) insertNew(ctx context.Context, req *nexusv1.CreateTaskRequest, 
 	if o.agentID != "" {
 		agentID = o.agentID
 	}
-	r := &taskRec{req: req, task: &nexusv1.Task{
+	r := &taskRec{req: req, sandbox: o.sandbox, task: &nexusv1.Task{
 		Id:        id,
 		RootId:    id,
 		Title:     titleOf(req.Prompt),
@@ -338,8 +345,14 @@ func (e *Engine) insertNew(ctx context.Context, req *nexusv1.CreateTaskRequest, 
 	if parent != nil {
 		r.task.ParentId = parent.task.Id
 		r.task.RootId = parent.task.RootId
+		if o.newRoot {
+			r.task.RootId = id
+		}
 		r.depth = parent.depth + 1
 		r.task.Depth = int32(r.depth)
+	}
+	if o.sandbox {
+		r.task.Title = titleOf("[sandbox] " + req.Prompt)
 	}
 	if err := e.insertTask(ctx, r, req.IdempotencyKey); err != nil {
 		return nil, false, err
@@ -454,7 +467,15 @@ func (e *Engine) route(ctx context.Context, id, input string) (*nexusv1.Task, er
 		return e.routeToTeam(ctx, id, route.TeamId)
 	}
 	if route.GetAgentId() != "" && route.GetConfidence() >= float32(e.cfg.RouteThreshold) {
-		return e.assign(ctx, id, route.AgentId, assignOpts{tier: route.Tier, runtimeHint: route.GetParams().GetFields()[ParamRuntimeHint].GetStringValue()})
+		hint := route.GetParams().GetFields()[ParamRuntimeHint].GetStringValue()
+		if hint != "" {
+			// Persisted with the task so that a fallback after the hinted
+			// runtime fails (and any later run) keeps the hinted order.
+			if err := e.setRequestParam(ctx, id, ParamRuntimeHint, structpb.NewStringValue(hint)); err != nil {
+				e.log.Warn("persist runtime hint", "task", id, "err", err)
+			}
+		}
+		return e.assign(ctx, id, route.AgentId, assignOpts{tier: route.Tier, runtimeHint: hint})
 	}
 	text := "Which agent should handle this?"
 	if route.GetReason() != "" {
@@ -465,6 +486,24 @@ func (e *Engine) route(ctx context.Context, id, input string) (*nexusv1.Task, er
 		first = TeamPrefix + route.TeamId
 	}
 	return e.askForAgent(ctx, id, text, append([]string{first}, route.GetAlternatives()...))
+}
+
+// setRequestParam sets one param of a task's stored request.
+func (e *Engine) setRequestParam(ctx context.Context, id, key string, v *structpb.Value) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	r, err := e.loadTask(ctx, id)
+	if err != nil {
+		return err
+	}
+	if r.req.Params == nil {
+		r.req.Params = &structpb.Struct{}
+	}
+	if r.req.Params.Fields == nil {
+		r.req.Params.Fields = map[string]*structpb.Value{}
+	}
+	r.req.Params.Fields[key] = v
+	return e.saveRequest(ctx, id, r.req)
 }
 
 // linkDecision tells a router that logs decisions which task a decision produced.
@@ -1093,6 +1132,8 @@ func (e *Engine) ReassignTask(ctx context.Context, id, agentID string) (*nexusv1
 	}
 	req := proto.Clone(r.req).(*nexusv1.CreateTaskRequest)
 	req.AgentId, req.IdempotencyKey, req.DryRun = agentID, "", false
+	// The router's runtime preference was for the agent it picked.
+	delete(req.GetParams().GetFields(), ParamRuntimeHint)
 	var parent *taskRec
 	if r.task.ParentId != "" {
 		if parent, err = e.loadTask(ctx, r.task.ParentId); err != nil {

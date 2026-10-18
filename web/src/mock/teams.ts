@@ -3,7 +3,7 @@ import { ValueSchema } from "@bufbuild/protobuf/wkt";
 import { Code, ConnectError } from "@connectrpc/connect";
 import { TeamEventKind } from "../gen/nexus/v1/event_pb";
 import { TaskState, type Task } from "../gen/nexus/v1/task_pb";
-import { ActionClass, Tier, TrustLevel } from "../gen/nexus/v1/common_pb";
+import { ActionClass, CostSchema, Tier, TrustLevel } from "../gen/nexus/v1/common_pb";
 import { ApprovalState } from "../gen/nexus/v1/approval_pb";
 import {
   BlackboardEntrySchema,
@@ -359,7 +359,7 @@ export class TeamsMock {
     // Roll the tree's cost up to the root (Task.tree_cost), like the hub does.
     let total = 0;
     for (const x of this.hub.tasks.values()) if (x.id === st.rootId || x.rootId === st.rootId) total += Number(x.cost?.amount?.minorUnits ?? 0n);
-    this.hub.setTask(st.rootId, { treeCost: { amount: eur(total), model: "", runtime: "" } }, at);
+    this.hub.setTask(st.rootId, { treeCost: create(CostSchema, { amount: eur(total) }) }, at);
   }
 
   private finish(st: RunState, t: Task, summary: string, at: number, state = TaskState.SUCCEEDED) {

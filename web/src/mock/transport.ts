@@ -8,7 +8,9 @@ import { EventService } from "../gen/nexus/v1/event_pb";
 import { NodeService } from "../gen/nexus/v1/node_pb";
 import { TaskService, type Task } from "../gen/nexus/v1/task_pb";
 import { FactStatus, NoteSchema, VaultService } from "../gen/nexus/v1/vault_pb";
-import { MockHub, searchNotes } from "./hub";
+import { CREATE_AGENT_CHOICE, MockHub, searchNotes } from "./hub";
+import { TeamService } from "../gen/nexus/v1/team_pb";
+import { ArchitectService, DraftKind } from "../gen/nexus/v1/architect_pb";
 import { listFiles } from "./fixtures";
 import { backlinksOf, findNote, linksOf, notes, upsertNote, type MockNote } from "./vaultData";
 import { latency, MIN, randomBytes, ts } from "./util";
@@ -47,7 +49,7 @@ export function createMockTransport(interceptors: Interceptor[] = []) {
     ({ service }) => {
       service(EventService, {
         async *subscribe(req, ctx) {
-          for await (const event of h.subscribe(req.sinceSeq, req.taskIds, req.inboxOnly, ctx.signal)) {
+          for await (const event of h.subscribe(req.sinceSeq, req.taskIds, req.inboxOnly, ctx.signal, req.rootTaskIds)) {
             yield { event };
           }
         },
@@ -57,6 +59,8 @@ export function createMockTransport(interceptors: Interceptor[] = []) {
         async createTask(req) {
           await latency();
           if (!req.prompt.trim()) throw new ConnectError("prompt is required", Code.InvalidArgument);
+          const teamId = req.teamId || (req.agentId.startsWith("team:") ? req.agentId.slice(5) : "");
+          if (teamId) return { task: h.teams.start(teamId, req.prompt) };
           const route = h.route(req.prompt);
           return { task: h.runGeneric(req.prompt, req.agentId || route.agentId || "assistant", { source: req.source || "web" }) };
         },
@@ -74,6 +78,8 @@ export function createMockTransport(interceptors: Interceptor[] = []) {
           if (req.agentId) list = list.filter((t) => t.agentId === req.agentId);
           if (req.nodeId) list = list.filter((t) => t.nodeId === req.nodeId);
           if (req.rootsOnly) list = list.filter((t) => !t.parentId);
+          if (req.teamId) list = list.filter((t) => t.teamId === req.teamId);
+          if (req.rootId) list = list.filter((t) => t.id === req.rootId || t.rootId === req.rootId);
           list.sort((a, b) => tsMs(b.createdAt) - tsMs(a.createdAt));
           const size = req.page?.pageSize || 50;
           const start = Number(req.page?.pageToken || 0);
@@ -125,6 +131,11 @@ export function createMockTransport(interceptors: Interceptor[] = []) {
         },
         async execute(req) {
           await latency();
+          if (req.route?.agentId === CREATE_AGENT_CHOICE) {
+            const d = h.architect.draft(req.input, DraftKind.AUTO, `From the command bar (${req.context?.source ?? "web"})`, "");
+            const route = { ...h.route(req.input), agentId: "", confidence: 1, reason: "You asked for a new agent", params: { architect_draft_id: d.id } };
+            return { route, answer: `Designing a new agent for this (draft ${d.id}). You'll get a notice to review, test and approve it.` };
+          }
           const forced = req.route?.agentId;
           const route = forced ? { ...h.route(req.input), agentId: forced, kind: CommandKind.TASK, confidence: 1, reason: "Chosen by you" } : h.route(req.input);
           if (route.kind === CommandKind.CAPTURE) {
@@ -168,6 +179,64 @@ export function createMockTransport(interceptors: Interceptor[] = []) {
         async upsertAgent(req) {
           await latency();
           return { agent: h.upsertAgent(req.markdown) };
+        },
+      });
+
+      service(TeamService, {
+        async listTeams(req) {
+          await latency();
+          const teams = h.teams.list();
+          return { teams: req.includeDisabled ? teams : teams.filter((t) => t.enabled) };
+        },
+        async getTeam(req) {
+          await latency();
+          return h.teams.get(req.id);
+        },
+        async upsertTeam(req) {
+          await latency();
+          return { team: h.teams.upsert(req.markdown, req.validateOnly) };
+        },
+        async getTeamRun(req) {
+          await latency();
+          return { run: h.teams.getRun(req.rootTaskId) };
+        },
+        async sendTeamMessage(req) {
+          await latency();
+          if (!req.text.trim()) throw new ConnectError("text is required", Code.InvalidArgument);
+          return { message: h.teams.sendMessage(req.rootTaskId, req.to || "orchestrator", req.text.trim()) };
+        },
+      });
+
+      service(ArchitectService, {
+        async draft(req) {
+          await latency();
+          return { draft: h.architect.draft(req.request, req.kind, req.context, req.updateAgentId) };
+        },
+        async refine(req) {
+          await latency();
+          return { draft: h.architect.refine(req.draftId, req.feedback) };
+        },
+        async testRun(req) {
+          await latency();
+          return { draft: h.architect.testRun(req.draftId) };
+        },
+        async publish(req) {
+          await latency();
+          return h.architect.publish(req.draftId);
+        },
+        async listDrafts(req) {
+          await latency();
+          let list = h.architect.list();
+          if (req.states.length) list = list.filter((d) => req.states.includes(d.state));
+          return { drafts: req.limit ? list.slice(0, req.limit) : list };
+        },
+        async getDraft(req) {
+          await latency();
+          return { draft: h.architect.get(req.id) };
+        },
+        async discard(req) {
+          await latency();
+          return { draft: h.architect.discard(req.id) };
         },
       });
 

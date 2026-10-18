@@ -212,7 +212,21 @@ func (e *Engine) launchTeam(ctx context.Context, rootID string, team *nexusv1.Te
 	if err := e.insertTree(ctx, tree); err != nil {
 		return nil, err
 	}
-	e.startTimer(rootID, timeout)
+	// A sub-team run's row already exists (limits capped by its parent):
+	// the stored row wins.
+	if stored, err := e.loadTree(ctx, rootID); err != nil {
+		return nil, err
+	} else if stored != nil {
+		tree = stored
+	}
+	if !tree.deadline.IsZero() {
+		left := tree.deadline.Sub(e.now())
+		if left <= 0 {
+			e.stopTree(ctx, rootID, "team run timed out (deadline reached)")
+			return e.GetTask(ctx, rootID)
+		}
+		e.startTimer(rootID, left)
+	}
 	root, err := e.GetTask(ctx, rootID)
 	if err != nil {
 		return nil, err
@@ -232,7 +246,7 @@ func (e *Engine) launchTeam(ctx context.Context, rootID string, team *nexusv1.Te
 		}); err != nil {
 			return nil, err
 		}
-		e.goBG(func(bg context.Context) { e.driveStrategy(bg, rootID) })
+		e.startDriver(rootID)
 		return e.GetTask(ctx, rootID)
 	}
 	if root.AgentId == "" {
@@ -313,7 +327,17 @@ func (e *Engine) roster(ctx context.Context, tree *treeRec, tasks []*nexusv1.Tas
 		if m.When != "" {
 			row["when"] = m.When
 		}
-		if cat != nil {
+		if sub, ok := strings.CutPrefix(m.AgentId, TeamPrefix); ok {
+			row["kind"] = "team"
+			if tc, ok := e.teams(); ok {
+				if t, _, _, err := tc.GetTeam(ctx, sub); err == nil {
+					row["description"] = "Team " + nonEmpty(t.Name, sub) + ": " + t.Description
+					if t.OutputSchema != nil && len(t.OutputSchema.Fields) > 0 {
+						row["output_schema"] = t.OutputSchema.AsMap()
+					}
+				}
+			}
+		} else if cat != nil {
 			if a, _, _, err := cat.GetAgent(ctx, m.AgentId); err == nil {
 				row["description"] = a.Description
 				if a.InputSchema != nil {
@@ -429,6 +453,9 @@ type delegation struct {
 	Agent  string         `json:"agent"`
 	Task   string         `json:"task"`
 	Inputs map[string]any `json:"inputs"`
+	// key (hub-internal) makes the delegation idempotent per caller: an
+	// existing child with the same strategy key is returned instead.
+	key string
 }
 
 func findMember(t *nexusv1.Team, role, agent string) (*nexusv1.TeamMember, error) {
@@ -464,6 +491,14 @@ func (e *Engine) delegate(ctx context.Context, caller *taskRec, tree *treeRec, d
 	if strings.TrimSpace(d.Task) == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("task is required (members do not see your conversation: make it self-contained)"))
 	}
+	if d.key != "" {
+		if t, err := e.childByKey(ctx, caller.task.Id, d.key); err != nil || t != nil {
+			return t, err
+		}
+	}
+	if strings.HasPrefix(m.AgentId, TeamPrefix) {
+		return e.delegateTeam(ctx, caller, tree, m, d)
+	}
 	if ra, err := e.resolveAgent(ctx, "", m.AgentId); err == nil {
 		if is := ra.agent.GetInputSchema(); is != nil && len(is.Fields) > 0 {
 			sch, err := schema.Compile(is.AsMap())
@@ -484,13 +519,161 @@ func (e *Engine) delegate(ctx context.Context, caller *taskRec, tree *treeRec, d
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("inputs: %w", err))
 		}
 	}
-	child, err := e.createChild(ctx, req, caller, createOpts{role: m.Role, teamID: tree.teamID})
+	o := createOpts{role: m.Role, teamID: tree.teamID}
+	if d.key != "" {
+		o.ext = &taskExt{StrategyKey: d.key}
+	}
+	child, err := e.createChild(ctx, req, caller, o)
 	if err != nil {
 		return nil, err
 	}
 	e.teamEvent(ctx, tree, nexusv1.TeamEventKind_TEAM_EVENT_KIND_DELEGATED, child, truncate(d.Task, 300),
 		map[string]any{"parent_id": caller.task.Id, "state": stateName(child.State), "phase": child.Phase})
 	return child, nil
+}
+
+// childByKey returns caller's child created with strategy key key (nil when
+// there is none).
+func (e *Engine) childByKey(ctx context.Context, callerID, key string) (*nexusv1.Task, error) {
+	kids, err := e.ChildTasks(ctx, callerID)
+	if err != nil {
+		return nil, err
+	}
+	for _, k := range kids {
+		x, err := e.loadExt(ctx, k.Id)
+		if err != nil {
+			return nil, err
+		}
+		if x.StrategyKey == key {
+			return k, nil
+		}
+	}
+	return nil, nil
+}
+
+// ---------------------------------------------------------------- nested teams
+
+// delegateTeam starts a sub-team run for a member `team:<id>`: its root is a
+// child of caller but roots its own tree (own team, blackboard, messages,
+// strategy), whose limits are the sub-team's capped by what every ancestor
+// tree has left; the ancestors' limits keep applying to it. A team that
+// already runs in the chain of trees is refused (cycle).
+func (e *Engine) delegateTeam(ctx context.Context, caller *taskRec, tree *treeRec, m *nexusv1.TeamMember, d delegation) (*nexusv1.Task, error) {
+	subID := strings.TrimPrefix(m.AgentId, TeamPrefix)
+	chain, err := e.ancestors(ctx, tree)
+	if err != nil {
+		return nil, err
+	}
+	for _, t := range chain {
+		if t.teamID == subID {
+			return nil, connect.NewError(connect.CodeFailedPrecondition,
+				fmt.Errorf("team %q already runs in this chain of team runs (a team cannot contain itself, directly or indirectly)", subID))
+		}
+	}
+	team, mission, err := e.loadTeamDef(ctx, subID)
+	if err != nil {
+		return nil, err
+	}
+	for _, sm := range team.Members {
+		if strings.TrimPrefix(sm.AgentId, TeamPrefix) == subID && strings.HasPrefix(sm.AgentId, TeamPrefix) {
+			return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("team %q contains itself", subID))
+		}
+	}
+	if err := e.checkChild(ctx, caller, tree); err != nil {
+		if tree.team != nil {
+			e.teamEvent(ctx, tree, nexusv1.TeamEventKind_TEAM_EVENT_KIND_LIMIT_REACHED, caller.task, err.Error(), nil)
+		}
+		return nil, err
+	}
+	agentID, x := orchestratorFor(team)
+	x.StrategyKey = d.key
+	req := &nexusv1.CreateTaskRequest{Prompt: d.Task, Source: "team"}
+	if len(d.Inputs) > 0 {
+		if req.Params, err = structpb.NewStruct(jsonSafeMap(d.Inputs)); err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("inputs: %w", err))
+		}
+	}
+	r, _, err := e.insertNew(ctx, req, caller, createOpts{role: m.Role, teamID: team.Id, agentID: agentID, ext: x,
+		phase: phaseWaitingSlot, newRoot: true})
+	if err != nil {
+		return nil, err
+	}
+	sub := &treeRec{rootID: r.task.Id, teamID: team.Id, team: team, mission: mission, parentRoot: tree.rootID}
+	if sub.limits, sub.deadline, err = e.subTeamLimits(ctx, chain, team, r.depth); err != nil {
+		return nil, err
+	}
+	if err := e.insertTree(ctx, sub); err != nil {
+		return nil, err
+	}
+	child, err := e.GetTask(ctx, r.task.Id)
+	if err != nil {
+		return nil, err
+	}
+	e.teamEvent(ctx, tree, nexusv1.TeamEventKind_TEAM_EVENT_KIND_DELEGATED, child, truncate(d.Task, 300),
+		map[string]any{"parent_id": caller.task.Id, "state": stateName(child.State), "phase": child.Phase, "team": team.Id})
+	e.pump(ctx, tree.rootID)
+	return e.GetTask(ctx, r.task.Id)
+}
+
+// subTeamLimits is a sub-team's effective limits: its own (defaults filled)
+// capped by what every ancestor tree has left. max_depth becomes global
+// (relative to the top-level root); the deadline is the earliest of its own
+// timeout and the ancestors' deadlines. Limits never drop to 0 (= unset).
+func (e *Engine) subTeamLimits(ctx context.Context, chain []*treeRec, team *nexusv1.Team, depth int) (*nexusv1.TeamLimits, time.Time, error) {
+	l := e.teamLimits(team)
+	l.MaxDepth = int32(depth) + l.MaxDepth
+	now := e.now()
+	var deadline time.Time
+	if l.TimeoutSeconds > 0 {
+		deadline = now.Add(time.Duration(l.TimeoutSeconds) * time.Second)
+	}
+	for _, t := range chain {
+		al := t.limits
+		if v := al.GetMaxDepth(); v > 0 && v < l.MaxDepth {
+			l.MaxDepth = v
+		}
+		if v := al.GetMaxTasks(); v > 0 {
+			n, err := e.treeTaskCount(ctx, t.rootID)
+			if err != nil {
+				return nil, deadline, err
+			}
+			// The sub-team root is already counted by the ancestor and
+			// counts toward its own limit too.
+			if left := v - int32(n) + 1; left < l.MaxTasks {
+				l.MaxTasks = max(left, 1)
+			}
+		}
+		if v := al.GetMaxRuns(); v > 0 {
+			n, err := e.treeRuns(ctx, t.rootID)
+			if err != nil {
+				return nil, deadline, err
+			}
+			if left := v - int32(n); left < l.MaxRuns {
+				l.MaxRuns = max(left, 1)
+			}
+		}
+		if mc := al.GetMaxCost(); mc != nil && mc.MinorUnits > 0 {
+			tasks, err := e.subtreeTasks(ctx, t.rootID)
+			if err != nil {
+				return nil, deadline, err
+			}
+			left := proto.Clone(mc).(*nexusv1.Money)
+			if spent := treeCost(tasks).GetAmount(); spent != nil {
+				left.MinorUnits -= spent.MinorUnits
+			}
+			left.MinorUnits = max(left.MinorUnits, 1)
+			if l.MaxCost == nil || l.MaxCost.MinorUnits <= 0 || left.MinorUnits < l.MaxCost.MinorUnits {
+				l.MaxCost = left
+			}
+		}
+		if !t.deadline.IsZero() && (deadline.IsZero() || t.deadline.Before(deadline)) {
+			deadline = t.deadline
+		}
+	}
+	if !deadline.IsZero() {
+		l.TimeoutSeconds = max(int64(deadline.Sub(now)/time.Second), 1)
+	}
+	return l, deadline, nil
 }
 
 // spawnReq is a team.spawn request.
@@ -654,18 +837,54 @@ func (e *Engine) spawn(ctx context.Context, caller *taskRec, tree *treeRec, s sp
 
 // ---------------------------------------------------------------- strategies
 
+// startDriver runs driveStrategy for rootID in the background unless a
+// driver for it is already running (launch and restart recovery may both
+// ask for one).
+func (e *Engine) startDriver(rootID string) {
+	e.driverMu.Lock()
+	if e.drivers == nil {
+		e.drivers = map[string]bool{}
+	}
+	if e.drivers[rootID] {
+		e.driverMu.Unlock()
+		return
+	}
+	e.drivers[rootID] = true
+	e.driverMu.Unlock()
+	e.goBG(func(bg context.Context) {
+		defer func() {
+			e.driverMu.Lock()
+			delete(e.drivers, rootID)
+			e.driverMu.Unlock()
+		}()
+		e.driveStrategy(bg, rootID)
+	})
+}
+
+// driverKeyPrefix keys the member tasks of the hub-driven strategy of a
+// root, so a driver resumed after a restart reuses them.
+const driverKeyPrefix = "drv:"
+
 // driveStrategy runs a team's fixed strategy for its root task, then hands
-// the results to the orchestrator (or finishes the root without one).
+// the results to the orchestrator (or finishes the root without one). It
+// is idempotent: every step's member task is keyed (driverKeyPrefix), so a
+// driver restarted after a hub restart replays finished steps from their
+// stored results and waits for the running ones instead of delegating them
+// again.
 func (e *Engine) driveStrategy(ctx context.Context, rootID string) {
 	root, err := e.loadTask(ctx, rootID)
-	if err != nil {
+	if err != nil || IsTerminal(root.task.State) || root.task.Phase != phaseStrategy {
 		return
 	}
 	tree, err := e.loadTree(ctx, rootID)
 	if err != nil || tree == nil || tree.team == nil {
 		return
 	}
-	results, final, serr := e.runStrategy(ctx, root, tree, tree.team.Strategy, root.task.Prompt, nil, 0)
+	results, final, serr := e.runStrategy(ctx, root, tree, tree.team.Strategy, root.task.Prompt, nil, 0, driverKeyPrefix)
+	if ctx.Err() != nil {
+		// The hub is stopping: the driver resumes at the next start.
+		return
+	}
 	cur, err := e.GetTask(ctx, rootID)
 	if err != nil || IsTerminal(cur.State) {
 		return
@@ -725,8 +944,18 @@ func resultsJSON(rs []waitResult) []any {
 // (optionally only roles) as children of caller, and returns every member
 // result plus the strategy's final text. timeout bounds each wait (0 = until
 // done / the tree's deadline).
-func (e *Engine) runStrategy(ctx context.Context, caller *taskRec, tree *treeRec, strategy nexusv1.TeamStrategy, task string, roles []string, timeout time.Duration) ([]waitResult, string, error) {
+//
+// keyPrefix ("" = none) makes every delegation idempotent: a step whose
+// member task already exists (same caller and key) reuses it, so a strategy
+// replayed after a hub restart continues where it stopped.
+func (e *Engine) runStrategy(ctx context.Context, caller *taskRec, tree *treeRec, strategy nexusv1.TeamStrategy, task string, roles []string, timeout time.Duration, keyPrefix string) ([]waitResult, string, error) {
 	members := filterMembers(tree.team.Members, roles)
+	key := func(format string, a ...any) string {
+		if keyPrefix == "" {
+			return ""
+		}
+		return keyPrefix + fmt.Sprintf(format, a...)
+	}
 	if len(members) == 0 {
 		return nil, "", errors.New("no members to run the strategy with")
 	}
@@ -758,7 +987,7 @@ func (e *Engine) runStrategy(ctx context.Context, caller *taskRec, tree *treeRec
 				if m.Count > 1 {
 					prompt += fmt.Sprintf("\n\n(You are %s %d of %d working on this independently and in parallel: take your own angle and be thorough.)", m.Role, i+1, m.Count)
 				}
-				child, err := e.delegate(ctx, caller, tree, delegation{Role: m.Role, Task: prompt})
+				child, err := e.delegate(ctx, caller, tree, delegation{Role: m.Role, Task: prompt, key: key("parallel:%s:%d", m.Role, i)})
 				if err != nil {
 					errs = append(errs, m.Role+": "+err.Error())
 					continue
@@ -785,7 +1014,7 @@ func (e *Engine) runStrategy(ctx context.Context, caller *taskRec, tree *treeRec
 			if m.When != "" {
 				prompt += "\n\n## Your stage\n" + m.When
 			}
-			child, err := e.delegate(ctx, caller, tree, delegation{Role: m.Role, Task: prompt})
+			child, err := e.delegate(ctx, caller, tree, delegation{Role: m.Role, Task: prompt, key: key("pipeline:%d", i)})
 			if err != nil {
 				return res, prev, fmt.Errorf("stage %s: %w", m.Role, err)
 			}
@@ -852,7 +1081,7 @@ func (e *Engine) runStrategy(ctx context.Context, caller *taskRec, tree *treeRec
 					}
 					b.WriteString("Rebut where you disagree (with reasons), concede where they are right, and state your updated position.")
 				}
-				child, err := e.delegate(ctx, caller, tree, delegation{Role: s.role, Task: b.String()})
+				child, err := e.delegate(ctx, caller, tree, delegation{Role: s.role, Task: b.String(), key: key("debate:%d:%s", round, s.label)})
 				if err != nil {
 					return res, "", fmt.Errorf("debate %s: %w", s.label, err)
 				}
@@ -882,7 +1111,7 @@ func (e *Engine) runStrategy(ctx context.Context, caller *taskRec, tree *treeRec
 		step("debate: the judge decides")
 		jp := fmt.Sprintf("%s\n\n## Debate transcript (final positions after %d rounds)\n%s\nYou are the judge. Weigh the arguments and evidence, say which points hold up and give the final, reasoned answer.",
 			task, rounds, transcript.String())
-		child, err := e.delegate(ctx, caller, tree, delegation{Role: judge.Role, Task: jp})
+		child, err := e.delegate(ctx, caller, tree, delegation{Role: judge.Role, Task: jp, key: key("debate:judge")})
 		if err != nil {
 			return res, transcript.String(), fmt.Errorf("judge: %w", err)
 		}
@@ -954,7 +1183,7 @@ func (e *Engine) teamMessage(ctx context.Context, tree *treeRec, from *nexusv1.T
 	if from != nil {
 		fromID, fromRole = from.Id, nonEmpty(from.Role, from.AgentId)
 	}
-	tasks, err := e.treeTasks(ctx, tree.rootID)
+	tasks, err := e.memberTasks(ctx, tree.rootID)
 	if err != nil {
 		return nil, err
 	}
@@ -1245,12 +1474,17 @@ func (e *Engine) TeamRun(ctx context.Context, id string) (*nexusv1.TeamRun, erro
 		return nil, err
 	}
 	rootID := t.RootId
-	tasks, err := e.treeTasks(ctx, rootID)
+	tasks, err := e.memberTasks(ctx, rootID)
+	if err != nil {
+		return nil, err
+	}
+	all, err := e.subtreeTasks(ctx, rootID)
 	if err != nil {
 		return nil, err
 	}
 	runs := map[string]int32{}
-	rows, err := e.db.QueryContext(ctx, `SELECT r.task_id, COUNT(*) FROM runs r JOIN tasks t ON t.id = r.task_id WHERE t.root_id = ? GROUP BY r.task_id`, rootID)
+	rows, err := e.db.QueryContext(ctx, `SELECT r.task_id, COUNT(*) FROM runs r JOIN tasks t ON t.id = r.task_id
+		WHERE t.root_id = ? OR t.id IN (SELECT root_id FROM task_trees WHERE parent_root = ?) GROUP BY r.task_id`, rootID, rootID)
 	if err != nil {
 		return nil, err
 	}
@@ -1264,7 +1498,7 @@ func (e *Engine) TeamRun(ctx context.Context, id string) (*nexusv1.TeamRun, erro
 		runs[tid] = n
 	}
 	rows.Close()
-	run := &nexusv1.TeamRun{TotalTasks: int32(len(tasks)), TotalCost: treeCost(tasks)}
+	run := &nexusv1.TeamRun{TotalTasks: int32(len(all)), TotalCost: treeCost(all)}
 	tree, err := e.loadTree(ctx, rootID)
 	if err != nil {
 		return nil, err
@@ -1290,6 +1524,8 @@ func (e *Engine) TeamRun(ctx context.Context, id string) (*nexusv1.TeamRun, erro
 		}
 		if x.Id != rootID {
 			switch {
+			case isSubRoot(x) && !IsTerminal(x.State) && !held(x):
+				run.ActiveTasks++
 			case held(x):
 				run.QueuedTasks++
 			case active(x):

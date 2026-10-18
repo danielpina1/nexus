@@ -280,7 +280,7 @@ function Timeline({ events }: { events: TeamEventItem[] }) {
                   <span className={cx("mt-0.5 shrink-0 [&_svg]:size-3.5", toneText[k.tone])} aria-hidden>
                     {k.icon}
                   </span>
-                  <span className="w-[62px] shrink-0 text-[11.5px] text-muted tabular">{formatClock(new Date(at))}</span>
+                  <span className="shrink-0 pt-px text-[11.5px] whitespace-nowrap text-muted tabular">{formatClock(new Date(at))}</span>
                   <span className="min-w-0 flex-1">
                     <span className={cx("mr-1.5 text-[11px] font-semibold tracking-wide uppercase", toneText[k.tone])}>{k.label}</span>
                     <span className="text-[13px] break-words text-fg-2">{describe(ev)}</span>

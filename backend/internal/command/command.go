@@ -299,8 +299,8 @@ func (s *Service) search(ctx context.Context, m *nexusv1.ExecuteRequest, resp *n
 		return nil
 	}
 	llm, ok := lookup[kernel.LLM](s.h, kernel.SvcLLM)
-	if !ok {
-		return nil // hits only
+	if !ok || !kernel.LLMAvailable(llm, s.cfg.AnswerModel) {
+		return nil // hits only (no LLM, or its provider is degraded)
 	}
 	answer, err := s.answer(ctx, llm, m.Input, hits)
 	if err != nil {

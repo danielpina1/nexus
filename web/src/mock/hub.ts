@@ -14,6 +14,8 @@ import { makeDevices, makeNodes } from "./fixtures";
 import { DAY, HOUR, MIN, eur, newId, prand, randomBytes, sleep, ts } from "./util";
 import { notes, upsertNote, findNote } from "./vaultData";
 import { cartSvg, diffText } from "./artifacts";
+import { TeamsMock } from "./teams";
+import { ArchitectMock } from "./architect";
 
 type EventInit = MessageInitShape<typeof EventSchema>;
 type Body = EventInit["body"];
@@ -91,6 +93,8 @@ export class MockHub {
   devices: Device[];
   agentMarkdown = new Map<string, string>();
   facts: Fact[] = [];
+  teams: TeamsMock;
+  architect: ArchitectMock;
   private onDecision = new Map<string, (approved: boolean) => void>();
   private onAnswer = new Map<string, (answer: string) => void>();
   private onMessage = new Map<string, (text: string) => void>();
@@ -105,6 +109,10 @@ export class MockHub {
     for (const n of notes) if (n.type === "agent") this.agentMarkdown.set(asId(n), n.raw);
     this.buildHistory(now);
     this.buildCurrent(now);
+    this.teams = new TeamsMock(this);
+    this.teams.seed(now);
+    this.architect = new ArchitectMock(this);
+    this.architect.seed(now);
     setInterval(() => this.onTick(), 1000);
   }
 
@@ -596,6 +604,7 @@ export class MockHub {
 
   private onTick() {
     this.tick++;
+    this.teams.tick();
     this.tickGrocery();
     this.tickLibrarian();
     if (this.tick % 3 === 0) this.tickNodes();
