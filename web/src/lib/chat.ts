@@ -83,9 +83,15 @@ export const useChat = create<ChatState>((set, get) => ({
     persist(get());
   },
   send: async (input, opts) => {
-    const text = input.trim();
+    let text = input.trim();
     if (!text) return;
-    const user: ChatMessage = { id: uid(), role: "user", text, at: Date.now() };
+    // "@agent do something" routes explicitly to that agent.
+    const mention = /^@([\w.-]+)\s+([\s\S]+)$/.exec(text);
+    if (mention && !opts?.agentId) {
+      opts = { ...opts, agentId: mention[1] };
+      text = mention[2].trim();
+    }
+    const user: ChatMessage = { id: uid(), role: "user", text: opts?.agentId ? `@${opts.agentId} ${text}` : text, at: Date.now() };
     const reply: ChatMessage = { id: uid(), role: "nexus", text: "", at: Date.now(), pending: true };
     set({ messages: [...get().messages, user, reply] });
     const patch = (p: Partial<ChatMessage>) => {

@@ -22,7 +22,7 @@ func stream(ctx context.Context, c *client, req *nexusv1.SubscribeRequest, fn fu
 	since := req.GetSinceSeq()
 	backoff := 500 * time.Millisecond
 	for {
-		r := &nexusv1.SubscribeRequest{SinceSeq: since, TaskIds: req.GetTaskIds(), InboxOnly: req.GetInboxOnly()}
+		r := &nexusv1.SubscribeRequest{SinceSeq: since, TaskIds: req.GetTaskIds(), InboxOnly: req.GetInboxOnly(), RootTaskIds: req.GetRootTaskIds()}
 		s, err := c.events.Subscribe(ctx, connect.NewRequest(r))
 		if err == nil {
 			for s.Receive() {

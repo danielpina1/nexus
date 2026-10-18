@@ -328,7 +328,9 @@ func (e *Engine) remainingTime(ctx context.Context, rootID string) time.Duration
 func held(t *nexusv1.Task) bool { return t.Phase == phaseWaitingSlot && t.State == stQueued }
 
 // active reports whether a task occupies a slot.
-func active(t *nexusv1.Task) bool { return !IsTerminal(t.State) && !held(t) && t.Phase != phaseStrategy }
+func active(t *nexusv1.Task) bool {
+	return !IsTerminal(t.State) && !held(t) && t.Phase != phaseStrategy
+}
 
 // pump starts held tasks of a tree while max_parallel and member pools
 // allow, oldest first. A stopped tree cancels its held tasks.
@@ -607,7 +609,7 @@ func toWaitResult(t *nexusv1.Task, full bool) waitResult {
 
 // waitTasks blocks until all (or, with any, one) of ids are finished, the
 // timeout elapses or ctx ends. It returns the finished and pending tasks.
-func (e *Engine) waitTasks(ctx context.Context, ids []string, any bool, timeout time.Duration) (done, pending []*nexusv1.Task, err error) {
+func (e *Engine) waitTasks(ctx context.Context, ids []string, anyDone bool, timeout time.Duration) (done, pending []*nexusv1.Task, err error) {
 	var deadline <-chan time.Time
 	if timeout > 0 {
 		t := time.NewTimer(timeout)
@@ -628,7 +630,7 @@ func (e *Engine) waitTasks(ctx context.Context, ids []string, any bool, timeout 
 				pending = append(pending, t)
 			}
 		}
-		if len(pending) == 0 || (any && len(done) > 0) {
+		if len(pending) == 0 || (anyDone && len(done) > 0) {
 			return done, pending, nil
 		}
 		select {

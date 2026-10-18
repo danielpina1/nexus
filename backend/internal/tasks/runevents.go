@@ -65,6 +65,12 @@ func (e *Engine) HandleRunEvent(ctx context.Context, nodeID string, re *nexusv1.
 		}
 	}
 
+	// Result checks (output schema, review) are resolved before the lock.
+	var check *resultCheck
+	if nt := ev.GetTaskUpdated().GetTask(); nt.GetState() == stSucceeded {
+		check = e.resultCheckFor(ctx, run)
+	}
+
 	_, err = e.mutate(ctx, run.taskID, actor, func(r *taskRec) error {
 		if run.nodeID == "" {
 			if err := e.setRunNode(ctx, run.id, nodeID); err != nil {
@@ -77,7 +83,7 @@ func (e *Engine) HandleRunEvent(ctx context.Context, nodeID string, re *nexusv1.
 			if !current {
 				return e.endRun(ctx, run.id, tu.GetTask())
 			}
-			return e.applyNodeState(ctx, r, run.id, tu.GetTask())
+			return e.applyNodeState(ctx, r, run.id, tu.GetTask(), check)
 		}
 		r.extra = append(r.extra, ev)
 		if !current {
@@ -172,7 +178,7 @@ func (e *Engine) accept(ctx context.Context, r *taskRec, runID string) error {
 }
 
 // applyNodeState handles a TaskUpdated reported by the node for the current run.
-func (e *Engine) applyNodeState(ctx context.Context, r *taskRec, runID string, nt *nexusv1.Task) error {
+func (e *Engine) applyNodeState(ctx context.Context, r *taskRec, runID string, nt *nexusv1.Task, check *resultCheck) error {
 	switch s := nt.GetState(); s {
 	case stRunning:
 		if r.task.State == stAssigned {
@@ -183,33 +189,13 @@ func (e *Engine) applyNodeState(ctx context.Context, r *taskRec, runID string, n
 			return r.to(stRunning)
 		}
 		return nil
-	case stSucceeded, stFailed, stCancelled:
-		if err := e.accept(ctx, r, runID); err != nil {
-			return err
+	case stSucceeded:
+		if r.task.Phase == phaseReviewing {
+			return e.endRun(ctx, runID, nt) // a late duplicate of the reviewed answer
 		}
-		if nt.GetSummary() != "" {
-			r.task.Summary = nt.Summary
-		}
-		if nt.GetResult() != nil {
-			r.task.Result = nt.Result
-		}
-		if nt.GetEpisode() != nil {
-			r.task.Episode = nt.Episode
-		}
-		if nt.GetCost() != nil && r.task.Cost == nil {
-			r.task.Cost = nt.Cost
-		}
-		r.questionID, r.approvalID = "", ""
-		if err := e.endRun(ctx, runID, nt); err != nil {
-			return err
-		}
-		if err := r.to(s); err != nil {
-			return err
-		}
-		if r.task.ParentId == "" && r.task.Source != "workflow" && s != stCancelled { // workflows report once, at the end
-			r.extra = append(r.extra, resultNotice(r.task))
-		}
-		return nil
+		return e.succeed(ctx, r, runID, nt, check)
+	case stFailed, stCancelled:
+		return e.finish(ctx, r, runID, nt, s)
 	default:
 		e.log.Debug("ignoring node task state", "task", r.task.Id, "state", stateName(s))
 		return nil
@@ -262,6 +248,8 @@ func (e *Engine) addCost(ctx context.Context, r *taskRec, runID string, c *nexus
 		return err
 	}
 	r.task.Cost = sumCost(r.task.Cost, c)
+	root := r.task.RootId
+	r.post = append(r.post, func(ctx context.Context) { e.refreshTreeCost(ctx, root) })
 	return nil
 }
 
@@ -311,9 +299,19 @@ func (e *Engine) handleApproval(ctx context.Context, nodeID string, run *runRec,
 	}
 	a = proto.Clone(a).(*nexusv1.Approval)
 	a.TaskId, a.RunId, a.AgentId, a.NodeId = run.taskID, run.id, run.agentID, nodeID
+	// Grouping metadata: approvals of a tree bubble up to its root.
+	a.RootTaskId, a.TeamId, a.Role = r.task.RootId, r.task.TeamId, r.task.Role
+	tree, _ := e.loadTree(ctx, r.task.RootId)
+	if tree != nil && tree.team != nil {
+		a.Bundle = tree.team.BundleApprovals
+	}
 	created, err := broker.Request(ctx, a)
 	if err != nil {
 		return fmt.Errorf("request approval: %w", err)
+	}
+	if tree != nil && tree.team != nil {
+		e.teamEvent(ctx, tree, nexusv1.TeamEventKind_TEAM_EVENT_KIND_APPROVAL_PENDING, r.task, created.Title,
+			map[string]any{"approval_id": created.Id, "level": created.Level.String(), "bundle": created.Bundle})
 	}
 	_, err = e.mutate(ctx, run.taskID, "node:"+nodeID, func(r *taskRec) error {
 		if r.task.CurrentRunId != run.id || IsTerminal(r.task.State) {

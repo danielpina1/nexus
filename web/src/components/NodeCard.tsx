@@ -40,7 +40,7 @@ export function NodeCard({ node, status }: { node: Node; status?: NodeStatus }) 
   const st = status ?? node.status;
   const online = !!st?.online;
   return (
-    <Link to={`/machines/${node.id}`} className="block rounded-xl border border-border bg-surface p-4 shadow-card transition-colors hover:border-border-strong">
+    <Link to={`/machines/${node.id}`} data-testid="node-card" className="block rounded-xl border border-border bg-surface p-4 shadow-card transition-colors hover:border-border-strong">
       <div className="mb-3 flex items-start gap-3">
         <div className="flex size-9 items-center justify-center rounded-lg bg-surface-2 text-fg-2">
           <Cpu className="size-4" />

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useSearchParams } from "react-router";
-import { ListChecks, Search, SearchX } from "lucide-react";
+import { Search, SearchX } from "lucide-react";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Card } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
@@ -9,6 +9,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { SkeletonRows } from "../components/ui/Skeleton";
 import { ErrorState } from "../components/ui/ErrorState";
 import { TaskRow } from "../components/TaskRow";
+import { VirtualList } from "../components/VirtualList";
 import { useAllTasks } from "../lib/selectors";
 import { useAgents, useNodes, useTaskList } from "../lib/queries";
 import { costMinor, formatMoney, isActive, tsMs } from "../lib/format";
@@ -43,7 +44,7 @@ function Select({ value, onChange, children, label }: { value: string; onChange:
       aria-label={label}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="h-9 rounded-lg border border-border bg-surface px-2.5 text-[13px] text-fg outline-none focus:border-accent/60"
+      className="h-9 rounded-lg border border-border bg-surface px-2.5 text-[13px] text-fg outline-none focus:border-accent/60 pointer-coarse:h-11"
     >
       {children}
     </select>
@@ -104,7 +105,7 @@ export default function Tasks() {
 
   return (
     <div>
-      <PageHeader icon={<ListChecks />} title="Tasks & runs" subtitle={`${filtered.length} tasks · ${formatMoney(total)} spent in view`} />
+      <PageHeader title="Tasks" subtitle={`${filtered.length} ${filtered.length === 1 ? "task" : "tasks"} · ${formatMoney(total)} spent in view`} />
       <Tabs<Status>
         className="mb-3"
         value={status}
@@ -121,7 +122,7 @@ export default function Tasks() {
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="relative min-w-[200px] flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted" />
-          <Input value={q} onChange={(e) => set("q", e.target.value)} placeholder="Search tasks…" className="pl-9" />
+          <Input value={q} onChange={(e) => set("q", e.target.value)} placeholder="Search tasks…" aria-label="Search tasks" className="pl-9 pointer-coarse:h-11" />
         </div>
         <Select label="Agent" value={agent} onChange={(v) => set("agent", v)}>
           <option value="">All agents</option>
@@ -158,11 +159,7 @@ export default function Tasks() {
         ) : filtered.length === 0 ? (
           <EmptyState icon={<SearchX />} title="No tasks match" body="Try a different filter or time range." />
         ) : (
-          <div className="divide-y divide-border">
-            {filtered.slice(0, 300).map((t) => (
-              <TaskRow key={t.id} task={t} childCount={children.get(t.id)} />
-            ))}
-          </div>
+          <VirtualList className="divide-y divide-border" items={filtered} getKey={(t) => t.id} estimate={61} render={(t) => <TaskRow task={t} childCount={children.get(t.id)} />} />
         )}
       </Card>
     </div>

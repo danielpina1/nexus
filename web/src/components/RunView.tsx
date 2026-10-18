@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import {
+  ArrowDown,
   ArrowUpCircle,
   Check,
   ChevronRight,
@@ -11,7 +12,6 @@ import {
   OctagonX,
   Send,
   Timer,
-  User,
   Wrench,
   X,
 } from "lucide-react";
@@ -19,8 +19,8 @@ import type { Event, ToolCall, ToolResult } from "../gen/nexus/v1/event_pb";
 import type { Attachment } from "../gen/nexus/v1/common_pb";
 import { ActionClass } from "../gen/nexus/v1/common_pb";
 import { TaskState, type Task } from "../gen/nexus/v1/task_pb";
-import { actionClassLabel, cx, formatDuration, formatMoney, formatTokens, isActive, taskStateLabel, tierLabel, tsMs } from "../lib/format";
-import { useCancelTask, useEscalateTask, useSendMessage } from "../lib/queries";
+import { actionClassLabel, cx, formatDuration, formatMoney, formatTokens, isActive, taskStateLabel, tsMs } from "../lib/format";
+import { useCancelTask, useEscalateTask, usePendingMessages, useSendMessage, type PendingMessage } from "../lib/queries";
 import { summarizeTimeline, useTimeline } from "../lib/selectors";
 import { useEvents, type QuestionItem } from "../lib/store";
 import { useTaskHistory } from "../lib/events";
@@ -28,12 +28,11 @@ import { useNow } from "../lib/useNow";
 import { AgentIcon } from "./AgentIcon";
 import { ArtifactView } from "./Artifact";
 import { ApprovalCard, QuestionCard } from "./InboxCards";
-import { Markdown } from "./Markdown";
+import { StreamingMarkdown } from "./StreamingMarkdown";
 import { StateBadge, StateIcon } from "./StateBadge";
 import { agentName, useAgentMap } from "./agentMeta";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
-import { Skeleton } from "./ui/Skeleton";
 
 type Item =
   | { k: "text"; key: string; text: string; streaming: boolean }
@@ -113,7 +112,7 @@ function inputSummary(call: ToolCall): string {
   return s.length > 90 ? s.slice(0, 87) + "…" : s;
 }
 
-function ToolCallRow({ call, result, streaming }: { call: ToolCall; result?: ToolResult; streaming: boolean }) {
+const ToolCallRow = memo(function ToolCallRow({ call, result, streaming }: { call: ToolCall; result?: ToolResult; streaming: boolean }) {
   const [open, setOpen] = useState(false);
   const failed = !!result?.error;
   const risky = call.actionClass >= ActionClass.WRITE_EXTERNAL;
@@ -152,7 +151,7 @@ function ToolCallRow({ call, result, streaming }: { call: ToolCall; result?: Too
       )}
     </div>
   );
-}
+});
 
 function formatOutput(o: unknown): string {
   if (o && typeof o === "object" && "stdout" in o && typeof (o as { stdout: unknown }).stdout === "string") {
@@ -192,6 +191,45 @@ export function CostMeter({ minor, currency, limitMinor, tokensIn, tokensOut }: 
   );
 }
 
+/**
+ * Keeps a scroller pinned to the bottom while content grows, unless the user scrolled up. Content
+ * growth is observed directly (ResizeObserver), so late layout (images, markdown) still sticks.
+ */
+function useStickToBottom() {
+  const scroller = useRef<HTMLDivElement>(null);
+  const content = useRef<HTMLDivElement>(null);
+  const stick = useRef(true);
+  const [away, setAway] = useState(false);
+  useEffect(() => {
+    const el = scroller.current;
+    const inner = content.current;
+    if (!el || !inner) return;
+    el.scrollTop = el.scrollHeight;
+    const ro = new ResizeObserver(() => {
+      if (stick.current) el.scrollTop = el.scrollHeight;
+    });
+    ro.observe(inner);
+    return () => ro.disconnect();
+  }, []);
+  const onScroll = () => {
+    const el = scroller.current;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+    stick.current = atBottom;
+    setAway((a) => (a === !atBottom ? a : !atBottom));
+  };
+  const jump = () => {
+    const el = scroller.current;
+    if (!el) return;
+    stick.current = true;
+    setAway(false);
+    el.scrollTo({ top: el.scrollHeight, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  };
+  return { scroller, content, onScroll, away, jump };
+}
+
+const EMPTY_PENDING: PendingMessage[] = [];
+
 export function RunView({ task, embedded, showHeader = true }: { task: Task; embedded?: boolean; showHeader?: boolean }) {
   useTaskHistory(task.id);
   const events = useTimeline(task.id);
@@ -201,17 +239,25 @@ export function RunView({ task, embedded, showHeader = true }: { task: Task; emb
   const summary = useMemo(() => summarizeTimeline(events), [events]);
   const active = isActive(task.state);
   const now = useNow(1000);
-  const scroller = useRef<HTMLDivElement>(null);
-  const stick = useRef(true);
+  const { scroller, content, onScroll, away, jump } = useStickToBottom();
   const cancel = useCancelTask();
   const escalate = useEscalateTask();
   const send = useSendMessage();
+  const pendingAll = usePendingMessages((s) => s.items);
+  const pending = useMemo(() => {
+    const p = pendingAll.filter((x) => x.taskId === task.id);
+    if (!p.length) return EMPTY_PENDING;
+    // Hide placeholders the stream already echoed back.
+    const echoed = new Set(items.flatMap((it) => (it.k === "user" ? [it.text] : [])));
+    return p.filter((x) => x.status === "failed" || !echoed.has(x.text));
+  }, [pendingAll, items, task.id]);
   const [reply, setReply] = useState("");
-
+  const [confirmCancel, setConfirmCancel] = useState(false);
   useEffect(() => {
-    const el = scroller.current;
-    if (el && stick.current) el.scrollTop = el.scrollHeight;
-  }, [items]);
+    if (!confirmCancel) return;
+    const t = setTimeout(() => setConfirmCancel(false), 4000);
+    return () => clearTimeout(t);
+  }, [confirmCancel]);
 
   const start = tsMs(task.createdAt);
   const end = active ? now : tsMs(task.updatedAt);
@@ -219,9 +265,9 @@ export function RunView({ task, embedded, showHeader = true }: { task: Task; emb
   const limit = agent?.limits?.maxCost ? Number(agent.limits.maxCost.minorUnits) : undefined;
 
   return (
-    <div className={cx("flex min-h-0 flex-col", embedded && "h-full")}>
+    <div className={cx("relative flex min-h-0 flex-col", embedded && "h-full")} data-testid="run-view">
       {showHeader && (
-        <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
+        <div className="flex items-center gap-3 border-b border-border px-4 py-3">
           <AgentIcon agentId={task.agentId} workflow={!!task.workflowId} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
@@ -229,7 +275,7 @@ export function RunView({ task, embedded, showHeader = true }: { task: Task; emb
                 {task.title || task.prompt}
               </Link>
               {embedded && (
-                <Link to={`/tasks/${task.id}`} className="text-muted hover:text-fg" title="Open task">
+                <Link to={`/tasks/${task.id}`} className="shrink-0 text-muted hover:text-fg" title="Open task" aria-label="Open task">
                   <ExternalLink className="size-3.5" />
                 </Link>
               )}
@@ -237,13 +283,12 @@ export function RunView({ task, embedded, showHeader = true }: { task: Task; emb
             <div className="flex flex-wrap items-center gap-x-2 text-xs text-muted">
               <span>{agentName(agents, task.agentId, task.workflowId)}</span>
               {task.nodeId && (
-                <span className="inline-flex items-center gap-0.5">
-                  <Cpu className="size-3" /> {task.nodeId}
+                <span className="inline-flex items-center gap-1">
+                  <Cpu className="size-3" aria-hidden /> {task.nodeId}
                 </span>
               )}
-              <span>{tierLabel[task.tier]} tier</span>
-              <span className="inline-flex items-center gap-0.5 tabular">
-                <Timer className="size-3" /> {formatDuration(end - start)}
+              <span className="inline-flex items-center gap-1 tabular">
+                <Timer className="size-3" aria-hidden /> {formatDuration(end - start)}
               </span>
             </div>
           </div>
@@ -253,91 +298,107 @@ export function RunView({ task, embedded, showHeader = true }: { task: Task; emb
 
       <div
         ref={scroller}
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-        }}
-        className={cx("min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 scrollbar-thin", !embedded && "max-h-[70vh]")}
+        onScroll={onScroll}
+        className={cx("min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-thin", !embedded && "max-h-[70vh] min-h-64")}
+        aria-live="off"
       >
-        {task.prompt && (
-          <div className="flex justify-end">
-            <div className="max-w-[85%] rounded-2xl rounded-br-md bg-accent px-3.5 py-2 text-[13px] whitespace-pre-wrap text-accent-fg">{task.prompt}</div>
-          </div>
-        )}
-        {items.length === 0 &&
-          (active ? (
-            <div className="space-y-2">
-              <Skeleton className="h-3 w-2/3" />
-              <Skeleton className="h-3 w-1/2" />
+        <div ref={content} className="space-y-3 px-4 py-4">
+          {task.prompt && (
+            <div className="flex justify-end">
+              <div className="max-w-[85%] rounded-2xl rounded-br-md bg-primary px-3.5 py-2 text-[13.5px] whitespace-pre-wrap text-primary-fg">{task.prompt}</div>
             </div>
-          ) : (
-            <div className="text-[13px] text-muted">{task.summary || "No output recorded."}</div>
-          ))}
-        {items.map((it, idx) => {
-          const last = idx === items.length - 1;
-          switch (it.k) {
-            case "text":
-              return (
-                <div key={it.key} className={cx("text-[13.5px]", last && active && it.streaming && "caret-md")}>
-                  <Markdown>{it.text}</Markdown>
-                </div>
-              );
-            case "tool":
-              return <ToolCallRow key={it.key} call={it.call} result={it.result} streaming={active} />;
-            case "state":
-              return (
-                <div key={it.key} className="flex items-center gap-2 text-[11px] text-muted">
-                  <div className="h-px flex-1 bg-border" />
-                  <StateIcon state={it.state} />
-                  {taskStateLabel[it.state]}
-                  <div className="h-px flex-1 bg-border" />
-                </div>
-              );
-            case "question":
-              return <InlineQuestion key={it.key} qid={it.qid} ev={it.ev} />;
-            case "approval":
-              return <InlineApproval key={it.key} id={it.id} />;
-            case "artifact":
-              return <ArtifactView key={it.key} att={it.att} />;
-            case "user":
-              return (
-                <div key={it.key} className="flex justify-end">
-                  <div className="flex max-w-[85%] items-start gap-2 rounded-2xl rounded-br-md bg-surface-3 px-3.5 py-2 text-[13px] text-fg">
-                    <User className="mt-0.5 size-3.5 shrink-0 text-muted" />
-                    {it.text}
+          )}
+          {items.length === 0 &&
+            (active ? (
+              <div className="flex items-center gap-2 text-[13px] text-muted">
+                <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                {task.state === TaskState.QUEUED || task.state === TaskState.ROUTING ? "Finding the right machine…" : "Starting…"}
+              </div>
+            ) : (
+              <div className="text-[13px] text-muted">{task.summary || "No output recorded."}</div>
+            ))}
+          {items.map((it, idx) => {
+            const last = idx === items.length - 1;
+            switch (it.k) {
+              case "text":
+                return <StreamingMarkdown key={it.key} text={it.text} streaming={last && active && it.streaming} className="text-[14px]" />;
+              case "tool":
+                return <ToolCallRow key={it.key} call={it.call} result={it.result} streaming={active} />;
+              case "state":
+                return (
+                  <div key={it.key} className="flex items-center gap-2 text-[11.5px] text-muted">
+                    <div className="h-px flex-1 bg-border" />
+                    <StateIcon state={it.state} />
+                    {taskStateLabel[it.state]}
+                    <div className="h-px flex-1 bg-border" />
                   </div>
-                </div>
-              );
-          }
-        })}
-        {!active && task.summary && items.length > 0 && (
-          <div className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-xs text-fg-2">
-            <span className="font-medium text-fg">Summary · </span>
-            {task.summary}
-          </div>
-        )}
+                );
+              case "question":
+                return <InlineQuestion key={it.key} qid={it.qid} ev={it.ev} />;
+              case "approval":
+                return <InlineApproval key={it.key} id={it.id} />;
+              case "artifact":
+                return <ArtifactView key={it.key} att={it.att} />;
+              case "user":
+                return (
+                  <div key={it.key} className="flex justify-end">
+                    <div className="max-w-[85%] rounded-2xl rounded-br-md bg-surface-3 px-3.5 py-2 text-[13.5px] whitespace-pre-wrap text-fg">{it.text}</div>
+                  </div>
+                );
+            }
+          })}
+          {pending.map((p) => (
+            <div key={p.id} className="flex flex-col items-end gap-1">
+              <div className={cx("max-w-[85%] rounded-2xl rounded-br-md bg-surface-3 px-3.5 py-2 text-[13.5px] whitespace-pre-wrap text-fg", p.status === "sending" && "opacity-60")}>{p.text}</div>
+              <span className={cx("text-[11px]", p.status === "failed" ? "text-danger" : "text-muted")}>{p.status === "failed" ? "Not sent" : "Sending…"}</span>
+            </div>
+          ))}
+          {!active && task.summary && items.length > 0 && (
+            <div className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-[13px] text-fg-2">
+              <span className="font-medium text-fg">Result · </span>
+              {task.summary}
+            </div>
+          )}
+        </div>
       </div>
 
+      {away && (
+        <button
+          onClick={jump}
+          className="animate-fade-up absolute bottom-[132px] left-1/2 z-10 flex h-8 -translate-x-1/2 items-center gap-1.5 rounded-full border border-border bg-surface px-3 text-xs font-medium text-fg shadow-pop hover:bg-surface-2"
+        >
+          <ArrowDown className="size-3.5" aria-hidden /> Latest
+        </button>
+      )}
+
       <div className="border-t border-border px-4 py-3">
-        <div className="mb-2 flex flex-wrap items-center gap-3">
+        <div className="mb-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <CostMeter minor={costMinor} currency={summary.currency} limitMinor={limit} tokensIn={summary.inputTokens} tokensOut={summary.outputTokens} />
-          <span className="text-xs text-muted">{summary.toolCalls} tool calls</span>
+          {summary.toolCalls > 0 && <span className="text-xs text-muted tabular">{summary.toolCalls} tool calls</span>}
           <span className="flex-1" />
-          <Button
-            size="xs"
-            variant="ghost"
-            icon={<ArrowUpCircle className="size-3.5" />}
-            loading={escalate.isPending}
-            onClick={() => escalate.mutate({ id: task.id })}
-            title="Retry on the next tier"
-          >
-            Try harder
-          </Button>
           {active && (
-            <Button size="xs" variant="ghost" className="text-danger hover:text-danger" icon={<OctagonX className="size-3.5" />} loading={cancel.isPending} onClick={() => cancel.mutate(task.id)}>
-              Cancel
+            <Button size="xs" variant="ghost" icon={<ArrowUpCircle className="size-3.5" />} loading={escalate.isPending} onClick={() => escalate.mutate({ id: task.id })} title="Retry on the next tier">
+              Try harder
             </Button>
           )}
+          {active &&
+            (confirmCancel ? (
+              <Button
+                size="xs"
+                variant="danger"
+                icon={<OctagonX className="size-3.5" />}
+                onClick={() => {
+                  setConfirmCancel(false);
+                  cancel.mutate(task.id);
+                }}
+              >
+                Confirm cancel
+              </Button>
+            ) : (
+              <Button size="xs" variant="ghost" className="text-danger hover:text-danger" icon={<OctagonX className="size-3.5" />} onClick={() => setConfirmCancel(true)}>
+                Cancel
+              </Button>
+            ))}
         </div>
         <form
           className="flex items-center gap-2"
@@ -349,8 +410,8 @@ export function RunView({ task, embedded, showHeader = true }: { task: Task; emb
             setReply("");
           }}
         >
-          <Input value={reply} onChange={(e) => setReply(e.target.value)} placeholder={active ? "Reply to the agent…" : "Follow up…"} />
-          <Button type="submit" variant="primary" size="icon" aria-label="Send" disabled={!reply.trim()} loading={send.isPending}>
+          <Input value={reply} onChange={(e) => setReply(e.target.value)} placeholder={active ? "Reply to the agent…" : "Follow up…"} aria-label="Reply to the agent" className="pointer-coarse:h-11" />
+          <Button type="submit" variant="primary" size="icon" aria-label="Send reply" disabled={!reply.trim()}>
             <Send className="size-3.5" />
           </Button>
         </form>

@@ -12,6 +12,17 @@
 //	  route_threshold: 0.6   # router confidence below this asks the user
 //	  max_depth: 5           # max sub-task depth for spawn_agent
 //	  max_choices: 6         # agents offered when asking which agent to use
+//	  teams:                 # team runs (docs/SWARMS.md)
+//	    max_parallel: 4      # defaults for limits a team note leaves unset
+//	    max_tasks: 30
+//	    max_depth: 3
+//	    max_runs: 60
+//	    timeout: 2h
+//	    await_default: 10m   # team.await / wait:true block this long per call by default
+//	    await_max: 55m       # hard cap per call (below the CLI runtimes' MCP tool timeout)
+//	    blackboard_notes: true  # mirror blackboards to teams/runs/<root>/blackboard.md
+//
+// The module also provides the team tools (team.*) and mounts TeamService.
 package tasks
 
 import (
@@ -26,9 +37,10 @@ func init() { kernel.RegisterModule(func() kernel.Module { return &Module{} }) }
 
 // Config is the "tasks" config section.
 type Config struct {
-	RouteThreshold float64 `yaml:"route_threshold"`
-	MaxDepth       int     `yaml:"max_depth"`
-	MaxChoices     int     `yaml:"max_choices"`
+	RouteThreshold float64    `yaml:"route_threshold"`
+	MaxDepth       int        `yaml:"max_depth"`
+	MaxChoices     int        `yaml:"max_choices"`
+	Teams          TeamConfig `yaml:"teams"`
 }
 
 func (c *Config) defaults() {
@@ -41,6 +53,7 @@ func (c *Config) defaults() {
 	if c.MaxChoices <= 0 {
 		c.MaxChoices = 6
 	}
+	c.Teams.defaults()
 }
 
 // Module is the tasks module.
@@ -76,7 +89,7 @@ func (m *Module) Init(_ context.Context, h kernel.Host) error {
 	if err != nil {
 		return err
 	}
-	for _, t := range e.hubTools() {
+	for _, t := range append(e.hubTools(), e.teamTools()...) {
 		if err := h.Tools().Register(t); err != nil {
 			return fmt.Errorf("tasks: %w", err)
 		}
@@ -84,5 +97,14 @@ func (m *Module) Init(_ context.Context, h kernel.Host) error {
 	m.Engine = e
 	h.Provide(kernel.SvcTasks, e)
 	h.Handle(nexusv1connect.NewTaskServiceHandler(Handler{E: e}))
+	h.Handle(nexusv1connect.NewTeamServiceHandler(TeamHandler{E: e}))
+	return nil
+}
+
+// Stop ends background work (strategy drivers, team deadlines).
+func (m *Module) Stop(context.Context) error {
+	if m.Engine != nil {
+		m.Engine.Close()
+	}
 	return nil
 }

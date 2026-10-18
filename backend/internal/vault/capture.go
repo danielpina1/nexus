@@ -50,16 +50,37 @@ func (v *Vault) Capture(ctx context.Context, req *nexusv1.CaptureRequest) (*nexu
 	now := v.now()
 	ts := now.Format("20060102-150405")
 	title := captureTitle(text, url, req.GetAttachments())
+	typ := "capture"
+	var clip *Clip
+	if req.GetClip() && url != "" {
+		if v.Fetch == nil {
+			v.log.Info("vault: web clip requested but no fetcher is available; saving the link only", "url", url)
+		} else if c, err := v.Fetch(ctx, url); err != nil {
+			v.log.Warn("vault: web clip failed; saving the link only", "url", url, "err", err)
+		} else {
+			clip = c
+			typ = "resource"
+			if c.Title != "" {
+				title = truncate(c.Title, 80)
+			}
+		}
+	}
 
 	var body strings.Builder
 	if text != "" {
 		body.WriteString(text + "\n")
 	}
-	if url != "" && !strings.Contains(text, url) {
+	if url != "" && !strings.Contains(text, url) && clip == nil {
 		if body.Len() > 0 {
 			body.WriteString("\n")
 		}
 		body.WriteString(url + "\n")
+	}
+	if clip != nil {
+		if body.Len() > 0 {
+			body.WriteString("\n")
+		}
+		body.WriteString(clip.Markdown(url))
 	}
 	for i, a := range req.GetAttachments() {
 		if body.Len() > 0 && i == 0 {
@@ -75,11 +96,8 @@ func (v *Vault) Capture(ctx context.Context, req *nexusv1.CaptureRequest) (*nexu
 			}
 			continue
 		}
-		rel, err := v.uniquePath("_attachments/" + ts + "-" + name)
+		rel, _, err := v.StoreAttachment(ctx, ts+"-"+name, a.GetData(), "capture attachment: "+name)
 		if err != nil {
-			return nil, err
-		}
-		if err := v.writeFile(ctx, rel, a.GetData(), "capture attachment: "+name); err != nil {
 			return nil, fmt.Errorf("vault: save attachment: %w", err)
 		}
 		fmt.Fprintf(&body, "![[%s]]\n", rel)
@@ -91,12 +109,22 @@ func (v *Vault) Capture(ctx context.Context, req *nexusv1.CaptureRequest) (*nexu
 	}
 	keys := []string{"id", "type", "title", "source", "created"}
 	fields := map[string]any{
-		"id": NewID(), "type": "capture", "title": title, "source": source,
+		"id": NewID(), "type": typ, "title": title, "source": source,
 		"created": now.UTC().Format(time.RFC3339),
 	}
 	if url != "" {
 		keys = append(keys, "url")
 		fields["url"] = url
+	}
+	if clip != nil {
+		for _, kv := range [][2]string{{"author", clip.Byline}, {"site", clip.SiteName}, {"published", clip.Published}} {
+			if kv[1] != "" {
+				keys = append(keys, kv[0])
+				fields[kv[0]] = kv[1]
+			}
+		}
+		keys = append(keys, "read")
+		fields["read"] = false
 	}
 	md, err := note.Render(keys, fields, body.String())
 	if err != nil {
@@ -263,16 +291,18 @@ func (v *Vault) DailyAppend(ctx context.Context, text string, day time.Time) (*n
 		day = now
 	}
 	date := day.Format("2006-01-02")
-	rel := "daily/" + date + ".md"
+	rel, err := v.PeriodicPath("daily", day)
+	if err != nil {
+		return nil, err
+	}
+	// Render the template (if any) before taking the write lock.
+	fresh, err := v.periodicContent(ctx, "daily", day)
+	if err != nil {
+		return nil, err
+	}
 	return v.Update(ctx, rel, "daily: append "+date, func(old []byte) ([]byte, error) {
 		if old == nil {
-			hdr, err := note.Render([]string{"id", "type", "title", "created"}, map[string]any{
-				"id": NewID(), "type": "daily", "title": date, "created": now.UTC().Format(time.RFC3339),
-			}, "# "+date+"\n")
-			if err != nil {
-				return nil, err
-			}
-			old = hdr
+			old = fresh
 		}
 		s := string(old)
 		if !strings.HasSuffix(s, "\n") {

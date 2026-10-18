@@ -28,6 +28,7 @@ import { useSettings } from "../lib/settings";
 import { forceReconnect, resetEventCache, stopEventStream } from "../lib/events";
 import { toast } from "../lib/toast";
 import { cx } from "../lib/format";
+import { fuzzyScore } from "../lib/fuzzy";
 import { useIsDark } from "../lib/theme";
 import { prefetchPath } from "../app/registry";
 import { JUMPS } from "./useGlobalShortcuts";
@@ -60,27 +61,6 @@ function useDebounced<T>(v: T, ms: number): T {
     return () => clearTimeout(t);
   }, [v, ms]);
   return d;
-}
-
-/** Cheap fuzzy score: word-prefix and substring hits beat scattered subsequences; 0 = no match. */
-export function fuzzyScore(hay: string, needle: string): number {
-  const h = hay.toLowerCase();
-  const n = needle.toLowerCase().trim();
-  if (!n) return 1;
-  let total = 0;
-  for (const term of n.split(/\s+/)) {
-    const i = h.indexOf(term);
-    if (i === 0) total += 10;
-    else if (i > 0) total += /[\s/·:-]/.test(h[i - 1]) ? 8 : 5;
-    else {
-      // subsequence
-      let j = 0;
-      for (const c of h) if (c === term[j]) j++;
-      if (j < term.length) return 0;
-      total += 1;
-    }
-  }
-  return total;
 }
 
 export function CommandPalette() {
@@ -203,7 +183,7 @@ function PaletteBody({ close }: { close: () => void }) {
     for (const j of JUMPS) {
       const s = SECTIONS.find((x) => x.to === j.to);
       const Icon = s?.icon;
-      list.push({ id: `nav-${j.key}`, group: "Go to", text: `go ${j.label}`, label: j.label, icon: Icon ? <Icon className="size-4" /> : <CornerDownLeft className="size-4" />, hint: <Kbd>g {j.key}</Kbd>, run: go(j.to), to: j.to });
+      list.push({ id: `nav-${j.key}`, group: "Go to", text: `${j.label} go`, label: j.label, icon: Icon ? <Icon className="size-4" /> : <CornerDownLeft className="size-4" />, hint: <Kbd>g {j.key}</Kbd>, run: go(j.to), to: j.to });
     }
     for (const t of tasks.slice(0, 100)) {
       list.push({
@@ -306,6 +286,11 @@ function PaletteBody({ close }: { close: () => void }) {
       const items = scored.filter((c) => c.group === g).sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
       out.push(...items.slice(0, g === "Tasks" ? 6 : g === "Knowledge" ? 6 : 5));
     }
+    // A short query that names a page or action ("inbox", "dark") jumps there on Enter;
+    // "Ask Nexus" stays one arrow-key away.
+    const terms = text.split(/\s+/).length;
+    const nav = out.find((c) => (c.group === "Go to" || c.group === "Actions") && (c.score ?? 0) >= 10 * terms);
+    if (nav && terms <= 2) return [{ ...nav, group: "Top hit" }, ...out.filter((c) => c !== nav)];
     return out;
   }, [cmds, text, mention]);
 
@@ -332,7 +317,6 @@ function PaletteBody({ close }: { close: () => void }) {
     }
   };
 
-  let lastGroup = "";
   const searching = notes.isFetching && dq.length >= 2;
   return (
     <div onKeyDown={onKey}>
@@ -361,8 +345,7 @@ function PaletteBody({ close }: { close: () => void }) {
       <div ref={listRef} id="palette-list" role="listbox" className="max-h-[min(60vh,460px)] overflow-y-auto p-2 scrollbar-thin">
         {filtered.length === 0 && <div className="px-3 py-10 text-center text-[13px] text-muted">No matches. Press Enter to ask Nexus.</div>}
         {filtered.map((c, i) => {
-          const header = c.group !== lastGroup ? c.group : null;
-          lastGroup = c.group;
+          const header = i === 0 || filtered[i - 1].group !== c.group ? c.group : null;
           return (
             <div key={c.id}>
               {header && <div className="px-2.5 pt-3 pb-1 text-[11px] font-semibold tracking-wide text-muted uppercase">{header}</div>}

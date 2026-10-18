@@ -220,3 +220,63 @@ func cosine(a, b []float32) float64 {
 	}
 	return dot / (math.Sqrt(na) * math.Sqrt(nb))
 }
+
+// SimilarNotes compares a note's mean chunk vector with every other note's
+// (cosine similarity, best first). It needs no embedder: it only uses the
+// vectors already stored. Notes without vectors return nothing.
+func (ix *Index) SimilarNotes(ctx context.Context, rel string, limit int) ([]VectorHit, error) {
+	rows, err := ix.db.QueryContext(ctx, `SELECT path, vec FROM vectors`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	sums := map[string][]float64{}
+	counts := map[string]int{}
+	for rows.Next() {
+		var p string
+		var blob []byte
+		if err := rows.Scan(&p, &blob); err != nil {
+			return nil, err
+		}
+		vec := decodeVec(blob)
+		s := sums[p]
+		if s == nil {
+			s = make([]float64, len(vec))
+		}
+		if len(s) != len(vec) {
+			continue
+		}
+		for i, f := range vec {
+			s[i] += float64(f)
+		}
+		sums[p] = s
+		counts[p]++
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	me, ok := sums[rel]
+	if !ok {
+		return nil, nil
+	}
+	mean := func(s []float64, n int) []float32 {
+		out := make([]float32, len(s))
+		for i := range s {
+			out[i] = float32(s[i] / float64(n))
+		}
+		return out
+	}
+	q := mean(me, counts[rel])
+	var out []VectorHit
+	for p, s := range sums {
+		if p == rel {
+			continue
+		}
+		out = append(out, VectorHit{Path: p, Score: math.Max(0, cosine(q, mean(s, counts[p])))})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Score > out[j].Score })
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}

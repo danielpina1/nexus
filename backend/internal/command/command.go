@@ -189,7 +189,7 @@ func (s *Service) resolveRoute(ctx context.Context, m *nexusv1.ExecuteRequest) (
 // enough to act on.
 func (s *Service) needsChoice(ctx context.Context, r *nexusv1.Route) (string, []string) {
 	confident := r.Confidence >= float32(s.cfg.Threshold)
-	if confident && (r.Kind != kindTask || r.AgentId != "") {
+	if confident && (r.Kind != kindTask || r.AgentId != "" || r.TeamId != "") {
 		return "", nil
 	}
 	var choices []string
@@ -235,7 +235,7 @@ func (s *Service) task(ctx context.Context, m *nexusv1.ExecuteRequest, r *nexusv
 		source = "command"
 	}
 	treq := &nexusv1.CreateTaskRequest{
-		Prompt: m.Input, AgentId: r.AgentId, Attachments: m.Attachments,
+		Prompt: m.Input, AgentId: r.AgentId, TeamId: r.TeamId, Attachments: m.Attachments,
 		IdempotencyKey: m.IdempotencyKey, Source: source,
 	}
 	if p := r.GetParams(); p != nil {

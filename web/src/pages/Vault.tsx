@@ -151,7 +151,9 @@ function NoteView({ noteKey, known, onOpen }: { noteKey: string; known: Set<stri
             ))}
           </div>
         )}
-        <Markdown known={known}>{n.body}</Markdown>
+        <div data-testid="note-body">
+          <Markdown known={known}>{n.body}</Markdown>
+        </div>
       </Card>
       <div className="space-y-5">
         <Card>
@@ -268,7 +270,7 @@ export default function Vault() {
               ) : (
                 <div className="p-1.5">
                   {search.data!.map((h) => (
-                    <button key={h.note?.id} onClick={() => open(h.note!.id)} className="block w-full rounded-lg px-2.5 py-2 text-left hover:bg-surface-2">
+                    <button key={h.note?.id} data-testid="vault-hit" onClick={() => open(h.note!.id)} className="block w-full rounded-lg px-2.5 py-2 text-left hover:bg-surface-2">
                       <div className="flex items-center gap-1.5 text-[13px] font-medium text-fg">
                         <span className="size-2 rounded-full" style={{ background: groupColor(noteGroup(h.note?.path ?? "")) }} />
                         <Highlight text={h.note?.title ?? ""} query={dq} />

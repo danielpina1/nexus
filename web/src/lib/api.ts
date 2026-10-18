@@ -1,13 +1,14 @@
 import { createClient, type Client, type Interceptor, type Transport } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-web";
-import { AgentService } from "../gen/nexus/v1/agent_pb";
+import type { DescService } from "@bufbuild/protobuf";
+import type { AgentService } from "../gen/nexus/v1/agent_pb";
 import { ApprovalService } from "../gen/nexus/v1/approval_pb";
 import { CommandService } from "../gen/nexus/v1/command_pb";
-import { DeviceService } from "../gen/nexus/v1/device_pb";
+import type { DeviceService } from "../gen/nexus/v1/device_pb";
 import { EventService } from "../gen/nexus/v1/event_pb";
 import { NodeService } from "../gen/nexus/v1/node_pb";
 import { TaskService } from "../gen/nexus/v1/task_pb";
-import { VaultService } from "../gen/nexus/v1/vault_pb";
+import type { VaultService } from "../gen/nexus/v1/vault_pb";
 import { getSettings } from "./settings";
 
 /**
@@ -46,17 +47,46 @@ function createHubTransport(): Transport {
   });
 }
 
+/**
+ * A client whose service descriptor is code-split: the generated file (vault_pb is ~90 KB of
+ * descriptors and growing) loads on the first call instead of in the main chunk. Only for services
+ * whose methods are all unary.
+ */
+function lazyClient<S extends DescService>(load: () => Promise<S>, transport: Transport): Client<S> {
+  let real: Promise<Client<S>> | null = null;
+  const get = () => (real ??= load().then((svc) => createClient(svc, transport)));
+  return new Proxy({} as Client<S>, {
+    get: (_t, method: string) => (req: unknown, opts?: unknown) =>
+      get().then((c) => (c as unknown as Record<string, (r: unknown, o?: unknown) => Promise<unknown>>)[method](req, opts)),
+  });
+}
+
 function makeClients(transport: Transport): Clients {
   return {
-    agents: createClient(AgentService, transport),
+    agents: lazyClient(async () => (await import("../gen/nexus/v1/agent_pb")).AgentService, transport),
     approvals: createClient(ApprovalService, transport),
     command: createClient(CommandService, transport),
-    devices: createClient(DeviceService, transport),
+    devices: lazyClient(async () => (await import("../gen/nexus/v1/device_pb")).DeviceService, transport),
     events: createClient(EventService, transport),
     nodes: createClient(NodeService, transport),
     tasks: createClient(TaskService, transport),
-    vault: createClient(VaultService, transport),
+    vault: lazyClient(async () => (await import("../gen/nexus/v1/vault_pb")).VaultService, transport),
   };
+}
+
+/** Checks a hub URL + token without touching the app's settings (used by the Connect screen). */
+export async function probeHub(hubUrl: string, token: string): Promise<void> {
+  const baseUrl = hubUrl.trim().replace(/\/+$/, "") || window.location.origin;
+  const transport = createConnectTransport({
+    baseUrl,
+    interceptors: [
+      (next) => async (req) => {
+        req.header.set("Authorization", `Bearer ${token}`);
+        return next(req);
+      },
+    ],
+  });
+  await createClient(NodeService, transport).listNodes({}, { timeoutMs: 8000 });
 }
 
 let clients: Clients | null = null;

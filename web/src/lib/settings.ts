@@ -24,7 +24,7 @@ const defaults: Settings = {
   token: "",
   deviceId: "web",
   mock: envMock,
-  theme: "system",
+  theme: "dark",
 };
 
 function load(): Settings {

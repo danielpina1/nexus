@@ -122,12 +122,31 @@ func (g *gitRepo) flush() {
 	msg := commitMessage(paths, msgs, runs)
 	ctx := context.Background()
 	if _, err := g.run(ctx, append([]string{"add", "-A", "--"}, paths...)...); err != nil {
-		g.log.Warn("vault: git add failed", "err", err)
-		return
+		// One bad path (e.g. created and deleted before the commit) must not
+		// lose the others: add them one by one.
+		for _, p := range paths {
+			if _, err := g.run(ctx, "add", "-A", "--", p); err != nil && !strings.Contains(err.Error(), "did not match any files") {
+				g.log.Warn("vault: git add failed", "path", p, "err", err)
+			}
+		}
 	}
 	// Only commit our paths, never whatever else the user has staged.
+	staged, err := g.run(ctx, append([]string{"diff", "--cached", "--name-only", "--relative", "-z", "--"}, paths...)...)
+	if err != nil {
+		g.log.Warn("vault: git diff failed", "err", err)
+		return
+	}
+	var commitPaths []string
+	for _, p := range strings.Split(staged, "\x00") {
+		if p != "" {
+			commitPaths = append(commitPaths, p)
+		}
+	}
+	if len(commitPaths) == 0 {
+		return
+	}
 	args := []string{"commit", "-q", "--no-verify", "--no-gpg-sign", "--author", gitName + " <" + gitEmail + ">", "-m", msg, "--"}
-	if _, err := g.run(ctx, append(args, paths...)...); err != nil {
+	if _, err := g.run(ctx, append(args, commitPaths...)...); err != nil {
 		if strings.Contains(err.Error(), "nothing to commit") || strings.Contains(err.Error(), "no changes added") {
 			return
 		}

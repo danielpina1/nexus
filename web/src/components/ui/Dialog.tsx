@@ -12,6 +12,7 @@ export function Dialog({
   footer,
   className,
   bare,
+  label,
 }: {
   open: boolean;
   onClose: () => void;
@@ -22,6 +23,8 @@ export function Dialog({
   className?: string;
   /** No padding/header — used by the command palette. */
   bare?: boolean;
+  /** Accessible name when there is no visible title. */
+  label?: string;
 }) {
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -47,12 +50,13 @@ export function Dialog({
 
   if (!open) return null;
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-[12vh]">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} />
+    <div className="fixed inset-0 z-50 flex items-start justify-center p-3 pt-[max(12px,env(safe-area-inset-top))] sm:p-4 sm:pt-[12vh]">
+      <div className="absolute inset-0 bg-overlay" onClick={onClose} />
       <div
         ref={panel}
         role="dialog"
         aria-modal="true"
+        aria-label={label ?? (typeof title === "string" ? title : undefined)}
         className={cx(
           "animate-pop-in relative w-full max-w-md rounded-2xl border border-border bg-surface shadow-pop",
           className,
@@ -67,7 +71,7 @@ export function Dialog({
                 {title && <h2 className="text-[15px] font-semibold text-fg">{title}</h2>}
                 {description && <p className="mt-1 text-[13px] text-muted">{description}</p>}
               </div>
-              <button onClick={onClose} className="-mr-1 rounded-md p-1 text-muted hover:bg-surface-2 hover:text-fg" aria-label="Close">
+              <button onClick={onClose} className="-mt-1.5 -mr-2 flex size-9 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-fg pointer-coarse:size-11" aria-label="Close">
                 <X className="size-4" />
               </button>
             </div>

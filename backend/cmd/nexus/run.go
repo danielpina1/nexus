@@ -16,6 +16,7 @@ import (
 func cmdRun(ctx context.Context, c *client, args []string) error {
 	fs := flag.NewFlagSet("run", flag.ExitOnError)
 	agent := fs.String("agent", "", "agent id (default: route automatically)")
+	team := fs.String("team", "", "team id: start a team run (teams/<id>.md)")
 	follow := fs.Bool("follow", false, "stream the task's events until it finishes")
 	pos, err := parseArgs(fs, args)
 	if err != nil {
@@ -23,16 +24,20 @@ func cmdRun(ctx context.Context, c *client, args []string) error {
 	}
 	prompt := strings.TrimSpace(strings.Join(pos, " "))
 	if prompt == "" {
-		return errors.New(`usage: nexus run "<prompt>" [-agent id] [-follow]`)
+		return errors.New(`usage: nexus run "<prompt>" [-agent id | -team id] [-follow]`)
 	}
 	resp, err := c.tasks.CreateTask(ctx, connect.NewRequest(&nexusv1.CreateTaskRequest{
-		Prompt: prompt, AgentId: *agent, Source: "cli",
+		Prompt: prompt, AgentId: *agent, TeamId: *team, Source: "cli",
 	}))
 	if err != nil {
 		return err
 	}
 	t := resp.Msg.GetTask()
-	fmt.Fprintf(os.Stderr, "task %s %s (agent %s)\n", t.GetId(), stateName(t.GetState()), or(t.GetAgentId(), "auto"))
+	if t.GetTeamId() != "" {
+		fmt.Fprintf(os.Stderr, "team run %s %s (team %s, orchestrator %s)\n", t.GetId(), stateName(t.GetState()), t.GetTeamId(), or(t.GetAgentId(), "none"))
+	} else {
+		fmt.Fprintf(os.Stderr, "task %s %s (agent %s)\n", t.GetId(), stateName(t.GetState()), or(t.GetAgentId(), "auto"))
+	}
 	if !*follow {
 		fmt.Println(t.GetId())
 		return nil
@@ -43,11 +48,12 @@ func cmdRun(ctx context.Context, c *client, args []string) error {
 // followTask replays and streams one task's events (since 0 so nothing
 // between CreateTask and Subscribe is missed) until it reaches a final state.
 func followTask(ctx context.Context, c *client, id string) error {
-	p := &runPrinter{}
+	p := &runPrinter{root: id}
 	var final *nexusv1.Task
-	err := stream(ctx, c, &nexusv1.SubscribeRequest{TaskIds: []string{id}}, func(ev *nexusv1.Event) error {
+	// The whole tree: sub-tasks (team members, critics) are shown with their role.
+	err := stream(ctx, c, &nexusv1.SubscribeRequest{RootTaskIds: []string{id}}, func(ev *nexusv1.Event) error {
 		p.print(ev)
-		if t := ev.GetTaskUpdated().GetTask(); t != nil && terminal(t.GetState()) {
+		if t := ev.GetTaskUpdated().GetTask(); t != nil && t.GetId() == id && terminal(t.GetState()) {
 			final = t
 			return stopStream
 		}
@@ -75,6 +81,9 @@ func followTask(ctx context.Context, c *client, id string) error {
 type runPrinter struct {
 	midLine   bool // stdout has text without a trailing newline
 	lastState nexusv1.TaskState
+	root      string            // root task id (sub-task events are prefixed)
+	roles     map[string]string // task id → role
+	lastTask  string            // task whose output was printed last
 }
 
 func (p *runPrinter) endLine() {
@@ -90,14 +99,32 @@ func (p *runPrinter) note(format string, a ...any) {
 }
 
 func (p *runPrinter) print(ev *nexusv1.Event) {
+	if t := ev.GetTaskUpdated().GetTask(); t != nil && t.GetRole() != "" {
+		if p.roles == nil {
+			p.roles = map[string]string{}
+		}
+		p.roles[t.GetId()] = t.GetRole()
+	}
+	sub := p.root != "" && ev.GetTaskId() != "" && ev.GetTaskId() != p.root
+	if sub {
+		p.printSub(ev)
+		return
+	}
 	switch b := ev.GetBody().(type) {
 	case *nexusv1.Event_RunOutput:
 		text := b.RunOutput.GetText()
 		if text == "" {
 			return
 		}
+		if p.lastTask != "" && p.lastTask != ev.GetTaskId() {
+			p.endLine()
+		}
+		p.lastTask = ev.GetTaskId()
 		fmt.Print(text)
 		p.midLine = !strings.HasSuffix(text, "\n")
+	case *nexusv1.Event_Team:
+		te := b.Team
+		p.note("◆ %s %s %s", enumName(te.GetKind().String(), "TEAM_EVENT_KIND_"), or(te.GetRole(), ""), truncate(te.GetText(), 100))
 	case *nexusv1.Event_TaskUpdated:
 		t := b.TaskUpdated.GetTask()
 		if t.GetState() != p.lastState {
@@ -123,5 +150,31 @@ func (p *runPrinter) print(ev *nexusv1.Event) {
 	default:
 		kind, text := summarize(ev)
 		p.note("%s %s", kind, text)
+	}
+}
+
+// printSub renders an event of a sub-task (team member, critic) on one line.
+func (p *runPrinter) printSub(ev *nexusv1.Event) {
+	who := or(p.roles[ev.GetTaskId()], ev.GetTaskId())
+	switch b := ev.GetBody().(type) {
+	case *nexusv1.Event_RunOutput:
+		if strings.TrimSpace(b.RunOutput.GetText()) == "" {
+			return
+		}
+		p.note("[%s] %s", who, truncate(strings.TrimSpace(b.RunOutput.GetText()), 160))
+	case *nexusv1.Event_TaskUpdated:
+		t := b.TaskUpdated.GetTask()
+		line := stateName(t.GetState())
+		if t.GetPhase() != "" {
+			line += " (" + t.GetPhase() + ")"
+		}
+		if terminal(t.GetState()) && t.GetSummary() != "" {
+			line += ": " + truncate(t.GetSummary(), 160)
+		}
+		p.note("[%s] · %s", who, line)
+	case *nexusv1.Event_UserMessage:
+	default:
+		kind, text := summarize(ev)
+		p.note("[%s] %s %s", who, kind, text)
 	}
 }

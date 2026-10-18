@@ -418,3 +418,140 @@ func Eventually(t testing.TB, timeout time.Duration, cond func() bool) {
 	}
 	t.Fatalf("condition not met within %s", timeout)
 }
+
+// ---------------------------------------------------------------- TeamCatalog
+
+// Teams is an in-memory kernel.TeamCatalog.
+type Teams struct {
+	mu      sync.Mutex
+	teams   map[string]*nexusv1.Team
+	mission map[string]string
+	// Upserted records UpsertTeam markdown.
+	Upserted []string
+}
+
+// NewTeams returns a catalog holding the given teams (mission "Mission of <id>").
+func NewTeams(teams ...*nexusv1.Team) *Teams {
+	c := &Teams{teams: map[string]*nexusv1.Team{}, mission: map[string]string{}}
+	for _, t := range teams {
+		c.Add(t, "Mission of "+t.Id)
+	}
+	return c
+}
+
+func (c *Teams) Add(t *nexusv1.Team, mission string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.teams[t.Id] = t
+	c.mission[t.Id] = mission
+}
+
+func (c *Teams) ListTeams(_ context.Context, includeDisabled bool) ([]*nexusv1.Team, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	var out []*nexusv1.Team
+	for _, t := range c.teams {
+		if t.Enabled || includeDisabled {
+			out = append(out, proto.Clone(t).(*nexusv1.Team))
+		}
+	}
+	return out, nil
+}
+
+func (c *Teams) GetTeam(_ context.Context, id string) (*nexusv1.Team, string, string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	t, ok := c.teams[id]
+	if !ok {
+		return nil, "", "", fmt.Errorf("team %q not found", id)
+	}
+	return proto.Clone(t).(*nexusv1.Team), c.mission[id], "---\nid: " + id + "\n---\n" + c.mission[id], nil
+}
+
+func (c *Teams) UpsertTeam(_ context.Context, markdown, _ string, validateOnly bool) (*nexusv1.Team, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.Upserted = append(c.Upserted, markdown)
+	return &nexusv1.Team{Id: "upserted", Enabled: !validateOnly}, nil
+}
+
+// Team is a convenience constructor for an enabled team.
+func Team(id, orchestrator string, strategy nexusv1.TeamStrategy, members ...*nexusv1.TeamMember) *nexusv1.Team {
+	return &nexusv1.Team{Id: id, Name: id, Description: "team " + id, OrchestratorAgentId: orchestrator,
+		Strategy: strategy, Members: members, Blackboard: true, Enabled: true, DebateRounds: 2}
+}
+
+// Member is a convenience constructor for a team member.
+func Member(agent, role string, count int32) *nexusv1.TeamMember {
+	return &nexusv1.TeamMember{AgentId: agent, Role: role, Count: count}
+}
+
+// ---------------------------------------------------------------- SkillCatalog
+
+// Skills is an in-memory kernel.SkillCatalog.
+type Skills struct {
+	mu     sync.Mutex
+	skills map[string]*nexusv1.Skill
+}
+
+// NewSkills returns a catalog holding the given skills.
+func NewSkills(skills ...*nexusv1.Skill) *Skills {
+	c := &Skills{skills: map[string]*nexusv1.Skill{}}
+	for _, s := range skills {
+		c.skills[s.Id] = s
+	}
+	return c
+}
+
+func (c *Skills) ListSkills(_ context.Context, includeDisabled bool) ([]*nexusv1.Skill, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	var out []*nexusv1.Skill
+	for _, s := range c.skills {
+		if s.Enabled || includeDisabled {
+			out = append(out, s)
+		}
+	}
+	return out, nil
+}
+
+func (c *Skills) GetSkill(_ context.Context, id string) (*nexusv1.Skill, string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	s, ok := c.skills[id]
+	if !ok {
+		return nil, "", fmt.Errorf("skill %q not found", id)
+	}
+	return s, "", nil
+}
+
+func (c *Skills) UpsertSkill(context.Context, string, string) (*nexusv1.Skill, error) {
+	return nil, errors.New("taskstest: UpsertSkill not supported")
+}
+
+// AssignmentsFor returns the assignments made for a task, oldest first.
+func (d *Dispatcher) AssignmentsFor(taskID string) []*nexusv1.RunAssignment {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	var out []*nexusv1.RunAssignment
+	for _, a := range d.Assigned {
+		if a.Assignment.GetTaskId() == taskID {
+			out = append(out, a.Assignment)
+		}
+	}
+	return out
+}
+
+// InputsSnapshot returns a copy of the inputs sent so far.
+func (d *Dispatcher) InputsSnapshot() []*nexusv1.RunInput {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return append([]*nexusv1.RunInput(nil), d.Inputs...)
+}
+
+// CancelsSnapshot returns a copy of the cancels sent so far.
+func (d *Dispatcher) CancelsSnapshot() []*nexusv1.RunCancel {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return append([]*nexusv1.RunCancel(nil), d.Cancels...)
+}

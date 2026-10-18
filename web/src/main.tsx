@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import "@fontsource-variable/inter";
-import "@fontsource-variable/jetbrains-mono";
+import "@fontsource-variable/inter/index.css";
+import "@fontsource-variable/jetbrains-mono/index.css";
 import "./index.css";
 import { App } from "./App";
 import { initApi } from "./lib/api";
@@ -24,7 +24,9 @@ async function boot() {
   adoptTokenFromHash();
   await initApi();
   loadChat();
-  startEventStream();
+  const { token, mock } = useSettings.getState();
+  // Without a token the Connect screen shows; it starts the stream after a successful connect.
+  if (token || mock) startEventStream();
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
       <App />

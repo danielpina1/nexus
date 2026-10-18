@@ -64,5 +64,5 @@ func ensureStateGitignore(dir string) {
 	if _, err := os.Stat(p); err == nil {
 		return
 	}
-	_ = writeAtomic(p, []byte("# Nexus runtime state (lock, write-ahead journal) — not versioned.\nlock\njournal/\n"))
+	_ = writeAtomic(p, []byte("# Nexus runtime state (lock, write-ahead journal): never versioned.\n*\n"))
 }

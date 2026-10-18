@@ -220,6 +220,9 @@ func (r *Router) Route(ctx context.Context, input string, attachments []*nexusv1
 		}
 	}
 	route.Alternatives = dedupeExcept(route.Alternatives, route.AgentId)
+	if id, ok := strings.CutPrefix(route.AgentId, TeamPrefix); ok {
+		route.TeamId, route.AgentId = id, ""
+	}
 
 	id, err := r.logDecision(ctx, input, c, d, r.now().Sub(start))
 	if err != nil {
@@ -253,6 +256,36 @@ func (r *Router) listAgents(ctx context.Context) []*nexusv1.Agent {
 		if a.Enabled {
 			out = append(out, a)
 		}
+	}
+	return append(out, r.listTeams(ctx)...)
+}
+
+// TeamPrefix marks teams in the router's candidate list ("team:<id>"):
+// teams are routable like agents, by their description.
+const TeamPrefix = "team:"
+
+// listTeams returns the enabled teams as pseudo-agents "team:<id>".
+func (r *Router) listTeams(ctx context.Context) []*nexusv1.Agent {
+	cat, err := kernel.Resolve[kernel.TeamCatalog](r.h, kernel.SvcTeams)
+	if err != nil {
+		return nil
+	}
+	list, err := cat.ListTeams(ctx, false)
+	if err != nil {
+		r.log.Warn("router: list teams", "err", err)
+		return nil
+	}
+	var out []*nexusv1.Agent
+	for _, t := range list {
+		if !t.Enabled {
+			continue
+		}
+		desc := t.Description
+		if len(t.Triggers) > 0 {
+			desc += " Triggers: " + strings.Join(t.Triggers, ", ") + "."
+		}
+		out = append(out, &nexusv1.Agent{Id: TeamPrefix + t.Id, Name: t.Name + " (team)", Description: desc,
+			Runtime: "team", Tier: nexusv1.Tier_TIER_HEAVY, Enabled: true})
 	}
 	return out
 }
@@ -424,6 +457,8 @@ Classify the user's input into exactly one kind:
 - "task": the user wants something done by an agent.
 - "workflow": the input explicitly starts a known workflow (rare).
 For "task", choose the best agent id from the catalog (or "" if none fits) and up to 3 alternatives.
+Entries whose id starts with "team:" are teams of agents working under an orchestrator: choose one for big, multi-part
+work that needs several specialists (research with fact-checking, buying with comparison, coding with review).
 Respond with a single JSON object only:
 {"kind":"search|capture|task|workflow","agent":"<agent id or empty>","confidence":0.0-1.0,"reason":"<short>","alternatives":["<agent id>"],"params":{}}`
 

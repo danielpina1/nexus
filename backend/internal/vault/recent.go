@@ -1,6 +1,10 @@
 package vault
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/danielpina1/nexus/backend/internal/vault/index"
+)
 
 // recentCache keeps the content of recently written notes by content hash,
 // so a stale write can be three-way merged against its base even when the
@@ -44,3 +48,5 @@ func (c *recentCache) get(hash string) ([]byte, bool) {
 	b, ok := c.items[hash]
 	return b, ok
 }
+
+func indexHash(b []byte) string { return index.Hash(b) }

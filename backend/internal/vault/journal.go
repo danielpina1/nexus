@@ -28,7 +28,8 @@ import (
 // (crash before the commit point: nothing was applied) are discarded.
 
 type journalOp struct {
-	// Kind is "write" (Path ← staged data) or "move" (From → Path).
+	// Kind is "write" (Path ← staged data), "move" (From → Path) or
+	// "delete" (remove Path if present).
 	Kind string `json:"kind"`
 	Path string `json:"path"`
 	From string `json:"from,omitempty"`
@@ -125,6 +126,13 @@ func (v *Vault) applyOps(dir string, ops []journalOp) error {
 				return fmt.Errorf("move %s → %s: destination exists", op.From, op.Path)
 			default:
 				return fmt.Errorf("move %s → %s: source missing", op.From, op.Path)
+			}
+		case "delete":
+			if err := os.Remove(dst); err != nil && !errors.Is(err, fs.ErrNotExist) {
+				return err
+			}
+			if err := syncDir(filepath.Dir(dst)); err != nil && !errors.Is(err, fs.ErrNotExist) {
+				return err
 			}
 		default:
 			return fmt.Errorf("unknown journal op %q", op.Kind)

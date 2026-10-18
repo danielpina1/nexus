@@ -136,8 +136,12 @@ func (c *Composer) approval(ctx context.Context, ev *nexusv1.Event, a *nexusv1.A
 	if title == "" {
 		title = "Approval needed"
 	}
+	thread := taskID
+	if a.RootTaskId != "" {
+		thread = a.RootTaskId // approvals of a team run / task tree group together
+	}
 	m := Message{
-		ThreadID:   taskID,
+		ThreadID:   thread,
 		CollapseID: a.Id,
 		TaskID:     taskID,
 		ApprovalID: a.Id,

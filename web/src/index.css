@@ -116,7 +116,7 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
 }
-.caret-md .prose-nexus > :last-child::after,
+.caret-block > :last-child::after,
 .caret::after {
   content: "▍";
   margin-left: 1px;
@@ -146,6 +146,11 @@
 }
 
 /* Markdown rendering */
+.stream-md > .prose-nexus > :first-child { margin-top: 0; }
+.stream-md > .prose-nexus > :last-child { margin-bottom: 0; }
+.stream-md > .prose-nexus + .prose-nexus,
+.stream-md > pre + .prose-nexus,
+.stream-md > .prose-nexus + pre { margin-top: 0.75rem; }
 .prose-nexus { line-height: 1.65; color: var(--fg-2); }
 .prose-nexus h1 { font-size: 1.5rem; font-weight: 650; color: var(--fg); margin: 0 0 0.75rem; letter-spacing: -0.01em; }
 .prose-nexus h2 { font-size: 1.15rem; font-weight: 600; color: var(--fg); margin: 1.5rem 0 0.5rem; }

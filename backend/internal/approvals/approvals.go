@@ -227,7 +227,7 @@ func (b *Broker) policyLevel(ctx context.Context, a *nexusv1.Approval) nexusv1.T
 }
 
 func (b *Broker) publish(ctx context.Context, a *nexusv1.Approval) {
-	ev := &nexusv1.Event{TaskId: a.TaskId, RunId: a.RunId, Actor: "hub",
+	ev := &nexusv1.Event{TaskId: a.TaskId, RunId: a.RunId, Actor: "hub", RootTaskId: a.RootTaskId,
 		Body: &nexusv1.Event_Approval{Approval: a}}
 	if _, err := b.bus.Publish(ctx, ev); err != nil {
 		b.log.Error("publish approval", "approval", a.Id, "err", err)

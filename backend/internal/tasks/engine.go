@@ -410,7 +410,7 @@ func (e *Engine) dryRun(ctx context.Context, req *nexusv1.CreateTaskRequest) (*n
 				return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("route: %w", err))
 			}
 			if route.GetConfidence() >= float32(e.cfg.RouteThreshold) {
-				t.AgentId, t.Tier = route.AgentId, route.Tier
+				t.AgentId, t.Tier, t.TeamId = route.AgentId, route.Tier, route.TeamId
 			}
 		}
 	}
@@ -450,6 +450,9 @@ func (e *Engine) route(ctx context.Context, id, input string) (*nexusv1.Task, er
 		return e.fail(ctx, id, "routing failed: "+err.Error())
 	}
 	e.linkDecision(ctx, rt, route, id)
+	if route.GetTeamId() != "" && route.GetConfidence() >= float32(e.cfg.RouteThreshold) {
+		return e.routeToTeam(ctx, id, route.TeamId)
+	}
 	if route.GetAgentId() != "" && route.GetConfidence() >= float32(e.cfg.RouteThreshold) {
 		return e.assign(ctx, id, route.AgentId, assignOpts{tier: route.Tier})
 	}
@@ -457,7 +460,11 @@ func (e *Engine) route(ctx context.Context, id, input string) (*nexusv1.Task, er
 	if route.GetReason() != "" {
 		text += " (" + route.Reason + ")"
 	}
-	return e.askForAgent(ctx, id, text, append([]string{route.GetAgentId()}, route.GetAlternatives()...))
+	first := route.GetAgentId()
+	if route.GetTeamId() != "" {
+		first = TeamPrefix + route.TeamId
+	}
+	return e.askForAgent(ctx, id, text, append([]string{first}, route.GetAlternatives()...))
 }
 
 // linkDecision tells a router that logs decisions which task a decision produced.

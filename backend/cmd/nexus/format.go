@@ -139,6 +139,9 @@ func summarize(ev *nexusv1.Event) (kind, text string) {
 		return "notice", truncate(b.Notice.GetTitle()+": "+b.Notice.GetBody(), 100)
 	case *nexusv1.Event_UserMessage:
 		return "user", truncate(b.UserMessage.GetText(), 100)
+	case *nexusv1.Event_Team:
+		te := b.Team
+		return "team", strings.TrimSpace(fmt.Sprintf("%s %s %s", enumName(te.GetKind().String(), "TEAM_EVENT_KIND_"), te.GetRole(), truncate(te.GetText(), 80)))
 	}
 	return "event", ""
 }

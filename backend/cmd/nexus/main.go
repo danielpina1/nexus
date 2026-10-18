@@ -25,8 +25,10 @@ Commands:
   agents [-all]                   list agents
   tasks [-n 20] [-state running]  list tasks
   task <id>                       show a task and its children
-  run "<prompt>" [-agent id] [-follow]
-                                  create a task (and stream its events)
+  run "<prompt>" [-agent id | -team id] [-follow]
+                                  create a task or start a team run (and stream its events)
+  teams [-all]                    list teams (vault teams/*.md)
+  team-run <root-task-id>         show a team run: task tree, blackboard, messages
   approve <approval-id> [-comment text]
   deny <approval-id> [-comment text]
   events [-since N] [-task id] [-inbox]
@@ -48,6 +50,8 @@ var commands = map[string]command{
 	"tasks":    cmdTasks,
 	"task":     cmdTask,
 	"run":      cmdRun,
+	"teams":    cmdTeams,
+	"team-run": cmdTeamRun,
 	"approve":  func(ctx context.Context, c *client, a []string) error { return cmdDecide(ctx, c, a, true) },
 	"deny":     func(ctx context.Context, c *client, a []string) error { return cmdDecide(ctx, c, a, false) },
 	"events":   cmdEvents,

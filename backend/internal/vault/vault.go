@@ -114,6 +114,8 @@ type Vault struct {
 	maxAttach     int64
 	// journalCrashAfter is a test hook (see runJournal); -1 = off.
 	journalCrashAfter int
+	templates         string
+	periodic          map[string]PeriodicConfig
 
 	nmu     sync.RWMutex
 	notices func(Notice)
@@ -496,7 +498,10 @@ func (v *Vault) writeLocked(ctx context.Context, rel string, markdown []byte, ms
 	if int64(len(markdown)) > v.maxNote {
 		return nil, fmt.Errorf("%w: %s is %d bytes (limit %d)", ErrTooLarge, rel, len(markdown), v.maxNote)
 	}
-	markdown, _, _ = note.EnsureID(markdown, NewID)
+	if !strings.HasPrefix(rel, v.templatesDir()+"/") {
+		// Templates get no id: notes created from them would share it.
+		markdown, _, _ = note.EnsureID(markdown, NewID)
+	}
 	if msg == "" {
 		msg = "vault: update " + rel
 	}
@@ -698,8 +703,23 @@ func toStruct(m map[string]any) (*structpb.Struct, error) {
 // ---------------------------------------------------------------------------
 // Search and graph
 
-// Search implements kernel.Vault.
+// Search implements kernel.Vault. Text with query filters (type:, tag:,
+// links:, updated:…, see query.go) runs through the query engine.
 func (v *Vault) Search(ctx context.Context, query string, types []string, limit int) ([]*nexusv1.SearchHit, error) {
+	if LooksLikeQuery(query) {
+		if len(types) > 0 {
+			query += " type:" + strings.Join(types, ",")
+		}
+		res, err := v.Query(ctx, query, limit)
+		if err != nil {
+			return nil, err
+		}
+		out := make([]*nexusv1.SearchHit, 0, len(res.Hits))
+		for _, h := range res.Hits {
+			out = append(out, &nexusv1.SearchHit{Note: entryRef(h.Entry), Snippet: h.Snippet, Score: float32(h.Score)})
+		}
+		return out, nil
+	}
 	hits, err := v.ix.Search(ctx, index.Query{Text: query, Types: types, Limit: limit})
 	if err != nil {
 		return nil, err
@@ -733,6 +753,7 @@ func (v *Vault) Graph(ctx context.Context, req *nexusv1.GraphRequest) (*nexusv1.
 		}
 		return nil, err
 	}
+	filterGraph(g, center, req)
 	resp := &nexusv1.GraphResponse{}
 	keys := map[string]string{}
 	for _, e := range g.Nodes {
@@ -750,4 +771,64 @@ func (v *Vault) Graph(ctx context.Context, req *nexusv1.GraphRequest) (*nexusv1.
 		resp.Edges = append(resp.Edges, &nexusv1.GraphEdge{SourceId: keys[e.Src], TargetId: dst, Relation: e.Relation})
 	}
 	return resp, nil
+}
+
+// filterGraph applies the GraphRequest filters (relations, tags,
+// path_prefix, hide_dangling, hide_orphans). The center is always kept.
+func filterGraph(g *index.GraphResult, center string, req *nexusv1.GraphRequest) {
+	keep := map[string]bool{}
+	var nodes []*index.Entry
+	for _, e := range g.Nodes {
+		ok := e.Path == center
+		if !ok {
+			ok = (len(req.GetTags()) == 0 || index.HasAnyTag(e.Tags, req.GetTags())) &&
+				(req.GetPathPrefix() == "" || strings.HasPrefix(e.Path, strings.TrimPrefix(req.GetPathPrefix(), "/")))
+		}
+		if ok {
+			keep[e.Path] = true
+			nodes = append(nodes, e)
+		}
+	}
+	rels := map[string]bool{}
+	for _, r := range req.GetRelations() {
+		rels[strings.ToLower(r)] = true
+	}
+	var edges []index.Edge
+	usedDangling := map[string]bool{}
+	degree := map[string]int{}
+	for _, e := range g.Edges {
+		if len(rels) > 0 && !rels[strings.ToLower(e.Relation)] {
+			continue
+		}
+		if !keep[e.Src] {
+			continue
+		}
+		if e.Dst == "" {
+			if req.GetHideDangling() {
+				continue
+			}
+			usedDangling[index.NormalizeTarget(e.Target)] = true
+		} else if !keep[e.Dst] {
+			continue
+		}
+		degree[e.Src]++
+		degree[e.Dst]++
+		edges = append(edges, e)
+	}
+	if req.GetHideOrphans() {
+		var kept []*index.Entry
+		for _, n := range nodes {
+			if degree[n.Path] > 0 || n.Path == center {
+				kept = append(kept, n)
+			}
+		}
+		nodes = kept
+	}
+	var dangling []string
+	for _, t := range g.Dangling {
+		if usedDangling[index.NormalizeTarget(t)] {
+			dangling = append(dangling, t)
+		}
+	}
+	g.Nodes, g.Edges, g.Dangling = nodes, edges, dangling
 }

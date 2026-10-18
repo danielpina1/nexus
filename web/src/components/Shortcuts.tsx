@@ -1,6 +1,6 @@
 import { useUI } from "../lib/ui";
 import { JUMPS } from "./useGlobalShortcuts";
-import { isMac } from "./layout/Sidebar";
+import { isMac } from "../lib/platform";
 import { Dialog } from "./ui/Dialog";
 import { Kbd } from "./ui/Input";
 

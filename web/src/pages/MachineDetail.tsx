@@ -76,7 +76,7 @@ function FileBrowser({ nodeId }: { nodeId: string }) {
               </tr>
             )}
             {entries.map((e) => (
-              <tr key={e.path} className="border-b border-border/60 last:border-0 hover:bg-surface-2">
+              <tr key={e.path} data-testid="file-row" className="border-b border-border/60 last:border-0 hover:bg-surface-2">
                 <td className="px-4 py-1.5">
                   {e.isDir ? (
                     <button onClick={() => setPath(e.path)} className="flex items-center gap-2 font-medium text-fg">

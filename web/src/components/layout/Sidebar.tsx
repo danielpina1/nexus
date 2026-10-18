@@ -10,8 +10,8 @@ import { ThemeToggle } from "./ThemeToggle";
 import { Kbd } from "../ui/Input";
 import { Logo } from "./Logo";
 import { NavBadge } from "./NavBadge";
+import { isMac } from "../../lib/platform";
 
-export const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
 export function Sidebar() {
   const openPalette = useUI((s) => s.openPalette);

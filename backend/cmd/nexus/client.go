@@ -23,6 +23,7 @@ type client struct {
 	approvals nexusv1connect.ApprovalServiceClient
 	nodes     nexusv1connect.NodeServiceClient
 	events    nexusv1connect.EventServiceClient
+	teams     nexusv1connect.TeamServiceClient
 }
 
 // bearer adds the Authorization header to every request.
@@ -54,6 +55,7 @@ func newClientRT(baseURL, token string, rt http.RoundTripper) *client {
 		approvals: nexusv1connect.NewApprovalServiceClient(hc, baseURL),
 		nodes:     nexusv1connect.NewNodeServiceClient(hc, baseURL),
 		events:    nexusv1connect.NewEventServiceClient(hc, baseURL),
+		teams:     nexusv1connect.NewTeamServiceClient(hc, baseURL),
 	}
 }
 

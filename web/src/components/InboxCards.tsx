@@ -43,6 +43,7 @@ function Shell({
   selected,
   onSelect,
   className,
+  testId,
 }: {
   tone: Tone;
   icon: React.ReactNode;
@@ -55,6 +56,7 @@ function Shell({
   selected?: boolean;
   onSelect?: (v: boolean) => void;
   className?: string;
+  testId?: string;
 }) {
   const bar: Record<Tone, string> = {
     warn: "before:bg-warn",
@@ -66,6 +68,7 @@ function Shell({
   };
   return (
     <div
+      data-testid={testId}
       className={cx(
         "relative overflow-hidden rounded-xl border border-border bg-surface shadow-card before:absolute before:inset-y-0 before:left-0 before:w-[3px]",
         bar[tone],
@@ -138,6 +141,7 @@ export function ApprovalCard({
       tone={decided ? (approval.state === ApprovalState.APPROVED ? "ok" : "neutral") : biometric ? "danger" : "warn"}
       icon={biometric ? <Fingerprint className="size-3" /> : <ShieldCheck className="size-3" />}
       kind={biometric ? "Face ID approval" : "Approval"}
+      testId="approval-card"
       selectable={selectable && pending}
       selected={selected}
       onSelect={onSelect}

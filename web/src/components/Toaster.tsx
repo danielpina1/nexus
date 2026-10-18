@@ -6,7 +6,7 @@ export function Toaster() {
   const toasts = useToasts((s) => s.toasts);
   const remove = useToasts((s) => s.remove);
   return (
-    <div className="pointer-events-none fixed right-4 bottom-4 z-[60] flex w-[min(380px,calc(100vw-2rem))] flex-col gap-2" aria-live="polite">
+    <div className="pointer-events-none fixed right-4 bottom-[calc(68px+env(safe-area-inset-bottom))] z-[60] lg:bottom-4 flex w-[min(380px,calc(100vw-2rem))] flex-col gap-2" aria-live="polite" role="status">
       {toasts.map((t) => {
         const Icon = t.tone === "success" ? CheckCircle2 : t.tone === "error" ? XCircle : t.tone === "warn" ? TriangleAlert : Info;
         return (
@@ -16,6 +16,17 @@ export function Toaster() {
               <div className="text-[13px] font-medium text-fg">{t.title}</div>
               {t.body && <div className="mt-0.5 text-xs break-words text-muted">{t.body}</div>}
             </div>
+            {t.action && (
+              <button
+                onClick={() => {
+                  t.action!.onClick();
+                  remove(t.id);
+                }}
+                className="-my-1 shrink-0 rounded-md px-2 py-1 text-xs font-semibold text-accent hover:bg-surface-2"
+              >
+                {t.action.label}
+              </button>
+            )}
             <button onClick={() => remove(t.id)} className="text-muted hover:text-fg" aria-label="Dismiss">
               <X className="size-3.5" />
             </button>

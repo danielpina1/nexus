@@ -3,8 +3,9 @@ import { useEffect } from "react";
 import { api } from "./api";
 import { useEvents } from "./store";
 import { toast } from "./toast";
-import type { Approval } from "../gen/nexus/v1/approval_pb";
-import type { TaskState } from "../gen/nexus/v1/task_pb";
+import { ApprovalState, type Approval } from "../gen/nexus/v1/approval_pb";
+import { TaskState } from "../gen/nexus/v1/task_pb";
+import { create } from "zustand";
 import { useSettings } from "./settings";
 
 export { queryClient } from "./queryClient";
@@ -92,7 +93,6 @@ export function useNodes() {
   const q = useQuery({
     queryKey: qk.nodes,
     queryFn: async () => (await api().nodes.listNodes({})).nodes,
-    refetchInterval: 60_000,
   });
   useEffect(() => {
     if (q.data) upsert(q.data.flatMap((n) => (n.status ? [n.status] : [])));
@@ -107,12 +107,15 @@ export function useDevices() {
   });
 }
 
-// ---- mutations -----------------------------------------------------------------------------------
+// ---- mutations (optimistic, with rollback) ------------------------------------------------------
 
+/**
+ * Approve / deny. The card leaves the inbox immediately; if the Hub refuses, the approval is
+ * restored and an error toast offers a retry.
+ */
 export function useDecide() {
-  const upsert = useEvents((s) => s.upsertApprovals);
   const deviceId = useSettings((s) => s.deviceId);
-  return useMutation({
+  const m = useMutation({
     mutationFn: async ({ approval, approve, comment }: { approval: Approval; approve: boolean; comment?: string }) =>
       api().approvals.decide({
         decision: {
@@ -128,39 +131,83 @@ export function useDecide() {
         },
         comment: comment ?? "",
       }),
-    onSuccess: (res, vars) => {
-      if (res.approval) upsert([res.approval]);
-      if (vars.approve) toast.success("Approved", vars.approval.title);
-      else toast.info("Denied", vars.approval.title);
+    onMutate: ({ approval, approve }) => {
+      const prev = useEvents.getState().approvals[approval.id] ?? approval;
+      useEvents.getState().putApproval({ ...prev, state: approve ? ApprovalState.APPROVED : ApprovalState.DENIED });
+      return { prev };
     },
-    onError: (err) => toast.error("Decision failed", err),
+    onSuccess: (res, vars) => {
+      if (res.approval) useEvents.getState().putApproval(res.approval);
+      toast.success(vars.approve ? "Approved" : "Denied", vars.approval.title);
+    },
+    onError: (err, vars, ctx) => {
+      if (ctx?.prev) useEvents.getState().putApproval(ctx.prev);
+      toast.error(vars.approve ? "Approval failed" : "Deny failed", err, { label: "Retry", onClick: () => m.mutate(vars) });
+    },
   });
+  return m;
 }
 
+export interface PendingMessage {
+  id: string;
+  taskId: string;
+  text: string;
+  status: "sending" | "failed";
+}
+
+/** Replies sent from the run view that the stream hasn't echoed back yet. */
+export const usePendingMessages = create<{ items: PendingMessage[]; set: (f: (l: PendingMessage[]) => PendingMessage[]) => void }>((set) => ({
+  items: [],
+  set: (f) => set((s) => ({ items: f(s.items) })),
+}));
+
 export function useSendMessage() {
-  const markAnswered = useEvents((s) => s.markAnswered);
-  return useMutation({
-    mutationFn: async (v: { taskId: string; text?: string; questionId?: string; choice?: string }) =>
+  const m = useMutation({
+    mutationFn: async (v: { taskId: string; text?: string; questionId?: string; choice?: string; localId?: string }) =>
       api().tasks.sendMessage({
         taskId: v.taskId,
         text: v.text ?? "",
         questionId: v.questionId ?? "",
         choice: v.choice ?? "",
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: v.localId ?? crypto.randomUUID(),
       }),
-    onSuccess: (_r, v) => {
-      if (v.questionId) markAnswered(v.questionId);
+    onMutate: (v) => {
+      if (v.questionId) useEvents.getState().setAnswered(v.questionId, true);
+      if (v.text && !v.questionId) {
+        const id = v.localId ?? crypto.randomUUID();
+        v.localId = id;
+        usePendingMessages.getState().set((l) => [...l.filter((x) => x.id !== id), { id, taskId: v.taskId, text: v.text!, status: "sending" }]);
+      }
     },
-    onError: (err) => toast.error("Message not sent", err),
+    onSuccess: (_r, v) => {
+      // The userMessage event normally arrives within a frame; drop the placeholder shortly after.
+      if (v.localId) setTimeout(() => usePendingMessages.getState().set((l) => l.filter((x) => x.id !== v.localId)), 1500);
+    },
+    onError: (err, v) => {
+      if (v.questionId) useEvents.getState().setAnswered(v.questionId, false);
+      if (v.localId) usePendingMessages.getState().set((l) => l.map((x) => (x.id === v.localId ? { ...x, status: "failed" } : x)));
+      toast.error(v.questionId ? "Answer not sent" : "Message not sent", err, { label: "Retry", onClick: () => m.mutate(v) });
+    },
   });
+  return m;
 }
 
 export function useCancelTask() {
-  return useMutation({
+  const m = useMutation({
     mutationFn: async (id: string) => api().tasks.cancelTask({ id }),
-    onSuccess: () => toast.info("Cancel requested"),
-    onError: (err) => toast.error("Cancel failed", err),
+    onMutate: (id) => {
+      const prev = useEvents.getState().tasks[id];
+      // Keep updatedAt so the Hub's next TaskUpdated always wins over the optimistic state.
+      if (prev) useEvents.getState().putTask({ ...prev, state: TaskState.CANCELLED });
+      return { prev };
+    },
+    onSuccess: () => toast.info("Cancelled"),
+    onError: (err, id, ctx) => {
+      if (ctx?.prev) useEvents.getState().putTask(ctx.prev);
+      toast.error("Cancel failed", err, { label: "Retry", onClick: () => m.mutate(id) });
+    },
   });
+  return m;
 }
 
 export function useEscalateTask() {

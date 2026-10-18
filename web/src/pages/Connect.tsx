@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ArrowRight, Eye, EyeOff, FlaskConical, Loader2 } from "lucide-react";
 import { useSettings } from "../lib/settings";
-import { api, hubBaseUrl, reconfigureApi } from "../lib/api";
+import { hubBaseUrl, probeHub, reconfigureApi } from "../lib/api";
 import { startEventStream } from "../lib/events";
 import { queryClient } from "../lib/queryClient";
 import { useEvents } from "../lib/store";
@@ -31,18 +31,13 @@ export default function Connect() {
     }
     setBusy(true);
     setError(null);
-    const prev = { hubUrl: s.hubUrl, token: s.token };
-    // Apply first so the request goes to the new URL with the new token.
-    useSettings.setState({ hubUrl: hubUrl.trim(), token: tok });
-    reconfigureApi();
     try {
-      await api().nodes.listNodes({}, { timeoutMs: 8000 });
+      await probeHub(hubUrl, tok);
       s.update({ hubUrl: hubUrl.trim(), token: tok, mock: false });
+      reconfigureApi();
       void queryClient.invalidateQueries();
       startEventStream();
     } catch (err) {
-      useSettings.setState(prev);
-      reconfigureApi();
       const msg = errorMessage(err);
       setError(
         /unauthenticated|401|token/i.test(msg)

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
-import { AlertCircle, ArrowRight, BookOpen, Compass, MessageSquare, PanelRight, Sparkles, Trash2 } from "lucide-react";
+import { AlertCircle, ArrowRight, BookOpen, Compass, PanelRight, Sparkles, Trash2 } from "lucide-react";
 import { useChat, type ChatMessage } from "../lib/chat";
 import { useTask, useTimeline } from "../lib/selectors";
 import { CommandKind } from "../gen/nexus/v1/command_pb";
@@ -41,21 +41,21 @@ function TaskChip({ taskId, active, onClick }: { taskId: string; active: boolean
   );
 }
 
-function Message({ m, activeTaskId }: { m: ChatMessage; activeTaskId?: string }) {
+function Message({ m, activeTaskId, retryInput }: { m: ChatMessage; activeTaskId?: string; retryInput?: string }) {
   const agents = useAgentMap();
   const setActive = useChat((s) => s.setActiveTask);
   const send = useChat((s) => s.send);
   if (m.role === "user") {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-accent px-3.5 py-2 text-[13.5px] whitespace-pre-wrap text-accent-fg">{m.text}</div>
+        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-primary px-3.5 py-2 text-[14px] whitespace-pre-wrap text-primary-fg">{m.text}</div>
       </div>
     );
   }
   const r = m.route;
   return (
     <div className="flex gap-2.5">
-      <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent">
+      <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent" aria-hidden>
         <Sparkles className="size-3.5" />
       </div>
       <div className="min-w-0 max-w-[90%] flex-1">
@@ -81,12 +81,17 @@ function Message({ m, activeTaskId }: { m: ChatMessage; activeTaskId?: string })
             ))}
           </div>
         ) : m.error ? (
-          <div className="flex items-start gap-2 rounded-xl border border-danger/30 bg-danger-soft px-3 py-2 text-[13px] text-danger">
-            <AlertCircle className="mt-0.5 size-4 shrink-0" />
-            <span className="break-words">{m.error}</span>
+          <div role="alert" className="flex items-start gap-2 rounded-xl border border-danger/30 bg-danger-soft px-3 py-2 text-[13px] text-danger">
+            <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
+            <span className="min-w-0 flex-1 break-words">{m.error}</span>
+            {retryInput && (
+              <button onClick={() => void send(retryInput)} className="-my-0.5 shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold hover:bg-danger/10">
+                Retry
+              </button>
+            )}
           </div>
         ) : m.text || m.choices?.length || m.sources?.length ? (
-          <div className="rounded-2xl rounded-tl-md border border-border bg-surface px-3.5 py-2 text-[13.5px] shadow-card">
+          <div className="rounded-2xl rounded-tl-md border border-border bg-surface px-3.5 py-2 text-[14px] shadow-card">
             <Markdown>{m.text}</Markdown>
             {m.choices && m.choices.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
@@ -198,9 +203,8 @@ export default function Chat() {
       <div className="flex min-h-0 flex-1">
         <section className={cx("min-w-0 flex-1 flex-col border-border lg:flex lg:max-w-[560px] lg:border-r xl:max-w-[620px]", mobilePane === "chat" ? "flex" : "hidden")}>
           <div className="hidden items-center gap-2 border-b border-border px-4 py-3 lg:flex">
-            <MessageSquare className="size-4 text-muted" />
-            <h1 className="text-[14px] font-semibold text-fg">Nexus</h1>
-            <span className="text-xs text-muted">auto-routed</span>
+            <h1 className="text-[15px] font-semibold text-fg">Chat</h1>
+            <span className="text-xs text-muted">auto-routed · @agent to pick one</span>
             <span className="flex-1" />
             {messages.length > 0 && (
               <Button size="xs" variant="ghost" icon={<Trash2 className="size-3.5" />} onClick={clear}>
@@ -213,15 +217,15 @@ export default function Chat() {
               <EmptyState
                 icon={<Sparkles />}
                 title="Ask Nexus anything"
-                body="Questions about your notes, things to remember, or tasks for your agents. The router picks the right agent and machine."
+                body="Questions about your notes, things to remember, or tasks for your agents. The router picks the agent and machine; start with @agent to choose yourself."
               />
             ) : (
-              messages.map((m) => <Message key={m.id} m={m} activeTaskId={activeTaskId} />)
+              messages.map((m, i) => <Message key={m.id} m={m} activeTaskId={activeTaskId} retryInput={m.error && messages[i - 1]?.role === "user" ? messages[i - 1].text : undefined} />)
             )}
             <div ref={end} />
           </div>
           <div className="border-t border-border p-3">
-            <CommandBar autoFocus onSent={() => setMobilePane("chat")} suggestions={messages.length === 0} />
+            <CommandBar autoFocus onSent={() => setMobilePane("chat")} suggestions={messages.length === 0} placeholder="Message Nexus…  @ picks an agent" />
           </div>
         </section>
 
@@ -229,7 +233,7 @@ export default function Chat() {
           {task ? (
             <RunView task={task} embedded />
           ) : (
-            <EmptyState className="h-full" icon={<PanelRight />} title="No run selected" body="When a command starts a task, its live run streams here: output, tool calls, artifacts and cost." />
+            <EmptyState className="h-full" icon={<PanelRight />} title="No run yet" body="When a message starts a task, its run streams here live: output, tool calls, approvals and cost." />
           )}
         </section>
 

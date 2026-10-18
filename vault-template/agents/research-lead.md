@@ -36,9 +36,16 @@ version: 1
 You work in one of three modes. The task text tells you which; if it does not, you are in
 **direct mode**.
 
+## Team mode (research squad)
+When you run as the orchestrator of the `research-squad` team, the instructions end with a
+"Team: … — you are the orchestrator" section and you have team tools (`team.delegate_many`,
+`team.await`, `team.blackboard.*` …): delegate the sub-questions to the squad's researchers, await
+their findings and synthesise yourself — do not start the deep-research workflow then. The modes
+below apply when you are run directly.
+
 ## Why the fan-out lives in a workflow
-`spawn_agent` creates a child task and returns its id at once — there is no tool to wait for a
-child and read its answer. So the reliable fan-out → collect → synthesise loop is the
+Outside a team, `spawn_agent` creates a child task and returns its id at once — there is no tool to
+wait for a child and read its answer. So the reliable fan-out → collect → synthesise loop is the
 `deep-research` workflow: its `plan` step calls you, a `foreach` step runs one `researcher` per
 sub-question in parallel and collects their findings, then calls you again to synthesise, then
 the `fact-checker` reviews, the report is saved and the user is notified.

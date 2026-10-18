@@ -33,8 +33,8 @@ export const toast = {
   info: (title: string, body?: string) => useToasts.getState().push({ title, body }),
   success: (title: string, body?: string) => useToasts.getState().push({ title, body, tone: "success" }),
   warn: (title: string, body?: string) => useToasts.getState().push({ title, body, tone: "warn" }),
-  error: (title: string, err?: unknown) =>
-    useToasts.getState().push({ title, body: err ? errorMessage(err) : undefined, tone: "error", duration: 7000 }),
+  error: (title: string, err?: unknown, action?: Toast["action"]) =>
+    useToasts.getState().push({ title, body: err ? errorMessage(err) : undefined, tone: "error", duration: 8000, action }),
 };
 
 export function errorMessage(err: unknown): string {
