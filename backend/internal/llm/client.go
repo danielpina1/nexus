@@ -144,6 +144,9 @@ func New(cfg Config, opts ...Option) (*Client, error) {
 		},
 	}
 	for name, p := range cfg.Providers {
+		if isCLIAPI(p.api()) {
+			continue
+		}
 		base, _ := NormalizeBaseURL(p.BaseURL) // validated above
 		c.bases[name] = base
 		hc, err := providerHTTPClient(p)
@@ -634,7 +637,12 @@ func (c *Client) ChatTarget(ctx context.Context, t Target, req kernel.ChatReques
 	start := time.Now()
 	var res *ChatResult
 	var err error
-	if pc.api() == APIAnthropic {
+	if isCLIAPI(pc.api()) {
+		res, err = c.cliChat(ctx, t, pc, req)
+		if err == nil && stream && onDelta != nil {
+			counted(res.Response.Message.Content) // one delta: the CLI answers in one piece
+		}
+	} else if pc.api() == APIAnthropic {
 		res, err = c.anthropicChat(ctx, t, pc, req, stream, counted)
 	} else {
 		res, err = c.openaiChat(ctx, t, pc, req, stream, counted)
@@ -711,7 +719,7 @@ func (c *Client) EmbedTarget(ctx context.Context, t Target, inputs []string) ([]
 	if !ok {
 		return nil, fmt.Errorf("llm: unknown provider %q", t.Provider)
 	}
-	if pc.api() == APIAnthropic {
+	if pc.api() == APIAnthropic || isCLIAPI(pc.api()) {
 		return nil, fmt.Errorf("llm: %s: %w", t.Provider, ErrNoEmbeddings)
 	}
 	start := time.Now()

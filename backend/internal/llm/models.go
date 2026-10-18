@@ -32,6 +32,13 @@ func (c *Client) ListModels(ctx context.Context, provider string) ([]ModelInfo, 
 	if !ok {
 		return nil, fmt.Errorf("llm: unknown provider %q", provider)
 	}
+	if isCLIAPI(pc.api()) {
+		var out []ModelInfo
+		for _, id := range cliModels[pc.api()] {
+			out = append(out, ModelInfo{ID: id})
+		}
+		return out, nil
+	}
 	var out []ModelInfo
 	seen := map[string]bool{}
 	after := ""
