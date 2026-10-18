@@ -80,20 +80,24 @@ runtime.browser:
 
 # --- Native agents (assistant, researcher, …) through local models ------------
 # Same schema as the Hub's llm section. Check with `nexus-node llm check`.
-node.llm:
-  default_provider: ollama
-  aliases_auto: true
-  providers:
-    ollama:
-      base_url: http://localhost:11434/v1
-      api: openai
-      auth: none
-      timeout: 300s
-  aliases:
-    fast-local: { provider: ollama, model: "qwen2.5:7b" }
-    embed:      { provider: ollama, model: "nomic-embed-text" }
-    smart:      { provider: ollama, model: CHANGE_ME }   # auto: best pulled model
-    best:       { provider: ollama, model: CHANGE_ME }
+# Default: no local models (agents use Claude Code / Codex). --with-ollama
+# uncomments this block for the native ollama/openai/browser runtimes.
+# >>> ollama
+#~ node.llm:
+#~   default_provider: ollama
+#~   aliases_auto: true
+#~   providers:
+#~     ollama:
+#~       base_url: http://localhost:11434/v1
+#~       api: openai
+#~       auth: none
+#~       timeout: 300s
+#~   aliases:
+#~     fast-local: { provider: ollama, model: "qwen2.5:7b" }
+#~     embed:      { provider: ollama, model: "nomic-embed-text" }
+#~     smart:      { provider: ollama, model: CHANGE_ME }   # auto: best pulled model
+#~     best:       { provider: ollama, model: CHANGE_ME }
+# <<< ollama
 
 # --- Web research tools (web.search / web.fetch / web.extract) -----------------
 # docs/RESEARCH.md. DuckDuckGo works with no setup but is rate-limited; a

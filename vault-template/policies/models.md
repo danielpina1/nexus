@@ -9,13 +9,18 @@ name: Model aliases and runtimes
 #   claude-code = Claude Code CLI, logged in with your Claude Pro/Max subscription
 #   codex       = OpenAI Codex CLI, logged in with your ChatGPT Plus/Pro subscription
 #   ollama      = Nexus's native agent loop on a local Ollama model (free, private)
+# Default: subscriptions only (Claude Code, then Codex); no local models run.
+# Simple work uses Claude Code with the fast-local alias (Haiku). To use a
+# local Ollama model too, add `ollama` to a list, e.g. simple: [ollama, codex, claude-code],
+# and enable the Ollama provider in nexus.yaml / node.yaml.
 # An agent can set its own order with `runtimes: [codex, claude-code]`.
 runtimes:
-  simple: [ollama, codex, claude-code]
-  medium: [claude-code, codex, ollama]
+  simple: [claude-code, codex]
+  medium: [claude-code, codex]
   heavy:  [claude-code, codex]
 # Aliases used by the native runtimes (ollama/openai/browser) and the hub
-# (router, memory). CHANGE_ME = let Nexus pick from the models the provider
+# (router, memory) — only when an Ollama/API provider is configured; with
+# subscriptions only they are unused. CHANGE_ME = let Nexus pick from the models the provider
 # lists (aliases_auto). The model names below are suggestions for a Mac with
 # 16–32 GB of RAM; pull them with `ollama pull <name>`.
 aliases:

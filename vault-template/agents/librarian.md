@@ -5,7 +5,7 @@ name: Librarian
 description: Processes captures and episodes into the vault — summarizes, tags, extracts people,
   projects, products and facts, and links notes. Runs in the background.
 icon: books
-runtime: ollama
+runtime: auto
 model: fast-local
 tier: simple
 node: { tags: [any] }
