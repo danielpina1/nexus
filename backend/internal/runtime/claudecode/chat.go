@@ -292,6 +292,9 @@ func answerText(in *nexusv1.RunInput) string {
 
 // interceptPermission is the bridge's Intercept hook.
 func (r *run) interceptPermission(ctx context.Context, tool string, input json.RawMessage) (mcp.PermissionDecision, bool) {
+	if d, ok := denyBackground(tool, input); ok {
+		return d, true
+	}
 	if tool != AskUserQuestionTool {
 		return mcp.PermissionDecision{}, false
 	}
@@ -354,4 +357,25 @@ func (r *run) deliverAnswer(in *nexusv1.RunInput) bool {
 	default:
 	}
 	return true
+}
+
+// BackgroundDenied is the message for Bash calls with run_in_background.
+const BackgroundDenied = "Run commands in the foreground; for parallel work use the Nexus spawn_agent / team tools so the work is tracked."
+
+// denyBackground refuses tools that would leave untracked work behind.
+func denyBackground(tool string, input json.RawMessage) (mcp.PermissionDecision, bool) {
+	for _, t := range BackgroundTools {
+		if tool == t {
+			return mcp.PermissionDecision{Behavior: "deny", Message: tool + " is disabled in Nexus runs. " + BackgroundDenied}, true
+		}
+	}
+	if tool == "Bash" {
+		var in struct {
+			RunInBackground bool `json:"run_in_background"`
+		}
+		if json.Unmarshal(input, &in) == nil && in.RunInBackground {
+			return mcp.PermissionDecision{Behavior: "deny", Message: BackgroundDenied}, true
+		}
+	}
+	return mcp.PermissionDecision{}, false
 }

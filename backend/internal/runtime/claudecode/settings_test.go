@@ -50,7 +50,7 @@ func TestArgsForAgentSettings(t *testing.T) {
 			name: "non-coding defaults", a: agent("researcher", "smart"), nexus: "/w/.nexus-mcp.json",
 			want: map[string]string{
 				"--model": "sonnet", "--allowedTools": "mcp__nexus",
-				"--disallowedTools":        "Bash,Edit,MultiEdit,Write,NotebookEdit,WebSearch,WebFetch",
+				"--disallowedTools":        "Bash,Edit,MultiEdit,Write,NotebookEdit,WebSearch,WebFetch,Task,Agent,BashOutput,KillShell,KillBash",
 				"--permission-prompt-tool": "mcp__nexus__nexus_permission",
 				"--append-system-prompt":   "Be a researcher.",
 				"--max-turns":              "",
@@ -64,19 +64,19 @@ func TestArgsForAgentSettings(t *testing.T) {
 			}),
 			want: map[string]string{
 				"--model": "opus", "--allowedTools": "mcp__nexus,WebSearch,WebFetch",
-				"--disallowedTools": "Bash,Edit,MultiEdit,Write,NotebookEdit,Task",
+				"--disallowedTools": "Bash,Edit,MultiEdit,Write,NotebookEdit,Task,Agent,BashOutput,KillShell,KillBash",
 				"--permission-mode": "plan", "--max-turns": "30",
 			},
 		},
 		{
 			name: "coding agent keeps built-ins", nexus: "/w/.nexus-mcp.json",
 			a:    withClaude(t, agent("code-fixer", "best"), map[string]any{"coding": true}),
-			want: map[string]string{"--model": "opus", "--allowedTools": "mcp__nexus", "--disallowedTools": ""},
+			want: map[string]string{"--model": "opus", "--allowedTools": "mcp__nexus", "--disallowedTools": "Task,Agent,BashOutput,KillShell,KillBash"},
 		},
 		{
 			name: "workdir makes a coding agent", cfg: Config{Workdirs: map[string]string{"coder": "/src"}},
 			a:    agent("coder", "best"),
-			want: map[string]string{"--disallowedTools": "", "--allowedTools": ""},
+			want: map[string]string{"--disallowedTools": "Task,Agent,BashOutput,KillShell,KillBash", "--allowedTools": ""},
 		},
 		{
 			name: "bypassPermissions from an agent note is ignored", cfg: Config{PermissionMode: "acceptEdits"}, nexus: "/w/c.json",
@@ -86,7 +86,7 @@ func TestArgsForAgentSettings(t *testing.T) {
 		{
 			name: "operator model and empty non-coding list", cfg: Config{Model: "claude-sonnet-4-5", NonCodingDisallowed: []string{}},
 			a:    agent("x", "smart"),
-			want: map[string]string{"--model": "claude-sonnet-4-5", "--disallowedTools": ""},
+			want: map[string]string{"--model": "claude-sonnet-4-5", "--disallowedTools": "Task,Agent,BashOutput,KillShell,KillBash"},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -97,6 +97,10 @@ func TestArgsForAgentSettings(t *testing.T) {
 				got, ok := argValue(args, flag)
 				if want == "" && ok {
 					t.Errorf("%s present (%q): %v", flag, got, args)
+				} else if flag == "--append-system-prompt" {
+					if !strings.HasPrefix(got, want) || !strings.Contains(got, "spawn_agent") {
+						t.Errorf("%s = %q, want prefix %q plus the Nexus run note", flag, got, want)
+					}
 				} else if want != "" && got != want {
 					t.Errorf("%s = %q, want %q: %v", flag, got, want, args)
 				}

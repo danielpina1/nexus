@@ -35,6 +35,22 @@ type AgentSettings struct {
 // WebSearch/WebFetch per agent with claude.allowed_tools).
 var DefaultNonCodingDisallowed = []string{"Bash", "Edit", "MultiEdit", "Write", "NotebookEdit", "WebSearch", "WebFetch"}
 
+// BackgroundTools are Claude Code built-ins that start work Nexus cannot see
+// or wait for: its own subagents (Task, renamed Agent in newer versions) and
+// the background-shell helpers. They are always disallowed (a headless
+// `claude -p` exits after its result and would orphan that work); sub-work
+// goes through Nexus spawn_agent / team tools, which are tracked child tasks.
+// Bash with run_in_background is denied by the permission prompt (chat.go).
+var BackgroundTools = []string{"Task", "Agent", "BashOutput", "KillShell", "KillBash"}
+
+// RunNote is appended to every claude-code run's system prompt.
+const RunNote = `## Running inside Nexus
+You run headless for Nexus; your process ends when you finish your answer, so nothing may keep running after it.
+- Do not start background work (no background shells, no built-in subagents). Run commands in the foreground.
+- For sub-work use the Nexus tools: spawn_agent (a tracked child task for another agent; its result reaches the user as its own task) or, in a team, team.delegate / team.await. Wait for results you report on (team.await, or delegate with wait: true).
+- Never say you will "report back later" or that something "is running in the background": either finish the work now, or say plainly which Nexus task is handling it.
+- To ask the user something, use AskUserQuestion or the ask_user tool.`
+
 // agentPermissionModes are the permission modes an agent note may choose.
 var agentPermissionModes = map[string]bool{"default": true, "acceptEdits": true, "plan": true}
 
@@ -89,7 +105,11 @@ func (r *Runtime) ArgsFor(a *nexusv1.RunAssignment, nexusConfig string) []string
 	if s.PermissionMode != "" && agentPermissionModes[s.PermissionMode] {
 		mode = s.PermissionMode
 	}
-	args := r.args(model, a.GetInstructions(), nexusConfig, mode)
+	instructions := strings.TrimSpace(a.GetInstructions())
+	if instructions != "" {
+		instructions += "\n\n"
+	}
+	args := r.args(model, instructions+RunNote, nexusConfig, mode)
 	extra := []string{}
 	allowed := []string{}
 	if nexusConfig != "" {
@@ -111,6 +131,7 @@ func (r *Runtime) ArgsFor(a *nexusv1.RunAssignment, nexusConfig string) []string
 			}
 		}
 	}
+	disallowed = append(disallowed, BackgroundTools...)
 	disallowed = append(disallowed, s.DisallowedTools...)
 	if len(disallowed) > 0 {
 		extra = append(extra, "--disallowedTools", strings.Join(dedupe(disallowed), ","))
