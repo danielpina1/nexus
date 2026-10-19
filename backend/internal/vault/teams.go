@@ -244,6 +244,14 @@ func (c *TeamCatalog) Reload(ctx context.Context) error {
 		}
 		list = append(list, e)
 	}
+	// Nested teams: unknown team members and cycles disable the team.
+	all := map[string]*nexusv1.Team{}
+	for id, e := range byID {
+		all[id] = e.team
+	}
+	for _, e := range list {
+		checkTeamRefs(e.team, all)
+	}
 	sort.SliceStable(list, func(i, j int) bool { return list[i].team.Id < list[j].team.Id })
 	c.mu.Lock()
 	c.byID, c.sorted = byID, list
@@ -257,6 +265,9 @@ func (c *TeamCatalog) crossCheck(ctx context.Context, t *nexusv1.Team) {
 		return
 	}
 	check := func(what, id string) {
+		if strings.HasPrefix(id, teamdef.TeamRefPrefix) {
+			return // nested team: checked by checkTeamRefs
+		}
 		a, _, _, err := c.agents.GetAgent(ctx, id)
 		switch {
 		case err != nil:
@@ -319,6 +330,16 @@ func (c *TeamCatalog) UpsertTeam(ctx context.Context, markdown, commitMessage st
 		t.Enabled = false
 	}
 	c.crossCheck(ctx, t)
+	all := map[string]*nexusv1.Team{}
+	c.mu.RLock()
+	for tid, e := range c.byID {
+		all[tid] = e.team
+	}
+	c.mu.RUnlock()
+	if id != "" {
+		all[id] = t
+	}
+	checkTeamRefs(t, all)
 	if validateOnly {
 		return t, nil
 	}
@@ -381,4 +402,59 @@ func (h AgentHandler) UpsertSkill(ctx context.Context, r *connect.Request[nexusv
 		return nil, connectErr(err)
 	}
 	return connect.NewResponse(&nexusv1.UpsertSkillResponse{Skill: s}), nil
+}
+
+// checkTeamRefs validates a team's nested-team members ("team:<id>")
+// against all teams (t included): unknown teams are errors, disabled ones
+// warnings, and a member chain that leads back to t is an error (a team run
+// cannot contain itself, directly or indirectly).
+func checkTeamRefs(t *nexusv1.Team, all map[string]*nexusv1.Team) {
+	bad := false
+	for _, m := range t.Members {
+		sub := teamdef.MemberTeam(m)
+		if sub == "" || sub == t.Id { // self-reference: reported by Parse
+			continue
+		}
+		st, ok := all[sub]
+		if !ok {
+			t.Errors = append(t.Errors, fmt.Sprintf("member %s: unknown team %q", m.Role, sub))
+			bad = true
+			continue
+		}
+		if !st.GetEnabled() && len(st.GetErrors()) == 0 {
+			t.Warnings = append(t.Warnings, fmt.Sprintf("member %s: team %q is disabled", m.Role, sub))
+		}
+		if path := teamCycle(sub, t.Id, all, map[string]bool{}); path != nil {
+			t.Errors = append(t.Errors, fmt.Sprintf("member %s: nested teams form a cycle (%s)", m.Role,
+				strings.Join(append([]string{t.Id}, path...), " → ")))
+			bad = true
+		}
+	}
+	if bad {
+		t.Enabled = false
+	}
+}
+
+// teamCycle returns the chain of team ids from `from` to `target` through
+// nested-team members, or nil when target is not reachable.
+func teamCycle(from, target string, all map[string]*nexusv1.Team, seen map[string]bool) []string {
+	if from == target {
+		return []string{target}
+	}
+	if seen[from] {
+		return nil
+	}
+	seen[from] = true
+	t, ok := all[from]
+	if !ok {
+		return nil
+	}
+	for _, m := range t.Members {
+		if sub := teamdef.MemberTeam(m); sub != "" {
+			if rest := teamCycle(sub, target, all, seen); rest != nil {
+				return append([]string{from}, rest...)
+			}
+		}
+	}
+	return nil
 }

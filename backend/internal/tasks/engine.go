@@ -638,8 +638,8 @@ func (e *Engine) assign(ctx context.Context, id, agentID string, o assignOpts) (
 		}
 		r.task.AgentId, r.task.Tier, r.task.CurrentRunId, r.task.NodeId = agentID, tier, runID, ""
 		r.questionID, r.approvalID = "", ""
-		if r.task.Phase == phaseWaitingSlot || r.task.Phase == phaseStrategy {
-			r.task.Phase = ""
+		if r.task.Phase == phaseWaitingSlot || r.task.Phase == phaseStrategy || r.task.Phase == phaseWaitingChildren {
+			r.task.Phase = "" // a new run (e.g. "Try harder" while waiting for sub-tasks)
 		}
 		return nil
 	})
@@ -926,6 +926,9 @@ func (e *Engine) cancel(ctx context.Context, id, reason string) (bool, error) {
 			return nil
 		}
 		runID, nodeID = r.task.CurrentRunId, r.task.NodeId
+		if r.task.Phase == phaseWaitingChildren {
+			nodeID = "" // its run already ended
+		}
 		if r.task.Summary == "" {
 			r.task.Summary = reason
 		}

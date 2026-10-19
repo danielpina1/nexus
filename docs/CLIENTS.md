@@ -89,7 +89,7 @@ keys, App Groups shared between app, share extension, widgets and intents.
 |---|---|
 | **Overview** | Live wall of running agents, machines health, inbox, today's cost (cloud vs local), recent results, quick command bar. |
 | **Inbox** | Same as iOS, plus bulk actions. |
-| **Chat** | A conversation with the assistant (source `chat`, one `conversation_id` per chat; no router, see AGENTS.md §2.4). Replies stream into the bubble with Markdown and a caret, labelled with agent · engine · exact model id; tool calls are compact chips, questions and approvals appear inline. Side pane: the full live run. |
+| **Chat** | A conversation with the assistant (source `chat`, one `conversation_id` per chat; no router, see AGENTS.md §2.4). Replies stream into the bubble with Markdown and a caret, labelled with agent · engine · exact model id; tool calls are compact chips, questions and approvals appear inline. Chat tasks (params `chat: true`) send no result notice and no result push: the reply is in the chat (approvals and questions still notify). A reply whose sub-tasks still run shows "Waiting for N sub-tasks…" (phase `waiting_children`) until the agent assembles the final answer. Side pane: the full live run. |
 | **Tasks & Runs** | Search/filter by agent, node, status, time, cost. Full trace: prompts, tool calls, outputs, approvals, events. Replay, retry, escalate, compare runs side by side. |
 | **Agent Studio** | Create/edit agent notes with a form + raw Markdown; test chat in a sandbox (dry-run); version history with diffs; usage stats per agent. |
 | **Workflow Builder** | Visual node editor (trigger → steps → branches → approvals) ↔ workflow note; dry-run; run history. |

@@ -326,7 +326,7 @@ func (r *runner) fail(ctx context.Context, st *Step, sc *scope, row *StepInfo, e
 
 func (r *runner) do(ctx context.Context, st *Step, sc *scope, path string, row *StepInfo, resuming bool) (stepVal, error) {
 	switch st.Kind {
-	case KindAgent:
+	case KindAgent, KindTeam:
 		return r.doAgent(ctx, st, sc, row)
 	case KindTool:
 		return r.doTool(ctx, st, sc, row, resuming)
@@ -367,22 +367,44 @@ func isTerminalTask(s nexusv1.TaskState) bool {
 		s == nexusv1.TaskState_TASK_STATE_CANCELLED
 }
 
+// doAgent runs an agent step, or a team step (KindTeam): the task is the
+// root of a team run and the step waits until the run ends; its output is
+// the team's result (the orchestrator's final answer, or the strategy's).
 func (r *runner) doAgent(ctx context.Context, st *Step, sc *scope, row *StepInfo) (stepVal, error) {
+	what, who := "agent", st.Agent
+	if st.Kind == KindTeam {
+		what, who = "team", st.Team
+	}
 	prompt, err := RenderString(st.Task, r.vars(sc, nil))
 	if err != nil {
 		return stepVal{}, permanentError{fmt.Errorf("task: %w", err)}
 	}
+	var inputs map[string]any
+	if len(st.Inputs) > 0 {
+		in, err := RenderValue(st.Inputs, r.vars(sc, nil))
+		if err != nil {
+			return stepVal{}, permanentError{fmt.Errorf("inputs: %w", err)}
+		}
+		inputs, _ = in.(map[string]any)
+	}
 	if r.run.DryRun {
-		row.Detail = mustJSON(map[string]any{"would_run": "agent", "agent": st.Agent, "model": st.Model, "task": prompt})
-		return stepVal{State: StepDryRun, Output: fmt.Sprintf("[dry run: agent %s]", st.Agent),
-			Result: map[string]any{"dry_run": true, "agent": st.Agent, "task": prompt}}, nil
+		row.Detail = mustJSON(map[string]any{"would_run": what, what: who, "model": st.Model, "task": prompt, "inputs": inputs})
+		res := map[string]any{"dry_run": true, what: who, "task": prompt}
+		if st.Kind == KindTeam {
+			res["team_id"] = who
+		}
+		return stepVal{State: StepDryRun, Output: fmt.Sprintf("[dry run: %s %s]", what, who), Result: res}, nil
 	}
 	te, ok := r.s.tasks()
 	if !ok {
 		return stepVal{}, permanent("no task engine available")
 	}
 	if row.TaskID == "" {
-		params := map[string]any{"workflow_id": r.wf.ID, "workflow_run_id": r.run.ID, "workflow_step": row.Path}
+		params := map[string]any{}
+		for k, v := range inputs {
+			params[k] = v
+		}
+		params["workflow_id"], params["workflow_run_id"], params["workflow_step"] = r.wf.ID, r.run.ID, row.Path
 		if st.Model != "" {
 			params["model"] = st.Model
 		}
@@ -390,12 +412,13 @@ func (r *runner) doAgent(ctx context.Context, st *Step, sc *scope, row *StepInfo
 		if err != nil {
 			return stepVal{}, permanentError{err}
 		}
-		t, err := te.CreateTask(ctx, &nexusv1.CreateTaskRequest{
-			Prompt: prompt, AgentId: st.Agent, Params: ps, Source: "workflow",
+		req := &nexusv1.CreateTaskRequest{
+			Prompt: prompt, AgentId: st.Agent, TeamId: st.Team, Params: ps, Source: "workflow",
 			IdempotencyKey: fmt.Sprintf("%s/%s#%d", r.run.ID, row.Path, row.Attempt),
-		})
+		}
+		t, err := te.CreateTask(ctx, req)
 		if err != nil {
-			return stepVal{}, fmt.Errorf("create task for agent %s: %w", st.Agent, err)
+			return stepVal{}, fmt.Errorf("create task for %s %s: %w", what, who, err)
 		}
 		row.TaskID, row.State = t.GetId(), StepWaiting
 		r.save(ctx, row)
@@ -412,7 +435,7 @@ func (r *runner) doAgent(ctx context.Context, st *Step, sc *scope, row *StepInfo
 	if err != nil {
 		if errors.Is(context.Cause(ctx), errCancelled) || errors.Is(context.Cause(ctx), errTimeout) {
 			if cerr := te.CancelTask(context.WithoutCancel(ctx), row.TaskID); cerr != nil {
-				r.s.log.Warn("workflow: cancel agent task", "task", row.TaskID, "err", cerr)
+				r.s.log.Warn("workflow: cancel "+what+" task", "task", row.TaskID, "err", cerr)
 			}
 		}
 		return stepVal{}, err
@@ -422,9 +445,15 @@ func (r *runner) doAgent(ctx context.Context, st *Step, sc *scope, row *StepInfo
 		res = task.GetResult().AsMap()
 	}
 	res["task_id"] = task.GetId()
+	if st.Kind == KindTeam {
+		res["team_id"] = st.Team
+		if c := task.GetTreeCost().GetAmount(); c != nil {
+			res["cost_minor_units"] = c.GetMinorUnits()
+		}
+	}
 	if task.GetState() != nexusv1.TaskState_TASK_STATE_SUCCEEDED {
 		state := strings.ToLower(strings.TrimPrefix(task.GetState().String(), "TASK_STATE_"))
-		msg := fmt.Sprintf("agent %s task %s %s", st.Agent, task.GetId(), state)
+		msg := fmt.Sprintf("%s %s task %s %s", what, who, task.GetId(), state)
 		if task.GetSummary() != "" {
 			msg += ": " + task.GetSummary()
 		}

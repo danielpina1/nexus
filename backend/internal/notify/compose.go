@@ -224,7 +224,10 @@ func (c *Composer) question(ctx context.Context, ev *nexusv1.Event, q *nexusv1.Q
 }
 
 func (c *Composer) task(ctx context.Context, t *nexusv1.Task) []Message {
-	if t == nil || !TaskTerminal(t.State) || t.ParentId != "" || t.Source == "workflow" { // workflow steps: the run notifies once
+	// Workflow steps: the run notifies once. Chat tasks: the reply is shown in
+	// the chat (approvals and questions still notify). Sandbox test runs
+	// belong to the architect's test results.
+	if t == nil || !TaskTerminal(t.State) || t.ParentId != "" || t.Source == "workflow" || t.Source == "chat" || t.Source == "sandbox" {
 		return nil
 	}
 	if c.terminal[t.Id] {

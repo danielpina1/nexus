@@ -103,3 +103,68 @@ func TestTemplateTeamsAndSkills(t *testing.T) {
 		t.Fatalf("skilled = %v", a)
 	}
 }
+
+// Nested teams: a member "team:<id>" must name a known team, and a chain of
+// nested teams must not lead back to the team (validate_only and reload).
+func TestNestedTeamValidation(t *testing.T) {
+	ctx := context.Background()
+	root := copyTemplate(t)
+	v := newVault(t, Options{Root: root})
+	cat, err := NewCatalog(ctx, v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	teams, err := NewTeamCatalog(ctx, v, cat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	outer := "---\ntype: team\nid: outer\ndescription: d\norchestrator: research-lead\nmembers:\n  - researcher\n  - team:debate-panel\n  - {team: research-squad, role: squad, when: big questions}\n---\n"
+	tm, err := teams.UpsertTeam(ctx, outer, "", false)
+	if err != nil || !tm.Enabled {
+		t.Fatalf("outer = %v, %v", tm, err)
+	}
+	if tm.Members[1].AgentId != "team:debate-panel" || tm.Members[1].Role != "debate-panel" || tm.Members[2].AgentId != "team:research-squad" || tm.Members[2].Role != "squad" {
+		t.Fatalf("members = %v", tm.Members)
+	}
+
+	unknown := "---\ntype: team\nid: lost\ndescription: d\norchestrator: research-lead\nmembers: [team:nowhere]\n---\n"
+	tm, _ = teams.UpsertTeam(ctx, unknown, "", true)
+	if tm.Enabled || !strings.Contains(strings.Join(tm.Errors, ";"), `unknown team "nowhere"`) {
+		t.Fatalf("unknown team = %v", tm.Errors)
+	}
+
+	// research-squad → loop → outer → research-squad.
+	loop := "---\ntype: team\nid: loop\ndescription: d\norchestrator: research-lead\nmembers: [team:outer]\n---\n"
+	if tm, err := teams.UpsertTeam(ctx, loop, "", false); err != nil || !tm.Enabled {
+		t.Fatalf("loop = %v, %v", tm, err)
+	}
+	squad, _, md, _ := teams.GetTeam(ctx, "research-squad")
+	if squad == nil {
+		t.Fatal("no research-squad")
+	}
+	cyc := strings.Replace(md, "members:\n", "members:\n  - team:loop\n", 1)
+	if cyc == md {
+		t.Fatalf("could not edit research-squad members:\n%s", md)
+	}
+	tm, _ = teams.UpsertTeam(ctx, cyc, "", true)
+	if tm.Enabled || !strings.Contains(strings.Join(tm.Errors, ";"), "research-squad → loop → outer → research-squad") {
+		t.Fatalf("cycle via validate_only = %v", tm.Errors)
+	}
+	if _, err := teams.UpsertTeam(ctx, cyc, "", false); err == nil {
+		t.Fatal("cyclic team written")
+	}
+	// Written by hand (e.g. from Obsidian): the reload disables every team of the cycle.
+	writeFile(t, root, "teams/research-squad.md", cyc)
+	if err := teams.Reload(ctx); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"research-squad", "loop", "outer"} {
+		tm, _, _, _ := teams.GetTeam(ctx, id)
+		if tm.Enabled || !strings.Contains(strings.Join(tm.Errors, ";"), "cycle") {
+			t.Errorf("%s after reload: enabled %v errors %v", id, tm.Enabled, tm.Errors)
+		}
+	}
+	if tm, _, _, _ := teams.GetTeam(ctx, "debate-panel"); !tm.Enabled {
+		t.Errorf("debate-panel disabled: %v", tm.Errors)
+	}
+}

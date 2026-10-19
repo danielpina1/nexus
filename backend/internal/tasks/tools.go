@@ -17,6 +17,10 @@ import (
 // ErrNotImplemented is returned by stub tools.
 var ErrNotImplemented = errors.New("not implemented yet")
 
+const spawnAgentDescription = "Create a sub-task for another agent (by agent_id, or leave it empty to let the router choose). Returns the child task id at once. " +
+	"Do not wait for it: your task never finishes before its sub-tasks; when your run ends while they run, the hub waits and resumes you with their results " +
+	"(context sub_task_results) to give the final answer."
+
 // hubTools returns the hub-side tools owned by the task engine.
 func (e *Engine) hubTools() []kernel.Tool {
 	return []kernel.Tool{
@@ -34,7 +38,7 @@ func (e *Engine) hubTools() []kernel.Tool {
 		}, F: e.toolNotify},
 		kernel.ToolFunc{S: kernel.ToolSpec{
 			Name:        "spawn_agent",
-			Description: "Create a sub-task for another agent (by agent_id, or leave it empty to let the router choose). Returns the child task id.",
+			Description: spawnAgentDescription,
 			InputSchema: json.RawMessage(`{"type":"object","properties":{"prompt":{"type":"string"},"agent_id":{"type":"string"},"params":{"type":"object"}},"required":["prompt"]}`),
 			ActionClass: nexusv1.ActionClass_ACTION_CLASS_WRITE_INTERNAL,
 		}, F: e.toolSpawn},

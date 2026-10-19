@@ -18,6 +18,7 @@ import (
 // Step kinds.
 const (
 	KindAgent    = "agent"
+	KindTeam     = "team" // start a team run (docs/SWARMS.md) and wait for its result
 	KindTool     = "tool"
 	KindIf       = "if"
 	KindForeach  = "foreach"
@@ -97,6 +98,7 @@ type Step struct {
 	If   string `json:"if,omitempty"`
 
 	Agent string `json:"agent,omitempty"`
+	Team  string `json:"team,omitempty"`
 	Task  string `json:"task,omitempty"`
 	Model string `json:"model,omitempty"`
 
@@ -204,7 +206,9 @@ type rawStep struct {
 	Name           string         `yaml:"name"`
 	If             string         `yaml:"if"`
 	Agent          string         `yaml:"agent"`
+	Team           string         `yaml:"team"`
 	Task           string         `yaml:"task"`
+	Prompt         string         `yaml:"prompt"` // alias of task
 	Model          string         `yaml:"model"`
 	Tool           string         `yaml:"tool"`
 	With           map[string]any `yaml:"with"`
@@ -490,6 +494,7 @@ func (p *parser) step(n *yaml.Node, where string) *Step {
 		}
 	}
 	add(KindAgent, r.Agent != "")
+	add(KindTeam, r.Team != "")
 	add(KindTool, r.Tool != "")
 	add(KindWorkflow, r.Workflow != "")
 	add(KindApprove, r.Approve.Kind != 0)
@@ -501,7 +506,7 @@ func (p *parser) step(n *yaml.Node, where string) *Step {
 	add(KindGroup, r.Foreach == "" && len(r.Do) > 0)
 	switch len(kinds) {
 	case 0:
-		p.errf("%s: no step kind (agent, tool, if/then, foreach, parallel, approve, ask, wait, workflow or do)", where)
+		p.errf("%s: no step kind (agent, team, tool, if/then, foreach, parallel, approve, ask, wait, workflow or do)", where)
 		return nil
 	case 1:
 		s.Kind = kinds[0]
@@ -534,9 +539,24 @@ func (p *parser) step(n *yaml.Node, where string) *Step {
 
 	switch s.Kind {
 	case KindAgent:
-		s.Agent, s.Task, s.Model = r.Agent, r.Task, r.Model
+		s.Agent, s.Task, s.Model = r.Agent, firstNonEmpty(r.Task, r.Prompt), r.Model
 		if strings.TrimSpace(s.Task) == "" {
 			p.errf("%s: agent step needs a task", where)
+		}
+		if len(r.Inputs) > 0 {
+			s.Inputs = normMap(r.Inputs)
+		}
+	case KindTeam:
+		s.Team, s.Task = strings.TrimSpace(r.Team), firstNonEmpty(r.Task, r.Prompt)
+		s.Inputs = normMap(r.Inputs)
+		if strings.TrimSpace(s.Task) == "" {
+			p.errf("%s: team step needs a task (or prompt)", where)
+		}
+		if strings.HasPrefix(s.Team, "team:") {
+			s.Team = strings.TrimPrefix(s.Team, "team:")
+		}
+		if r.Model != "" {
+			p.errf("%s: model does not apply to a team step (set it on the team's agents)", where)
 		}
 	case KindTool:
 		s.Tool = r.Tool

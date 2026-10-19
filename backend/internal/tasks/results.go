@@ -203,7 +203,7 @@ func (e *Engine) finish(ctx context.Context, r *taskRec, runID string, nt *nexus
 	if err := r.to(s); err != nil {
 		return err
 	}
-	if r.task.ParentId == "" && r.task.Source != "workflow" && s != stCancelled { // workflows report once, at the end
+	if s != stCancelled && wantsResultNotice(r) {
 		r.extra = append(r.extra, resultNotice(r.task))
 	}
 	return nil
@@ -362,6 +362,7 @@ func (e *Engine) reviewDone(ctx context.Context, critic *nexusv1.Task, x *taskEx
 
 // finishReviewed makes the candidate answer final.
 func (e *Engine) finishReviewed(ctx context.Context, taskID, note string) {
+	kids := e.children(ctx, taskID)
 	_, err := e.mutate(ctx, taskID, actorHub, func(r *taskRec) error {
 		if IsTerminal(r.task.State) || r.task.Phase != phaseReviewing {
 			return nil
@@ -370,10 +371,15 @@ func (e *Engine) finishReviewed(ctx context.Context, taskID, note string) {
 		if note != "" {
 			r.extra = append(r.extra, hubOutput(r.task.CurrentRunId, note))
 		}
+		if kids.blocks() {
+			// Not before its sub-tasks (children.go).
+			e.parkForChildren(r, kids)
+			return nil
+		}
 		if err := r.to(stSucceeded); err != nil {
 			return err
 		}
-		if r.task.ParentId == "" && r.task.Source != "workflow" {
+		if wantsResultNotice(r) {
 			r.extra = append(r.extra, resultNotice(r.task))
 		}
 		return nil

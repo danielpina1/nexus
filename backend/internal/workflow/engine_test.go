@@ -40,12 +40,16 @@ func newFakeTasks() *fakeTasks {
 }
 
 func (f *fakeTasks) finish(t *nexusv1.Task) {
-	if msg, ok := f.fail[t.AgentId]; ok {
+	who := t.AgentId
+	if t.TeamId != "" {
+		who = "team:" + t.TeamId
+	}
+	if msg, ok := f.fail[who]; ok {
 		t.State, t.Summary = nexusv1.TaskState_TASK_STATE_FAILED, msg
 		return
 	}
-	t.State, t.Summary = nexusv1.TaskState_TASK_STATE_SUCCEEDED, "done:"+t.AgentId
-	t.Result, _ = structpb.NewStruct(map[string]any{"agent": t.AgentId})
+	t.State, t.Summary = nexusv1.TaskState_TASK_STATE_SUCCEEDED, "done:"+who
+	t.Result, _ = structpb.NewStruct(map[string]any{"agent": who})
 }
 
 func (f *fakeTasks) CreateTask(_ context.Context, req *nexusv1.CreateTaskRequest) (*nexusv1.Task, error) {
@@ -55,7 +59,7 @@ func (f *fakeTasks) CreateTask(_ context.Context, req *nexusv1.CreateTaskRequest
 		return proto.Clone(f.tasks[id]).(*nexusv1.Task), nil
 	}
 	f.created = append(f.created, proto.Clone(req).(*nexusv1.CreateTaskRequest))
-	t := &nexusv1.Task{Id: fmt.Sprintf("tsk_%d", len(f.created)), AgentId: req.AgentId, Prompt: req.Prompt,
+	t := &nexusv1.Task{Id: fmt.Sprintf("tsk_%d", len(f.created)), AgentId: req.AgentId, TeamId: req.TeamId, Prompt: req.Prompt,
 		Source: req.Source, State: nexusv1.TaskState_TASK_STATE_RUNNING}
 	if !f.hold {
 		f.finish(t)
@@ -924,5 +928,52 @@ func TestHubTools(t *testing.T) {
 	res, err = s.statusTool().Invoke(context.Background(), kernel.ToolCall{})
 	if err != nil || !strings.Contains(string(res.Output), "running_workflows") {
 		t.Errorf("nexus.status = %s %v", res.Output, err)
+	}
+}
+
+// A team step starts a team run with the rendered prompt and inputs, waits
+// for it and exposes the team's result as the step output.
+func TestTeamStep(t *testing.T) {
+	e := newEnv(t)
+	e.write(t, "t.md", wf("t", `  - id: squad
+    team: research-squad
+    prompt: "Research {{ inputs.topic }}"
+    inputs: { topic: "{{ inputs.topic }}", depth: 2 }
+    timeout: 1h
+  - id: after
+    tool: test.echo
+    with: { out: "{{ steps.squad.output }}", team: "{{ steps.squad.result.team_id }}" }
+`))
+	e.write(t, "bad.md", wf("bad", `  - id: squad
+    team: broken
+    task: go
+`))
+	e.tasks.fail["team:broken"] = "budget exceeded"
+	s := e.service(t)
+	r := waitRun(t, s, start(t, s, StartOptions{WorkflowID: "t", Inputs: map[string]any{"topic": "heat pumps"}}))
+	if r.State != RunSucceeded {
+		t.Fatalf("run = %s %q", r.State, r.Error)
+	}
+	reqs := e.tasks.requests()
+	req := reqs[len(reqs)-1]
+	if req.TeamId != "research-squad" || req.AgentId != "" || req.Prompt != "Research heat pumps" || req.Source != "workflow" {
+		t.Fatalf("request = %v", req)
+	}
+	p := req.Params.AsMap()
+	if p["topic"] != "heat pumps" || p["depth"] != float64(2) || p["workflow_id"] != "t" {
+		t.Fatalf("params = %v", p)
+	}
+	if in := e.lastInput(t, "test.echo"); in["out"] != "done:team:research-squad" || in["team"] != "research-squad" {
+		t.Fatalf("echo = %v", in)
+	}
+	r = waitRun(t, s, start(t, s, StartOptions{WorkflowID: "bad"}))
+	if r.State != RunFailed || !strings.Contains(r.Error, "team broken task") || !strings.Contains(r.Error, "budget exceeded") {
+		t.Fatalf("failed team run = %s %q", r.State, r.Error)
+	}
+	// Dry runs do not start the team.
+	n := len(e.tasks.requests())
+	r = waitRun(t, s, start(t, s, StartOptions{WorkflowID: "t", DryRun: true, Inputs: map[string]any{"topic": "x"}}))
+	if r.State != RunSucceeded || len(e.tasks.requests()) != n {
+		t.Fatalf("dry run = %s, %d requests", r.State, len(e.tasks.requests())-n)
 	}
 }

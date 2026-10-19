@@ -54,6 +54,7 @@ Notes about this workflow, history, ideas…
 | Kind | Example |
 |---|---|
 | `agent` | Run an agent with a task prompt; output is text + structured result. |
+| `team` | Start a team run (`team: <id>`, `prompt`/`task`, `inputs`), wait for it; output = the team's result. |
 | `tool` | Call a tool directly (no LLM). |
 | `if` | `if: "steps.cart.output.total > 120"` (CEL expressions). |
 | `foreach` | Iterate over a list, optional `parallel: 4`. |
@@ -62,6 +63,23 @@ Notes about this workflow, history, ideas…
 | `ask` | Ask the user a question with choices. |
 | `wait` | Wait for time, event or condition. |
 | `workflow` | Call another workflow. |
+
+### Team steps
+
+```yaml
+  - id: squad
+    team: research-squad              # a team id (teams/<id>.md); "team:<id>" also accepted
+    prompt: "Full report: {{ inputs.question }}"   # or task:
+    inputs: { question: "{{ inputs.question }}" }   # rendered, passed as the run's params
+    timeout: 50m                       # cancels the team run when exceeded
+```
+
+The step creates the root task of a team run (`CreateTaskRequest.team_id`, source `workflow`), waits
+until the run ends and fails when the run fails (`on_error: continue` goes on). `steps.<id>.output`
+is the team's final answer (the orchestrator's, or the hub strategy's when the team has none);
+`steps.<id>.result` is its structured result plus `task_id`, `team_id` and `cost_minor_units`. The
+team's own limits apply; `model:` is not allowed (set models on the team's agents). Dry runs do
+not start the team. Example: `vault-template/workflows/squad-report.md`.
 
 ### Triggers
 

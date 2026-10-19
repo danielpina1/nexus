@@ -20,11 +20,19 @@ import (
 const SandboxMarker = "architect_sandbox"
 
 // SandboxTaskCreator is the optional task-engine capability for running an
-// ephemeral (unpublished) agent definition as a sandboxed task. The task
-// engine does not implement it yet (integration point, docs/ARCHITECT.md);
-// until it does, TestRun uses the in-process loop or a simulation.
+// ephemeral (unpublished) agent definition as a sandboxed task: a real task
+// on a real runtime under a strict policy enforced by the hub (the tasks
+// engine implements it, internal/tasks/sandbox.go). TestRun prefers it; without
+// it TestRun uses the in-process loop or a simulation.
 type SandboxTaskCreator interface {
 	CreateSandboxTask(ctx context.Context, agent *nexusv1.Agent, instructions string, req *nexusv1.CreateTaskRequest) (*nexusv1.Task, error)
+}
+
+// SandboxReporter is the optional companion of SandboxTaskCreator: the tool
+// calls a sandbox task made and the actions the hub refused (removed tools
+// and every gated action it auto-denied), for the test results.
+type SandboxReporter interface {
+	SandboxReport(ctx context.Context, taskID string) (calls, blocked []string, err error)
 }
 
 // sandboxAllowed reports whether a tool class may really run in the
@@ -135,6 +143,15 @@ func (s *Service) runCase(ctx context.Context, d *nexusv1.AgentDraft, tc *nexusv
 		t, err = s.sandboxTask(ctx, sc, SandboxAgent(a, tools), instr, tc.Input)
 		if t != nil {
 			r.TaskId, out = t.Id, t.Summary
+			if rep, ok := te.(SandboxReporter); ok {
+				if c, b, rerr := rep.SandboxReport(context.WithoutCancel(ctx), t.Id); rerr == nil {
+					calls = c
+					r.BlockedActions = mergeUnique(r.BlockedActions, b)
+				}
+			}
+			if err == nil && t.State != nexusv1.TaskState_TASK_STATE_SUCCEEDED {
+				err = fmt.Errorf("sandbox task ended %s: %s", strings.ToLower(strings.TrimPrefix(t.State.String(), "TASK_STATE_")), t.Summary)
+			}
 		}
 	} else if hasLLM {
 		r.Mode = "native_loop"

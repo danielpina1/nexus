@@ -112,3 +112,24 @@ func TestParseSkill(t *testing.T) {
 		t.Fatalf("errors = %v", bad.Errors)
 	}
 }
+
+func TestParseNestedTeamMembers(t *testing.T) {
+	src := "---\nid: big\ndescription: d\norchestrator: lead\nmembers:\n  - team:squad\n  - {team: panel, role: debaters, count: 2}\n  - {team: Bad Id}\n  - {agent: x, team: y}\n  - team:big\n---\n"
+	tm, _ := Parse("teams/big.md", []byte(src))
+	if len(tm.Members) != 5 || tm.Members[0].AgentId != "team:squad" || tm.Members[0].Role != "squad" ||
+		tm.Members[1].AgentId != "team:panel" || tm.Members[1].Role != "debaters" || tm.Members[1].Count != 2 {
+		t.Fatalf("members = %v", tm.Members)
+	}
+	if MemberTeam(tm.Members[0]) != "squad" || MemberTeam(&nexusv1.TeamMember{AgentId: "lead"}) != "" {
+		t.Fatal("MemberTeam")
+	}
+	errs := strings.Join(tm.Errors, ";")
+	for _, want := range []string{`invalid team id "Bad Id"`, "give agent or team, not both", "member big: a team cannot contain itself"} {
+		if !strings.Contains(errs, want) {
+			t.Errorf("errors %q lack %q", errs, want)
+		}
+	}
+	if tm.Enabled {
+		t.Fatal("invalid team enabled")
+	}
+}
