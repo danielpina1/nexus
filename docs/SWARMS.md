@@ -161,8 +161,10 @@ over the Nexus MCP bridge, native agent loop, …). At assignment the hub adds t
 tools to its allow-list and a team brief (mission, roster with descriptions and input/output schemas,
 limits, how to work) to its instructions; the context carries `team` (id, role, root, strategy,
 members, limits), `blackboard` (snapshot) and `team_messages`. Members get member tools, a member
-brief and the same context. The orchestrator's final answer is the team's result; when the root
-ends, unfinished member tasks are cancelled.
+brief and the same context. The orchestrator's final answer is the team's result. An answer given
+while members still run (or whose results the orchestrator never collected) does not end the run:
+the root waits and the orchestrator is resumed with those results (§6.1). When the root fails or is
+cancelled, unfinished member tasks are cancelled.
 
 Starter teams: `research-squad`, `product-buyer` (inline orchestrator; the shopper's checkout still
 needs Face ID), `dev-crew` (architect + 2 coders + tester + reviewer + `anthrex-dev` for whole
@@ -267,7 +269,7 @@ checks) from the root agent's limits the first time a sub-task is created.
 - **Costs roll up:** `Task.tree_cost` on the root (updated live, nested team runs included) and
   `TeamRun.total_cost`.
 - **Cancel cascade / kill switch:** cancelling a task cancels its sub-tasks; `StopAll` cancels
-  everything; when a team root ends, unfinished members are cancelled; a stopped tree cancels its
+  everything; when a team root fails or is cancelled, unfinished members are cancelled (a succeeding root first waits for them, §6.1); a stopped tree cancels its
   queued tasks and refuses new tasks and runs.
 - **Ephemeral specialists never exceed the orchestrator:** tools must be allowed by the
   orchestrator's own allow-list (team tools excluded), the runtime must be one of the orchestrator's
@@ -288,25 +290,35 @@ checks) from the root agent's limits the first time a sub-task is created.
 
 ---
 
-### 6.1 A parent never finishes before its `spawn_agent` sub-tasks
+### 6.1 A task never succeeds before its sub-tasks
 
-When a run ends (SUCCEEDED) while sub-tasks it created with `spawn_agent` still run, its task does
-**not** finish: it stays `running` in phase **`waiting_children`** (the answer so far is its
-summary; clients show "Waiting for N sub-tasks"). It holds no run and frees its `max_parallel`
-slot. When the last of those sub-tasks ends:
+A task never reaches SUCCEEDED while **any** of its child tasks is unfinished, whatever created
+the child: `spawn_agent`, `team.delegate` / `team.spawn` members, nested team runs, hub strategy
+steps, critic tasks, workflow or sandbox children. When a run ends (SUCCEEDED) and the task
+
+- has children that are still running, or
+- has finished children whose results its agent never received (not returned by `team.await`,
+  `wait: true`, `team.run_strategy` or a hub strategy, nor handed to an earlier resumed run) — for
+  example a sub-task that **failed** —
+
+the task stays `running` in phase **`waiting_children`** (the answer so far is its summary;
+clients show "Waiting for N sub-tasks"). It holds no run and frees its `max_parallel` slot. When the
+last child ends:
 
 1. **Resume (preferred):** the parent agent gets a new run whose context carries
-   `sub_task_results` (`task_id, agent_id, state, summary, result` of each sub-task) plus its
-   previous answer (`previous_attempt`) and a hint to assemble the final answer. That answer goes
-   through the usual checks (output schema, review loop) and is the task's result. A resumed run
-   may spawn again (at most 3 resumes per task).
-2. **Fallback:** when no further run is possible (tree runs / budget / deadline used up, the agent
-   is gone, resumes exhausted) the task succeeds with its last answer and a "Sub-task results"
-   section appended (`result.sub_tasks` holds them as JSON).
+   `sub_task_results` (`task_id, agent_id, role, state, summary, result` of each child it has not
+   seen, failures included) plus its previous answer (`previous_attempt`) and a hint to assemble the
+   final answer. That answer goes through the usual checks (output schema, review loop) and is the
+   task's result. A resumed run may start more children (at most 3 resumes per task).
+2. **Fallback:** when no further run is possible (tree runs / budget / deadline used up, a hub
+   strategy root without orchestrator, the agent is gone, resumes exhausted) the task succeeds with
+   its last answer and a "Sub-task results" section appended (`result.sub_tasks` as JSON).
 
-Cancelling the waiting parent cancels its sub-tasks; tree limits apply to the resumed run like to
-any other run; the result notice is sent once, for the final answer. Team members delegated with
-`team.delegate` are not waited for (a team root that ends cancels them, see §3).
+The same gate applies when a critic approves an answer (a reviewed task is never final while its
+critic or any other child runs) and when a hub strategy completes a team run without orchestrator.
+Cancelling the waiting parent cancels its children; tree limits apply to the resumed run like to any
+other run; the result notice is sent once, for the final answer. "Try harder" on a waiting task
+starts its new run at once (it waits again if children still run when that run ends).
 
 ### 6.2 Hub restarts
 

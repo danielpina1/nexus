@@ -150,16 +150,26 @@ func TestParentWaitsForSpawnedChildrenThenResumes(t *testing.T) {
 	}
 }
 
-func TestParentWithFinishedChildrenEndsAtOnce(t *testing.T) {
+// A child that already failed when the parent's run ends: the parent does
+// not succeed blindly, it is resumed with the failure to react to it.
+func TestParentReactsToChildFailureItNeverSaw(t *testing.T) {
 	f := newFixture(t)
 	root := f.create(t, &nexusv1.CreateTaskRequest{Prompt: "x", AgentId: "smart"})
 	kid := spawn(t, f, root.Id, "helper", "sub")
-	f.finish(t, kid, stSucceeded, "sub done")
-	f.finish(t, root.Id, stSucceeded, "final")
+	f.finish(t, kid, stFailed, "site down")
+	f.finish(t, root.Id, stSucceeded, "all good")
 	p := f.get(t, root.Id)
-	wantState(t, p, stSucceeded)
-	if p.Summary != "final" || len(f.disp.AssignmentsFor(root.Id)) != 1 {
-		t.Fatalf("parent = %q, %d runs", p.Summary, len(f.disp.AssignmentsFor(root.Id)))
+	if p.State != stAssigned || len(f.disp.AssignmentsFor(root.Id)) != 2 {
+		t.Fatalf("parent = %s, %d runs", stateName(p.State), len(f.disp.AssignmentsFor(root.Id)))
+	}
+	res := f.lastAssignment(t, root.Id).Context.AsMap()["sub_task_results"].([]any)
+	if len(res) != 1 || res[0].(map[string]any)["state"] != "failed" || res[0].(map[string]any)["summary"] != "site down" {
+		t.Fatalf("results = %v", res)
+	}
+	f.finish(t, root.Id, stSucceeded, "the sub-task failed: site down")
+	wantState(t, f.get(t, root.Id), stSucceeded)
+	if n := len(f.disp.AssignmentsFor(root.Id)); n != 2 {
+		t.Fatalf("runs = %d (results are handed over once)", n)
 	}
 }
 
@@ -578,7 +588,15 @@ func TestNestedTeamRunsWithinParentLimits(t *testing.T) {
 		k := f.children(t, sub2)
 		return len(k) == 2 && f.dispatched(t, k[0].Id) && f.dispatched(t, k[1].Id)
 	})
+	// The parent's answer waits for the running sub-team…
 	f.finish(t, root.Id, stSucceeded, "done")
+	if p := f.get(t, root.Id); p.Phase != phaseWaitingChildren || f.get(t, sub2).State == stCancelled {
+		t.Fatalf("root %s/%s, sub-team %s", stateName(p.State), p.Phase, stateName(f.get(t, sub2).State))
+	}
+	// …and cancelling the parent cancels it with its members.
+	if err := f.e.CancelTask(ctx, root.Id); err != nil {
+		t.Fatal(err)
+	}
 	wantState(t, f.get(t, sub2), stCancelled)
 	for _, k := range f.children(t, sub2) {
 		wantState(t, f.get(t, k.Id), stCancelled)
@@ -640,4 +658,135 @@ func TestEscalateWaitingParent(t *testing.T) {
 	}
 	f.finish(t, root.Id, stSucceeded, "final")
 	wantState(t, f.get(t, root.Id), stSucceeded)
+}
+
+// The general rule: a task never reaches SUCCEEDED while any child is
+// unfinished, whatever created the child; it waits (phase
+// waiting_children), then its agent is resumed with the children's results
+// (failures included) and gives the final answer.
+func TestNoSuccessBeforeAnyChild(t *testing.T) {
+	ctx := context.Background()
+	childOf := func(source string) func(t *testing.T, f *fixture, parentID string) string {
+		return func(t *testing.T, f *fixture, parentID string) string {
+			p, err := f.e.loadTask(ctx, parentID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			c, err := f.e.createChild(ctx, &nexusv1.CreateTaskRequest{Prompt: source + " child", AgentId: "helper", Source: source}, p, createOpts{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			return c.Id
+		}
+	}
+	finishPlain := func(state nexusv1.TaskState) func(t *testing.T, f *fixture, id string) {
+		return func(t *testing.T, f *fixture, id string) {
+			taskstest.Eventually(t, 2*time.Second, func() bool { return f.dispatched(t, id) })
+			f.finish(t, id, state, "child "+stateName(state))
+		}
+	}
+	plainRoot := func(t *testing.T, f *fixture) string {
+		return f.create(t, &nexusv1.CreateTaskRequest{Prompt: "x", AgentId: "smart"}).Id
+	}
+	teamRoot := func(team string) func(t *testing.T, f *fixture) string {
+		return func(t *testing.T, f *fixture) string {
+			id := f.create(t, &nexusv1.CreateTaskRequest{Prompt: "x", TeamId: team}).Id
+			f.runEvent(t, f.get(t, id), output("planning"))
+			return id
+		}
+	}
+	delegate := func(role string) func(t *testing.T, f *fixture, parentID string) string {
+		return func(t *testing.T, f *fixture, parentID string) string {
+			out, err := f.tool(t, "team.delegate", parentID, map[string]any{"role": role, "task": "do it"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			return out["task_id"].(string)
+		}
+	}
+	cases := []struct {
+		name   string
+		setup  func(t *testing.T, f *fixture) string
+		add    func(t *testing.T, f *fixture, parentID string) string
+		finish func(t *testing.T, f *fixture, id string)
+		state  string // the child's final state as reported to the parent
+	}{
+		{"spawn_agent", plainRoot, func(t *testing.T, f *fixture, p string) string { return spawn(t, f, p, "helper", "sub") }, finishPlain(stSucceeded), "succeeded"},
+		{"spawn_agent failed", plainRoot, func(t *testing.T, f *fixture, p string) string { return spawn(t, f, p, "helper", "sub") }, finishPlain(stFailed), "failed"},
+		{"team member", teamRoot("outer"), delegate("researcher"), finishPlain(stSucceeded), "succeeded"},
+		{"nested team run", teamRoot("outer"), delegate("inner"), func(t *testing.T, f *fixture, id string) {
+			taskstest.Eventually(t, 2*time.Second, func() bool { return len(f.children(t, id)) == 2 })
+			for _, k := range f.children(t, id) {
+				finishPlain(stSucceeded)(t, f, k.Id)
+			}
+			taskstest.Eventually(t, 2*time.Second, func() bool { return IsTerminal(f.get(t, id).State) })
+		}, "succeeded"},
+		{"workflow child", plainRoot, childOf("workflow"), finishPlain(stSucceeded), "succeeded"},
+		{"sandbox child", plainRoot, childOf(SourceSandbox), finishPlain(stCancelled), "cancelled"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			f := teamFixture(t, nestedTeams(), squadAgents()...)
+			parent := tc.setup(t, f)
+			kid := tc.add(t, f, parent)
+			f.finish(t, parent, stSucceeded, "draft")
+			if p := f.get(t, parent); p.State != stRunning || p.Phase != phaseWaitingChildren {
+				t.Fatalf("parent = %s/%s, want running/waiting_children", stateName(p.State), p.Phase)
+			}
+			runs := len(f.disp.AssignmentsFor(parent))
+			tc.finish(t, f, kid)
+			// (A nested team run ends in its strategy driver's goroutine.)
+			taskstest.Eventually(t, 2*time.Second, func() bool {
+				return f.dispatched(t, parent) && len(f.disp.AssignmentsFor(parent)) > runs || IsTerminal(f.get(t, parent).State)
+			})
+			p := f.get(t, parent)
+			if p.State != stAssigned || len(f.disp.AssignmentsFor(parent)) != runs+1 {
+				t.Fatalf("parent after child = %s (%d runs)", stateName(p.State), len(f.disp.AssignmentsFor(parent)))
+			}
+			res := f.lastAssignment(t, parent).Context.AsMap()["sub_task_results"].([]any)
+			if len(res) != 1 || res[0].(map[string]any)["task_id"] != kid || res[0].(map[string]any)["state"] != tc.state {
+				t.Fatalf("sub_task_results = %v", res)
+			}
+			f.finish(t, parent, stSucceeded, "final")
+			wantState(t, f.get(t, parent), stSucceeded)
+			// SUCCEEDED was never published while the child was unfinished.
+			for _, ev := range f.env.Bus.Events() {
+				if tu := ev.GetTaskUpdated().GetTask(); ev.TaskId == parent && tu.GetState() == stSucceeded && tu.GetSummary() != "final" {
+					t.Fatalf("parent published SUCCEEDED early: %q", tu.GetSummary())
+				}
+			}
+		})
+	}
+
+	// Critic children: a reviewed task is not final while its critic runs,
+	// and an approved answer still waits for its other children.
+	t.Run("critic and review", func(t *testing.T) {
+		writer := agentWith("writer", func(a *nexusv1.Agent) { a.Review = &nexusv1.AgentReview{Critic: "critic", Rounds: 1} })
+		f := teamFixture(t, nil, writer, agentWith("critic", nil))
+		task := f.create(t, &nexusv1.CreateTaskRequest{Prompt: "write", AgentId: "writer"})
+		f.finish(t, task.Id, stSucceeded, "Draft 1")
+		if p := f.get(t, task.Id); p.State != stRunning || p.Phase != phaseReviewing {
+			t.Fatalf("reviewing = %s/%s", stateName(p.State), p.Phase)
+		}
+		critic := f.children(t, task.Id)[0]
+		late := childOf("workflow")(t, f, task.Id) // a child added while the critic reviews
+		f.finish(t, critic.Id, stSucceeded, `{"approved": true, "feedback": "good"}`)
+		if p := f.get(t, task.Id); p.State != stRunning || p.Phase != phaseWaitingChildren {
+			t.Fatalf("approved with a running child = %s/%s", stateName(p.State), p.Phase)
+		}
+		finishPlain(stSucceeded)(t, f, late)
+		wantState(t, f.get(t, task.Id), stAssigned)
+		res := f.lastAssignment(t, task.Id).Context.AsMap()["sub_task_results"].([]any)
+		if len(res) != 1 || res[0].(map[string]any)["task_id"] != late {
+			t.Fatalf("results = %v (critics are not repeated)", res)
+		}
+		f.finish(t, task.Id, stSucceeded, "Draft 2")
+		critic2 := f.children(t, task.Id)
+		f.finish(t, critic2[len(critic2)-1].Id, stSucceeded, `{"approved": true, "feedback": "good"}`)
+		got := f.get(t, task.Id)
+		wantState(t, got, stSucceeded)
+		if got.Summary != "Draft 2" {
+			t.Fatalf("summary = %q", got.Summary)
+		}
+	})
 }

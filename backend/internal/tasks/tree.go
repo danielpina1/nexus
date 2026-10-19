@@ -620,8 +620,8 @@ func (e *Engine) broadcastTerminal() {
 // frees slots and ends team runs.
 func (e *Engine) onTerminal(ctx context.Context, t *nexusv1.Task) {
 	e.broadcastTerminal()
-	if t.ParentId != "" && t.Source == sourceSpawn {
-		// The parent may be waiting for its spawn_agent sub-tasks.
+	if t.ParentId != "" {
+		// The parent may be waiting for its sub-tasks (children.go).
 		defer e.childrenSettled(ctx, t.ParentId)
 	}
 	if x, err := e.loadExt(ctx, t.Id); err == nil && x.ReviewOf != "" {

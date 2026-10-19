@@ -18,7 +18,7 @@ import (
 var ErrNotImplemented = errors.New("not implemented yet")
 
 const spawnAgentDescription = "Create a sub-task for another agent (by agent_id, or leave it empty to let the router choose). Returns the child task id at once. " +
-	"Do not wait for it: when your run ends while sub-tasks still run, your task waits for them and you are then resumed with their results " +
+	"Do not wait for it: your task never finishes before its sub-tasks; when your run ends while they run, the hub waits and resumes you with their results " +
 	"(context sub_task_results) to give the final answer."
 
 // hubTools returns the hub-side tools owned by the task engine.

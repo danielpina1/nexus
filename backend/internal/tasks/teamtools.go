@@ -327,6 +327,11 @@ func (e *Engine) markCollected(ctx context.Context, caller *nexusv1.Task, done [
 	}); err != nil {
 		e.log.Warn("team.await: record collected results", "task", caller.Id, "err", err)
 	}
+	ids := make([]string, len(done))
+	for i, t := range done {
+		ids[i] = t.Id
+	}
+	e.markReported(ctx, caller.Id, ids)
 }
 
 func (e *Engine) ttStatus(ctx context.Context, tc *teamCall) (any, error) {
@@ -418,6 +423,7 @@ func (e *Engine) ttRunStrategy(ctx context.Context, tc *teamCall) (any, error) {
 	h := sha256.Sum256([]byte(strategyName(s) + "\x00" + task + "\x00" + strings.Join(in.Roles, ",")))
 	prefix := fmt.Sprintf("rs:%s:%x:", tc.caller.task.CurrentRunId, h[:6])
 	res, final, err := e.runStrategy(ctx, tc.caller, tc.tree, s, task, in.Roles, e.waitTimeout(in.Timeout), prefix)
+	e.markReported(ctx, tc.caller.task.Id, resultIDs(res))
 	out := map[string]any{"strategy": strategyName(s), "results": res, "final": truncate(final, 32<<10)}
 	if err != nil {
 		out["error"] = err.Error()

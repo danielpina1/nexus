@@ -371,14 +371,25 @@ func TestTeamRunDelegateAwait(t *testing.T) {
 		t.Fatalf("summary = %v", s)
 	}
 
-	// The root's answer ends the run; unfinished members are cancelled.
+	// The root never succeeds before its members: an answer given while a
+	// member still runs parks the root (waiting_children); when the member
+	// ends the orchestrator is resumed with its result and answers again.
 	extra, err := f.tool(t, "team.delegate", root.Id, map[string]any{"role": "checker", "task": "check"})
 	if err != nil {
 		t.Fatal(err)
 	}
+	f.finish(t, root.Id, stSucceeded, "draft report")
+	if r := f.get(t, root.Id); r.State != stRunning || r.Phase != phaseWaitingChildren {
+		t.Fatalf("root = %s/%s, want running/waiting_children", stateName(r.State), r.Phase)
+	}
+	f.finish(t, extra["task_id"].(string), stSucceeded, "checked")
+	wantState(t, f.get(t, root.Id), stAssigned)
+	if res := f.lastAssignment(t, root.Id).Context.AsMap()["sub_task_results"].([]any); len(res) != 1 ||
+		res[0].(map[string]any)["task_id"] != extra["task_id"] {
+		t.Fatalf("sub_task_results = %v", res) // the three awaited results are not repeated
+	}
 	f.finish(t, root.Id, stSucceeded, "final report")
 	wantState(t, f.get(t, root.Id), stSucceeded)
-	wantState(t, f.get(t, extra["task_id"].(string)), stCancelled)
 
 	run, err := f.e.TeamRun(context.Background(), root.Id)
 	if err != nil {

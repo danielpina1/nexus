@@ -8,72 +8,131 @@ import (
 	nexusv1 "github.com/danielpina1/nexus/backend/gen/nexus/v1"
 )
 
-// Waiting for spawn_agent children (docs/SWARMS.md §6). A run that used
-// spawn_agent may end while its sub-tasks still run. The task does not
-// finish then: it stays running in phase "waiting_children" (its answer so
-// far is the summary) until every such child has ended. Then:
+// A task never finishes before its sub-tasks (docs/SWARMS.md §6.1). This
+// holds for every child, whatever created it: spawn_agent, team delegation
+// (members and nested team runs), hub strategies, critics, workflow or
+// sandbox children. When a run of a task ends (SUCCEEDED) and the task
+//
+//   - has children that have not finished, or
+//   - has finished children whose results its agent never received (they
+//     were not returned by team.await / delegate wait / a hub strategy, nor
+//     handed to an earlier resumed run) — e.g. a sub-task that failed,
+//
+// the task does not succeed: it stays running in phase "waiting_children"
+// (its answer so far is the summary) until every child has ended. Then:
 //
 //  1. preferred: the parent agent is resumed with a new run whose context
-//     carries `sub_task_results` (state, summary and result of each child)
-//     and whose hint asks for the final answer; that answer goes through the
-//     usual checks (output schema, review). The resumed run may spawn more
-//     children; after MaxChildResumes rounds the next fallback applies.
+//     carries `sub_task_results` (state, summary and result of each child
+//     it has not seen, failures included) and whose hint asks for the final
+//     answer; that answer goes through the usual checks (output schema,
+//     review). The resumed run may start more children; after
+//     MaxChildResumes rounds the fallback applies.
 //  2. fallback (no run allowed any more: tree budget / runs / deadline used
-//     up, agent gone, resume rounds exhausted): the task succeeds with its
-//     last answer and the child results appended.
+//     up, no agent (hub strategy roots), agent gone, resume rounds
+//     exhausted): the task succeeds with its last answer and the unseen
+//     child results appended.
 //
-// Cancelling the parent cancels its children (cancel cascades by
-// parent_id); tree limits apply to the resumed run like to any other run.
-// Team members delegated with team.delegate are not waited for (when a team
-// root ends its members are cancelled, see onTerminal); critic tasks are
-// handled by the review loop.
+// The same gate applies when a reviewed answer is approved and when a hub
+// strategy finishes a team run without orchestrator. Cancelling the parent
+// cancels its children; tree limits apply to the resumed run like to any
+// other run. Critic tasks are reported through the review loop.
 
-// phaseWaitingChildren is Task.phase while a task waits for its spawn_agent
-// sub-tasks.
+// phaseWaitingChildren is Task.phase while a task waits for its sub-tasks.
 const phaseWaitingChildren = "waiting_children"
 
 // MaxChildResumes bounds how many times a task is resumed after its
-// sub-tasks ended (each resumed run may spawn new sub-tasks).
+// sub-tasks ended (each resumed run may start new sub-tasks).
 const MaxChildResumes = 3
 
 // sourceSpawn is the Task.source of spawn_agent sub-tasks.
 const sourceSpawn = "agent"
 
-// spawnedChildren returns the spawn_agent sub-tasks of a task.
-func (e *Engine) spawnedChildren(ctx context.Context, parentID string) ([]*nexusv1.Task, error) {
+// childState is what a task's children say about whether it may finish.
+type childState struct {
+	running    int             // children not finished yet
+	unreported []*nexusv1.Task // finished children whose result the agent has not received
+}
+
+func (c childState) blocks() bool { return c.running > 0 || len(c.unreported) > 0 }
+
+// children inspects a task's children (critics excluded from unreported:
+// the review loop hands their verdicts over).
+func (e *Engine) children(ctx context.Context, parentID string) childState {
+	var c childState
 	kids, err := e.ChildTasks(ctx, parentID)
-	if err != nil {
-		return nil, err
+	if err != nil || len(kids) == 0 {
+		if err != nil {
+			e.log.Warn("inspect sub-tasks", "task", parentID, "err", err)
+		}
+		return c
 	}
-	out := kids[:0]
+	x, err := e.loadExt(ctx, parentID)
+	if err != nil {
+		e.log.Warn("inspect sub-tasks", "task", parentID, "err", err)
+		x = &taskExt{}
+	}
+	seen := map[string]bool{}
+	for _, id := range x.ChildrenReported {
+		seen[id] = true
+	}
 	for _, k := range kids {
-		if k.Source == sourceSpawn && k.RootId != k.Id {
-			out = append(out, k)
+		switch {
+		case !IsTerminal(k.State):
+			c.running++
+		case !seen[k.Id] && k.Role != RoleCritic:
+			c.unreported = append(c.unreported, k)
 		}
 	}
-	return out, nil
+	return c
 }
 
-// runningChildren counts the unfinished spawn_agent sub-tasks of a task.
-func (e *Engine) runningChildren(ctx context.Context, parentID string) int {
-	kids, err := e.spawnedChildren(ctx, parentID)
-	if err != nil {
-		e.log.Warn("count sub-tasks", "task", parentID, "err", err)
-		return 0
+// markReported records that the task's agent received these children's
+// results (team.await, delegate wait, strategies, resumed runs).
+func (e *Engine) markReported(ctx context.Context, parentID string, ids []string) {
+	if len(ids) == 0 {
+		return
 	}
-	n := 0
-	for _, k := range kids {
-		if !IsTerminal(k.State) {
-			n++
+	if _, err := e.updateExt(ctx, parentID, func(x *taskExt) {
+		seen := map[string]bool{}
+		for _, id := range x.ChildrenReported {
+			seen[id] = true
 		}
+		for _, id := range ids {
+			if !seen[id] {
+				seen[id] = true
+				x.ChildrenReported = append(x.ChildrenReported, id)
+			}
+		}
+	}); err != nil {
+		e.log.Warn("record reported sub-tasks", "task", parentID, "err", err)
 	}
-	return n
 }
 
-// waitForChildren parks a task whose run succeeded while n of its
-// spawn_agent sub-tasks still run (under the engine lock). The answer so far
-// becomes the summary; childrenSettled finishes or resumes the task.
-func (e *Engine) waitForChildren(ctx context.Context, r *taskRec, runID string, nt *nexusv1.Task, n int) error {
+// parkForChildren puts a task (under the engine lock, its answer already in
+// r.task) into phase waiting_children and schedules the check that resumes
+// or finishes it.
+func (e *Engine) parkForChildren(r *taskRec, c childState) {
+	r.task.Phase = phaseWaitingChildren
+	r.notify = true
+	text := fmt.Sprintf("Waiting for %d sub-task%s to finish before the final answer…\n", c.running, plural(c.running))
+	if c.running == 0 {
+		text = fmt.Sprintf("%d sub-task%s finished without the agent seeing the result; handing %s over…\n",
+			len(c.unreported), plural(len(c.unreported)), map[bool]string{true: "it", false: "them"}[len(c.unreported) == 1])
+	}
+	r.extra = append(r.extra, hubOutput(r.task.CurrentRunId, text))
+	id, root := r.task.Id, r.task.RootId
+	r.post = append(r.post, func(ctx context.Context) {
+		// The task no longer occupies a slot: held sub-tasks may start.
+		e.pump(ctx, root)
+		// A child may have ended between the check and this mutation.
+		e.childrenSettled(ctx, id)
+	})
+}
+
+// waitForChildren parks a task whose run succeeded while its children block
+// it (under the engine lock). The answer so far becomes the summary;
+// childrenSettled finishes or resumes the task.
+func (e *Engine) waitForChildren(ctx context.Context, r *taskRec, runID string, nt *nexusv1.Task, c childState) error {
 	if err := e.accept(ctx, r, runID); err != nil {
 		return err
 	}
@@ -95,16 +154,7 @@ func (e *Engine) waitForChildren(ctx context.Context, r *taskRec, runID string, 
 	if nt.GetCost() != nil && r.task.Cost == nil {
 		r.task.Cost = nt.Cost
 	}
-	r.task.Phase = phaseWaitingChildren
-	r.notify = true
-	r.extra = append(r.extra, hubOutput(runID, fmt.Sprintf("Waiting for %d sub-task%s to finish before the final answer…\n", n, plural(n))))
-	id, root := r.task.Id, r.task.RootId
-	r.post = append(r.post, func(ctx context.Context) {
-		// The task no longer occupies a slot: held sub-tasks may start.
-		e.pump(ctx, root)
-		// A child may have ended between the count and this mutation.
-		e.childrenSettled(ctx, id)
-	})
+	e.parkForChildren(r, c)
 	return nil
 }
 
@@ -116,34 +166,25 @@ func plural(n int) string {
 }
 
 // childrenSettled resumes or finishes a task in phase waiting_children once
-// none of its spawn_agent sub-tasks runs any more. It is idempotent.
+// none of its sub-tasks runs any more. It is idempotent.
 func (e *Engine) childrenSettled(ctx context.Context, parentID string) {
 	p, err := e.loadTask(ctx, parentID)
 	if err != nil || p.task.Phase != phaseWaitingChildren || IsTerminal(p.task.State) {
 		return
 	}
-	kids, err := e.spawnedChildren(ctx, parentID)
-	if err != nil {
-		e.log.Warn("sub-task results", "task", parentID, "err", err)
-		return
+	c := e.children(ctx, parentID)
+	if c.running > 0 {
+		return // still waiting
 	}
 	x, err := e.loadExt(ctx, parentID)
 	if err != nil {
 		e.log.Warn("sub-task results", "task", parentID, "err", err)
 		return
 	}
-	reported := map[string]bool{}
-	for _, id := range x.ChildrenReported {
-		reported[id] = true
-	}
-	var fresh []*nexusv1.Task
-	for _, k := range kids {
-		if !IsTerminal(k.State) {
-			return // still waiting
-		}
-		if !reported[k.Id] {
-			fresh = append(fresh, k)
-		}
+	fresh := c.unreported
+	if len(fresh) == 0 {
+		e.finishWithChildren(ctx, parentID, nil, "nothing new to report")
+		return
 	}
 	results := waitResults(fresh)
 
@@ -190,7 +231,7 @@ func (e *Engine) childrenSettled(ctx context.Context, parentID string) {
 		prev, agentID, tier = pr, r.task.AgentId, r.task.Tier
 		r.task.Phase = ""
 		r.extra = append(r.extra, hubOutput(r.task.CurrentRunId,
-			fmt.Sprintf("All %d sub-task%s finished; resuming the agent to assemble the final answer.\n", len(kids), plural(len(kids)))))
+			fmt.Sprintf("All sub-tasks finished; resuming the agent with %d result%s to assemble the final answer.\n", len(fresh), plural(len(fresh)))))
 		return r.to(stEscalating)
 	}); err != nil || prev == nil {
 		if err != nil {
@@ -212,7 +253,7 @@ func (e *Engine) childrenSettled(ctx context.Context, parentID string) {
 	}); err != nil {
 		e.log.Warn("sub-task results: save", "task", parentID, "err", err)
 	}
-	hint := "The sub-tasks you started with spawn_agent have finished; their results are in the context under sub_task_results " +
+	hint := "Your sub-tasks have finished; their results are in the context under sub_task_results " +
 		"(task_id, agent_id, state, summary, result). Do not start them again. Using those results and your previous answer " +
 		"(previous_attempt.output), reply with the complete final answer for the original task. Report failed sub-tasks honestly; never invent their results."
 	if _, err := e.assign(ctx, parentID, agentID, assignOpts{tier: tier, hint: hint, previousRun: prev}); err != nil {
@@ -244,7 +285,9 @@ func (e *Engine) finishWithChildren(ctx context.Context, parentID string, kids [
 			res["sub_tasks"] = resultsJSON(waitResults(kids))
 			r.task.Result = toStruct(res)
 		}
-		r.extra = append(r.extra, hubOutput(r.task.CurrentRunId, "All sub-tasks finished; their results were added to the answer ("+why+").\n"))
+		if len(kids) > 0 {
+			r.extra = append(r.extra, hubOutput(r.task.CurrentRunId, "All sub-tasks finished; their results were added to the answer ("+why+").\n"))
+		}
 		if err := r.to(stSucceeded); err != nil {
 			return err
 		}

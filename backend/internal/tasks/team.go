@@ -416,7 +416,7 @@ func orchestratorBrief(team *nexusv1.Team, tree *treeRec, roster []map[string]an
 		b.WriteString("4. Coordinate: `team.blackboard.write/append/read` is a shared scratchpad for the whole team; `team.message {to: role|task_id|all, text}` reaches running members.\n")
 		b.WriteString("5. No fitting member? `team.spawn {role, instructions, task}` creates a temporary specialist with at most your own tools.\n")
 		b.WriteString("6. `team.status` shows the task tree with states and costs; `team.cancel {task_id}` stops a member task.\n")
-		b.WriteString("7. Finish: when the work is done, reply with the final answer yourself (synthesised, contradictions resolved, members' findings credited). That reply is the team's result; unfinished member tasks are cancelled.\n")
+		b.WriteString("7. Finish: when the work is done, reply with the final answer yourself (synthesised, contradictions resolved, members' findings credited). That reply is the team's result. If member tasks are still running (or finished without you collecting their results), the hub waits for them and resumes you with their results (context sub_task_results) for the final answer.\n")
 		if team.Strategy == nexusv1.TeamStrategy_TEAM_STRATEGY_AUTO {
 			b.WriteString("\nYou may also let the hub run a fixed pattern and hand you all results: `team.run_strategy {strategy: parallel|pipeline|debate, task?, roles?}` " +
 				"(parallel: every member does the task independently; pipeline: members in order, each building on the previous output; debate: members argue over rounds, a judge decides). Pick whichever fits the task best.\n")
@@ -890,6 +890,8 @@ func (e *Engine) driveStrategy(ctx context.Context, rootID string) {
 		return
 	}
 	name := strategyName(tree.team.Strategy)
+	// The strategy's results go to the orchestrator (or are the result).
+	e.markReported(ctx, rootID, resultIDs(results))
 	if cur.AgentId != "" {
 		sres := map[string]any{"name": name, "results": resultsJSON(results), "final": truncate(final, 32<<10)}
 		if serr != nil {
@@ -913,6 +915,7 @@ func (e *Engine) driveStrategy(ctx context.Context, rootID string) {
 		_, _ = e.fail(ctx, rootID, fmt.Sprintf("%s strategy failed: %v", name, serr))
 		return
 	}
+	kids := e.children(ctx, rootID)
 	_, err = e.mutate(ctx, rootID, actorHub, func(r *taskRec) error {
 		if IsTerminal(r.task.State) {
 			return nil
@@ -920,6 +923,11 @@ func (e *Engine) driveStrategy(ctx context.Context, rootID string) {
 		r.task.Phase = ""
 		r.task.Summary = final
 		r.task.Result = toStruct(map[string]any{"strategy": name, "results": resultsJSON(results)})
+		if kids.blocks() {
+			// Not before every member task has ended (children.go).
+			e.parkForChildren(r, kids)
+			return nil
+		}
 		if err := r.to(stSucceeded); err != nil {
 			return err
 		}
@@ -931,6 +939,14 @@ func (e *Engine) driveStrategy(ctx context.Context, rootID string) {
 	if err != nil {
 		e.log.Warn("strategy: finish root", "root", rootID, "err", err)
 	}
+}
+
+func resultIDs(rs []waitResult) []string {
+	ids := make([]string, len(rs))
+	for i, r := range rs {
+		ids[i] = r.TaskID
+	}
+	return ids
 }
 
 func resultsJSON(rs []waitResult) []any {
