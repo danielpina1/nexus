@@ -78,11 +78,24 @@ INVALID (refine it or fix and re-draft). Publishing re-validates (the catalog ma
 Expectations `contains:`, `not_contains:`, `calls:`, `no_calls:` and `json` are checked; free text
 is listed as `? …` for the owner. Modes, best first:
 
-1. `sandbox_task` — when the task engine implements `architect.SandboxTaskCreator`
-   (`CreateSandboxTask(agent, instructions, req)`: an ephemeral, unpublished agent). The agent is
-   passed through `SandboxAgent`: only read/compute tools, and every class from `write_internal` up
-   at **biometric**, params `architect_sandbox: true`. *Integration point — not implemented by the
-   tasks module yet.*
+1. `sandbox_task` (preferred; the tasks module implements `architect.SandboxTaskCreator` and
+   `SandboxReporter`, `backend/internal/tasks/sandbox.go`) — the draft runs as a **real task** of an
+   ephemeral, unpublished agent (`eph:sandbox-<id>`), on a real runtime, under a strict policy the hub
+   re-applies at every assignment:
+   - tools: only hub tools of class read/compute (the hub also refuses any other tool call of the
+     run); node tools, `ask_user`, `spawn_agent`, `schedule`, `team.*` and coding-only tools are
+     removed; never the `anthrex` runtime, CLI runtimes run non-coding (no file/shell tools);
+   - policy: every class from `write_internal` up at **biometric** — and every approval a sandboxed
+     run requests is **denied by the hub at once, never offered to the owner** (no Inbox card, no
+     push); the node gets the denial and the action is recorded;
+   - no vault writes (no write tools, `memory.writes` cleared), no skills, no review loop, one task
+     per tree (sub-tasks are refused);
+   - small budget and time cap: `tasks.sandbox.max_cost_eur` (default €0.20), `timeout` (5m),
+     `max_runs` (2), enforced as tree limits with a deadline timer;
+   - labelled and hidden: source `sandbox`, title `[sandbox] …`, params `sandbox: true`; not in
+     `ListTasks` (reachable by id); no result notice.
+   The test result gets the run's tool calls and **blocked actions** (removed tools and every denied
+   action, e.g. `spend: Buy drill €89 (denied: sandbox test run)`) from `SandboxReport`.
 2. `native_loop` — with an LLM (`architect.test_model`, else `model`, else `smart`): an in-process
    tool loop where read/compute hub tools really run and anything else (`vault.write`, `email.send`,
    purchases, deletes, node tools) is **refused** with `{"sandbox":"blocked"}` and listed.

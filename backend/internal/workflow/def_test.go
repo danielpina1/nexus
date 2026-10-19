@@ -216,3 +216,63 @@ func TestParseErrors(t *testing.T) {
 		t.Error("wrong type accepted")
 	}
 }
+
+func TestParseTeamStep(t *testing.T) {
+	w := Parse("workflows/x.md", []byte(`---
+type: workflow
+id: x
+steps:
+  - id: a
+    team: team:research-squad
+    task: "Research {{ inputs.q }}"
+    inputs: { q: "{{ inputs.q }}" }
+  - id: b
+    team: debate-panel
+    prompt: Decide.
+---
+`))
+	if !w.Valid() {
+		t.Fatalf("errors: %v", w.Errors)
+	}
+	if a := w.Steps[0]; a.Kind != KindTeam || a.Team != "research-squad" || a.Inputs["q"] != "{{ inputs.q }}" {
+		t.Fatalf("a = %+v", a)
+	}
+	if b := w.Steps[1]; b.Kind != KindTeam || b.Task != "Decide." {
+		t.Fatalf("b = %+v", b)
+	}
+	bad := Parse("workflows/y.md", []byte(`---
+id: y
+steps:
+  - id: a
+    team: squad
+  - id: b
+    team: squad
+    agent: helper
+    task: x
+  - id: c
+    team: squad
+    task: x
+    model: smart
+---
+`))
+	errs := strings.Join(bad.Errors, ";")
+	for _, want := range []string{"team step needs a task", "more than one step kind: agent, team", "model does not apply to a team step"} {
+		if !strings.Contains(errs, want) {
+			t.Errorf("errors %q lack %q", errs, want)
+		}
+	}
+}
+
+func TestSquadReportTemplate(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join(templateDir, "squad-report.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := Parse("workflows/squad-report.md", b)
+	if !w.Valid() {
+		t.Fatalf("errors: %v", w.Errors)
+	}
+	if s := w.Steps[0]; s.Kind != KindTeam || s.Team != "research-squad" || s.Inputs["question"] == nil || time.Duration(s.Timeout) != 50*time.Minute {
+		t.Fatalf("team step = %+v", s)
+	}
+}

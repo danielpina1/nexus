@@ -25,6 +25,7 @@ public struct NexusActions: Sendable {
         attachments: [Nexus_V1_Attachment] = [],
         agentID: String? = nil,
         source: String = "ios-chat",
+        conversationID: String = "",
         idempotencyKey: String = .idempotencyKey()
     ) async throws -> Nexus_V1_ExecuteResponse {
         var request = Nexus_V1_ExecuteRequest()
@@ -33,6 +34,9 @@ public struct NexusActions: Sendable {
         request.idempotencyKey = idempotencyKey
         var context = Nexus_V1_CommandContext()
         context.source = source
+        // source "chat": the Hub routes without the router and keeps one CLI session per
+        // conversation (CommandContext.conversation_id, docs/AGENTS.md §2.4).
+        context.conversationID = conversationID
         request.context = context
         if let agentID, !agentID.isEmpty {
             var route = Nexus_V1_Route()

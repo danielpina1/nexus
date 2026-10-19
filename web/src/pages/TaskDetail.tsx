@@ -220,7 +220,9 @@ function Overview({ task, onReply }: { task: Task; onReply: () => void }) {
           {running.length ? (
             <>
               <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />
-              {running.length} sub-task{running.length === 1 ? "" : "s"} still running
+              {task.phase === "waiting_children"
+                ? `Waiting for ${running.length} sub-task${running.length === 1 ? "" : "s"} before the final answer`
+                : `${running.length} sub-task${running.length === 1 ? "" : "s"} still running`}
             </>
           ) : active ? (
             <>

@@ -8,6 +8,8 @@ public struct OutboxItem: Codable, Identifiable, Hashable, Sendable {
     public enum Kind: Codable, Hashable, Sendable {
         /// A command typed in Chat / a favourite (`CommandService.Execute`).
         case command(input: String, agentID: String?, source: String)
+        /// A chat message (`Execute` with source "chat" and its conversation id).
+        case chat(input: String, conversationID: String)
         /// A reply / answer to a running task (`TaskService.SendMessage`).
         case message(taskID: String, text: String, questionID: String?, choice: String?)
         /// Quick capture into the vault (`VaultService.Capture`).
@@ -39,6 +41,7 @@ public struct OutboxItem: Codable, Identifiable, Hashable, Sendable {
     public var summary: String {
         switch kind {
         case .command(let input, _, _): return input
+        case .chat(let input, _): return input
         case .message(_, let text, _, let choice): return choice ?? text
         case .capture(let text, _): return "Capture: " + text
         case .decision(_, _, let title, let approve, _): return (approve ? "Approve: " : "Deny: ") + title
@@ -143,6 +146,8 @@ public extension NexusActions {
         switch item.kind {
         case .command(let input, let agentID, let source):
             _ = try await execute(input, agentID: agentID, source: source, idempotencyKey: item.idempotencyKey)
+        case .chat(let input, let conversationID):
+            _ = try await execute(input, source: "chat", conversationID: conversationID, idempotencyKey: item.idempotencyKey)
         case .message(let taskID, let text, let questionID, let choice):
             try await sendMessage(taskID: taskID, text: text, questionID: questionID, choice: choice, idempotencyKey: item.idempotencyKey)
         case .capture(let text, let url):

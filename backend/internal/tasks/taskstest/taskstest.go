@@ -555,3 +555,10 @@ func (d *Dispatcher) CancelsSnapshot() []*nexusv1.RunCancel {
 	defer d.mu.Unlock()
 	return append([]*nexusv1.RunCancel(nil), d.Cancels...)
 }
+
+// ResolutionsSnapshot returns a copy of the approval resolutions sent so far.
+func (d *Dispatcher) ResolutionsSnapshot() []*nexusv1.ApprovalResolution {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return append([]*nexusv1.ApprovalResolution(nil), d.Resolutions...)
+}

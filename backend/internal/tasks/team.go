@@ -923,7 +923,7 @@ func (e *Engine) driveStrategy(ctx context.Context, rootID string) {
 		if err := r.to(stSucceeded); err != nil {
 			return err
 		}
-		if r.task.Source != "workflow" {
+		if wantsResultNotice(r) {
 			r.extra = append(r.extra, resultNotice(r.task))
 		}
 		return nil

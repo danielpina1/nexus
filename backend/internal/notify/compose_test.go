@@ -73,6 +73,12 @@ func TestComposeMapping(t *testing.T) {
 		{"child task ignored", evTask(&nexusv1.Task{Id: "tsk_c", ParentId: "tsk_1", State: nexusv1.TaskState_TASK_STATE_SUCCEEDED}), nil},
 		{"root succeeded", evTask(&nexusv1.Task{Id: "tsk_1", Title: "Groceries", Summary: "Ordered", State: nexusv1.TaskState_TASK_STATE_SUCCEEDED}),
 			&want{cat: CatResult, title: "Groceries", body: "Ordered", level: LevelActive, collapse: "result-tsk_1", thread: "tsk_1"}},
+		{"chat task result ignored", evTask(&nexusv1.Task{Id: "tsk_chat", Source: "chat", Summary: "Hi!", State: nexusv1.TaskState_TASK_STATE_SUCCEEDED}), nil},
+		{"chat task failure ignored", evTask(&nexusv1.Task{Id: "tsk_chat2", Source: "chat", State: nexusv1.TaskState_TASK_STATE_FAILED}), nil},
+		{"sandbox task ignored", evTask(&nexusv1.Task{Id: "tsk_sb", Source: "sandbox", State: nexusv1.TaskState_TASK_STATE_SUCCEEDED}), nil},
+		{"chat question still notifies", &nexusv1.Event{TaskId: "tsk_chat", Actor: "agent:shopper", Body: &nexusv1.Event_Question{Question: &nexusv1.Question{
+			QuestionId: "q_chat", Text: "Which size?"}}},
+			&want{cat: CatQuestion, title: "Shopper", body: "Which size?", level: LevelActive, collapse: "q_chat", thread: "tsk_chat", question: "q_chat"}},
 		{"root succeeded duplicate", evTask(&nexusv1.Task{Id: "tsk_1", State: nexusv1.TaskState_TASK_STATE_SUCCEEDED}), nil},
 		{"root failed", evTask(&nexusv1.Task{Id: "tsk_2", Prompt: "fix tests", State: nexusv1.TaskState_TASK_STATE_FAILED}),
 			&want{cat: CatResult, title: "fix tests", body: "✗ Failed", level: LevelActive, collapse: "result-tsk_2", thread: "tsk_2"}},

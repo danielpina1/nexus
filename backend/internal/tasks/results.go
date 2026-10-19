@@ -203,7 +203,7 @@ func (e *Engine) finish(ctx context.Context, r *taskRec, runID string, nt *nexus
 	if err := r.to(s); err != nil {
 		return err
 	}
-	if r.task.ParentId == "" && r.task.Source != "workflow" && s != stCancelled { // workflows report once, at the end
+	if s != stCancelled && wantsResultNotice(r) {
 		r.extra = append(r.extra, resultNotice(r.task))
 	}
 	return nil
@@ -373,7 +373,7 @@ func (e *Engine) finishReviewed(ctx context.Context, taskID, note string) {
 		if err := r.to(stSucceeded); err != nil {
 			return err
 		}
-		if r.task.ParentId == "" && r.task.Source != "workflow" {
+		if wantsResultNotice(r) {
 			r.extra = append(r.extra, resultNotice(r.task))
 		}
 		return nil

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
-import { AlertCircle, AlertTriangle, ArrowRight, BookOpen, Compass, PanelRight, Sparkles, Trash2, Wand2 } from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowRight, BookOpen, Compass, Loader2, PanelRight, Sparkles, Trash2, Wand2 } from "lucide-react";
 import { useChat, type ChatMessage } from "../lib/chat";
 import { useChildren, useTask, useTimeline } from "../lib/selectors";
 import { useTaskHistory } from "../lib/events";
@@ -158,11 +158,17 @@ function ChatReply({ m, live, onDetails }: { m: ChatMessage; live: boolean; onDe
           <span>{BACKGROUND_WARNING}</span>
         </div>
       )}
-      {activeKids > 0 && (
-        <div className="text-[12px] text-muted">
-          {activeKids} sub-task{activeKids === 1 ? "" : "s"} still running
-        </div>
-      )}
+      {activeKids > 0 &&
+        (task?.phase === "waiting_children" ? (
+          <div className="flex items-center gap-1.5 text-[12px] text-info" role="status" data-testid="chat-waiting-children">
+            <Loader2 className="size-3 animate-spin motion-reduce:animate-none" aria-hidden />
+            Waiting for {activeKids} sub-task{activeKids === 1 ? "" : "s"}…
+          </div>
+        ) : (
+          <div className="text-[12px] text-muted">
+            {activeKids} sub-task{activeKids === 1 ? "" : "s"} still running
+          </div>
+        ))}
       <button onClick={onDetails} className="inline-flex min-h-7 items-center gap-1 rounded-md px-1 text-[11.5px] text-muted hover:text-fg focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:outline-none pointer-coarse:min-h-11">
         <PanelRight className="size-3" aria-hidden /> Run details
       </button>

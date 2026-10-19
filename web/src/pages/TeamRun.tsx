@@ -74,6 +74,7 @@ const PHASE: Record<string, { label: string; tone: Tone }> = {
   reviewing: { label: "critic reviewing", tone: "accent" },
   revising: { label: "revising", tone: "accent" },
   repairing: { label: "repairing output", tone: "warn" },
+  waiting_children: { label: "waiting for sub-tasks", tone: "info" },
 };
 
 function phaseBadge(phase: string) {

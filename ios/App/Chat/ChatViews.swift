@@ -3,7 +3,8 @@ import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// A chat thread: the auto-routed "Nexus" thread (agentID == nil) or one agent.
+/// A chat thread: the "Nexus" thread with the assistant (agentID == nil; "@agent" picks
+/// another agent per message) or one agent's thread. Each has its own conversation id.
 struct ChatThread: Hashable {
     let agentID: String?
 }
@@ -20,7 +21,7 @@ struct ChatListView: View {
                     HubUnreachableBanner()
 
                     NavigationLink(value: ChatThread(agentID: nil)) {
-                        NXRow("Nexus", subtitle: "Routed automatically to the right agent", minHeight: 64, leading: {
+                        NXRow("Nexus", subtitle: "Your assistant · @agent, /search, remember …", minHeight: 64, leading: {
                             NXIconTile(systemImage: "circle.hexagongrid.fill", tone: .accent, size: 40)
                         }, trailing: {
                             NXChevron()
@@ -66,77 +67,6 @@ struct ChatListView: View {
                 }
             }
         }
-    }
-}
-
-struct ChatThreadView: View {
-    let thread: ChatThread
-
-    @Environment(NexusStore.self) private var store
-    @Environment(AppRouter.self) private var router
-
-    private var title: String {
-        thread.agentID.flatMap { store.agent($0)?.name } ?? "Nexus"
-    }
-
-    private var tasks: [Nexus_V1_Task] {
-        store.chatTasks(forAgent: thread.agentID)
-    }
-
-    /// Commands typed in this thread while the Hub was unreachable.
-    private var queuedCommands: [OutboxItem] {
-        store.outbox.filter { item in
-            if case .command(_, let agentID, _) = item.kind { return agentID == thread.agentID }
-            return false
-        }
-    }
-
-    var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: NXSpace.s5) {
-                    if tasks.isEmpty && queuedCommands.isEmpty {
-                        NXEmptyState(
-                            systemImage: "bubble.left.and.text.bubble.right",
-                            title: "Start a conversation",
-                            message: thread.agentID == nil ? "Ask anything — Nexus routes it to the right agent." : "Send \(title) a task."
-                        )
-                        .padding(.top, NXSpace.s10)
-                    }
-                    ForEach(tasks, id: \.id) { task in
-                        VStack(alignment: .leading, spacing: NXSpace.s3) {
-                            RunTimelineView(task: task, compact: true)
-                            RunControls(task: task)
-                        }
-                        .id(task.id)
-                        NXDivider()
-                    }
-                    ForEach(queuedCommands) { item in
-                        QueuedBubble(text: item.summary)
-                    }
-                }
-                .padding(NXSpace.s4)
-            }
-            .nxScreenBackground()
-            .onAppear {
-                if let last = tasks.last { proxy.scrollTo(last.id, anchor: .bottom) }
-            }
-            .onChange(of: tasks.last?.id) { _, id in
-                if let id { withAnimation { proxy.scrollTo(id, anchor: .bottom) } }
-            }
-        }
-        .safeAreaInset(edge: .top) {
-            if store.reachability.isUnavailable && !store.isDemo {
-                HubUnreachableBanner()
-                    .padding(.horizontal, NXSpace.s4)
-                    .padding(.top, NXSpace.s1)
-            }
-        }
-        .safeAreaInset(edge: .bottom) {
-            ComposerView(agentID: thread.agentID, replyTaskID: nil)
-        }
-        .navigationTitle(title)
-        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -276,14 +206,9 @@ struct RunTimelineView: View {
                 }
             }
         case .toolCall(let call, let result):
-            ToolCallView(call: call, result: result)
+            ToolCallView(call: call, result: result, active: task.state.isActive)
         case .question(let question):
-            Label(question.text, systemImage: "questionmark.bubble")
-                .nxText(NXType.body.weight(.medium))
-                .foregroundStyle(NXColor.info)
-                .padding(NXSpace.s3)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(NXColor.infoSoft, in: RoundedRectangle(cornerRadius: NXRadius.md, style: .continuous))
+            ChatQuestionCard(taskID: task.id, question: question)
         case .approval(let approval):
             if approval.state == .pending {
                 ApprovalCardView(approval: approval, compact: true)
@@ -292,7 +217,7 @@ struct RunTimelineView: View {
                     Image(systemName: approval.isBiometric ? "faceid" : "hand.raised")
                         .foregroundStyle(NXColor.muted)
                         .accessibilityHidden(true)
-                    Text(approval.title)
+                    Text(approval.readableTitle)
                         .nx(NXType.footnote)
                         .foregroundStyle(NXColor.fg2)
                     NXBadge(approval.state.badgeLabel, tone: approval.state.tone)
@@ -301,7 +226,7 @@ struct RunTimelineView: View {
             }
         case .cost(let cost):
             if !compact {
-                Text("\(cost.hasAmount ? cost.amount.formatted : "") · \(cost.model) · \(cost.inputTokens)→\(cost.outputTokens) tokens")
+                Text([cost.hasAmount ? cost.amount.formatted : "", RunModel(runtime: cost.runtime, model: cost.model, known: true).label, "\(cost.inputTokens)→\(cost.outputTokens) tokens"].filter { !$0.isEmpty }.joined(separator: " · "))
                     .nx(NXType.caption.weight(.regular))
                     .monospacedDigit()
                     .foregroundStyle(NXColor.muted)
@@ -379,72 +304,15 @@ struct QueuedBubble: View {
     }
 }
 
-/// Collapsible tool row (mono, surface-2).
+/// Tool row of the run timeline: the readable title, details on tap, raw JSON behind
+/// "Raw details" (same renderer as the chat chips).
 struct ToolCallView: View {
     let call: Nexus_V1_ToolCall
     let result: Nexus_V1_ToolResult?
-    @State private var expanded = false
-
-    private var failed: Bool { result?.error.isEmpty == false }
+    var active = true
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Button {
-                expanded.toggle()
-            } label: {
-                HStack(spacing: NXSpace.s2) {
-                    Image(systemName: result == nil ? "gearshape.2" : (failed ? "xmark.circle" : "checkmark.circle"))
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(failed ? NXColor.danger : NXColor.muted)
-                        .accessibilityHidden(true)
-                    Text(call.tool)
-                        .nx(NXType.mono)
-                        .foregroundStyle(NXColor.fg)
-                        .lineLimit(1)
-                    if let result, result.durationMs > 0 {
-                        Text("\(Double(result.durationMs) / 1000, specifier: "%.1f")s")
-                            .nx(NXType.caption.weight(.regular))
-                            .monospacedDigit()
-                            .foregroundStyle(NXColor.muted)
-                    }
-                    if result == nil { ProgressView().controlSize(.mini) }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(NXColor.muted)
-                        .rotationEffect(.degrees(expanded ? 90 : 0))
-                        .accessibilityHidden(true)
-                }
-                .padding(.horizontal, NXSpace.s3)
-                .frame(minHeight: NXSize.touchMin)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(NXPlainPressStyle())
-            .accessibilityLabel("Tool \(call.tool), \(result == nil ? "running" : (failed ? "failed" : "done"))")
-            .accessibilityHint(expanded ? "Collapses the details." : "Shows input and output.")
-
-            if expanded {
-                VStack(alignment: .leading, spacing: NXSpace.s2) {
-                    NXOverline("Input")
-                    Text(call.input.compactJSON)
-                        .nx(NXType.mono)
-                        .foregroundStyle(NXColor.fg2)
-                        .textSelection(.enabled)
-                    if let result {
-                        NXOverline(result.error.isEmpty ? "Output" : "Error")
-                        Text(result.error.isEmpty ? result.output.compactJSON : result.error)
-                            .nx(NXType.mono)
-                            .foregroundStyle(result.error.isEmpty ? NXColor.fg2 : NXColor.danger)
-                            .textSelection(.enabled)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, NXSpace.s3)
-                .padding(.bottom, NXSpace.s3)
-            }
-        }
-        .background(NXColor.surface2, in: RoundedRectangle(cornerRadius: NXRadius.md, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: NXRadius.md, style: .continuous).strokeBorder(NXColor.border, lineWidth: 1))
+        ToolChipView(call: call, result: result, active: active)
     }
 }
 
@@ -625,10 +493,12 @@ struct ComposerView: View {
 }
 
 #Preview {
+    let store = NexusStore.preview()
     NavigationStack {
-        ChatThreadView(thread: ChatThread(agentID: "code-fixer"))
+        ChatThreadView(thread: ChatThread(agentID: nil))
     }
-    .environment(NexusStore.preview())
+    .environment(store)
+    .environment(ChatStore(store: store))
     .environment(AppRouter())
     .environment(ToastCenter())
 }

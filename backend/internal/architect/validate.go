@@ -150,6 +150,12 @@ func Validate(env *Env, notes []*nexusv1.DraftNote) Result {
 	var res Result
 	renamed := map[string]string{} // old agent id → new
 	agentIDs := map[string]bool{}
+	teamIDs := map[string]bool{} // team notes of this draft (workflow team steps may use them)
+	for _, n := range notes {
+		if n.Kind == "team" && n.Id != "" {
+			teamIDs[n.Id] = true
+		}
+	}
 	for _, n := range notes {
 		if n.Kind == "agent" {
 			out, id := validateAgent(env, n, &res)
@@ -166,7 +172,7 @@ func Validate(env *Env, notes []*nexusv1.DraftNote) Result {
 		switch n.Kind {
 		case "agent":
 		case "workflow":
-			res.Notes = append(res.Notes, validateWorkflow(env, n, renamed, agentIDs, &res))
+			res.Notes = append(res.Notes, validateWorkflow(env, n, renamed, agentIDs, teamIDs, &res))
 		case "team":
 			res.Notes = append(res.Notes, validateTeam(env, n, renamed, &res))
 		default:
@@ -422,7 +428,7 @@ func isProtected(p string) bool {
 	return false
 }
 
-func validateWorkflow(env *Env, n *nexusv1.DraftNote, renamed map[string]string, agentIDs map[string]bool, res *Result) *nexusv1.DraftNote {
+func validateWorkflow(env *Env, n *nexusv1.DraftNote, renamed map[string]string, agentIDs, teamIDs map[string]bool, res *Result) *nexusv1.DraftNote {
 	src := []byte(strings.TrimSpace(n.Markdown) + "\n")
 	parsed := note.Parse("", src)
 	id := strings.TrimSpace(parsed.ID)
@@ -469,6 +475,9 @@ func validateWorkflow(env *Env, n *nexusv1.DraftNote, renamed map[string]string,
 		for _, st := range steps {
 			if st.Agent != "" && !strings.Contains(st.Agent, "{{") && !env.Agents[st.Agent] && !agentIDs[st.Agent] {
 				res.Problems = append(res.Problems, fmt.Sprintf("workflow %s step %s: unknown agent %q", id, st.ID, st.Agent))
+			}
+			if st.Team != "" && !strings.Contains(st.Team, "{{") && !env.Teams[st.Team] && !teamIDs[st.Team] {
+				res.Problems = append(res.Problems, fmt.Sprintf("workflow %s step %s: unknown team %q", id, st.ID, st.Team))
 			}
 			if st.Tool != "" && !env.toolKnown(st.Tool) {
 				res.Problems = append(res.Problems, fmt.Sprintf("workflow %s step %s: unknown tool %q", id, st.ID, st.Tool))

@@ -145,9 +145,10 @@ Fan-out / fan-in research: the `research-lead` agent plans, `researcher` agents 
 sub-questions in parallel, the `research-lead` writes the report (structure:
 [[Research report]]), the `fact-checker` reviews it and the lead fixes what it flagged.
 
-Why a workflow and not one agent: `spawn_agent` cannot wait for a child's answer, so an agent
-cannot collect its sub-tasks' results. The workflow's `foreach` does the waiting and hands every
-finding to the synthesis step.
+Why a workflow and not one agent: the steps are fixed and cheap to reason about. (An agent that
+uses `spawn_agent` is resumed with its sub-tasks' results once they end, and the
+`research-squad` team does the same job with an orchestrator; see `squad-report.md`.) The
+workflow's `foreach` does the waiting and hands every finding to the synthesis step.
 
 - Start it from the command bar ("deep dive into home batteries for a 3-bedroom house") or from
   an agent: `workflow.run {workflow_id: deep-research, inputs: {question, depth}}`.

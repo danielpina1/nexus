@@ -25,6 +25,19 @@ const (
 	RoleCritic       = "critic"
 )
 
+// TeamRefPrefix marks a member that is another team ("team:<id>"): it runs
+// as a nested team run within the parent run's limits (docs/SWARMS.md §3).
+const TeamRefPrefix = "team:"
+
+// MemberTeam returns the team id of a nested-team member ("" for agents).
+func MemberTeam(m *nexusv1.TeamMember) string {
+	id, ok := strings.CutPrefix(m.GetAgentId(), TeamRefPrefix)
+	if !ok {
+		return ""
+	}
+	return id
+}
+
 // MaxMemberCount bounds a member's worker pool.
 const MaxMemberCount = 20
 
@@ -151,6 +164,11 @@ func Parse(p string, src []byte) (*nexusv1.Team, string) {
 	members, merrs := parseMembers(fm["members"])
 	errs = append(errs, merrs...)
 	t.Members = members
+	for _, m := range members {
+		if sub := MemberTeam(m); sub != "" && sub == t.Id {
+			addErr("member %s: a team cannot contain itself", m.Role)
+		}
+	}
 	if len(members) == 0 {
 		switch t.Strategy {
 		case nexusv1.TeamStrategy_TEAM_STRATEGY_HIERARCHICAL, nexusv1.TeamStrategy_TEAM_STRATEGY_AUTO:
@@ -264,6 +282,12 @@ func parseMembers(v any) ([]*nexusv1.TeamMember, []string) {
 			m.AgentId = strings.TrimSpace(t)
 		case map[string]any:
 			m.AgentId = agentdef.Str(t["agent"])
+			if team := agentdef.Str(t["team"]); team != "" {
+				if m.AgentId != "" {
+					errs = append(errs, fmt.Sprintf("members[%d]: give agent or team, not both", i))
+				}
+				m.AgentId = TeamRefPrefix + team
+			}
 			m.Role = agentdef.Str(t["role"])
 			m.When = strings.Join(strings.Fields(agentdef.Str(t["when"])), " ")
 			if c, ok := t["count"]; ok && c != nil {
@@ -275,10 +299,19 @@ func parseMembers(v any) ([]*nexusv1.TeamMember, []string) {
 				}
 			}
 		default:
-			errs = append(errs, fmt.Sprintf("members[%d] must be an agent id or {agent, role, count, when}", i))
+			errs = append(errs, fmt.Sprintf("members[%d] must be an agent id, team:<id> or {agent | team, role, count, when}", i))
 			continue
 		}
-		if m.AgentId == "" || !agentdef.ValidID(m.AgentId) {
+		if sub, ok := strings.CutPrefix(m.AgentId, TeamRefPrefix); ok {
+			sub = strings.TrimSpace(sub)
+			m.AgentId = TeamRefPrefix + sub
+			if !agentdef.ValidID(sub) {
+				errs = append(errs, fmt.Sprintf("members[%d]: invalid team id %q", i, sub))
+			}
+			if m.Role == "" {
+				m.Role = sub
+			}
+		} else if m.AgentId == "" || !agentdef.ValidID(m.AgentId) {
 			errs = append(errs, fmt.Sprintf("members[%d]: invalid agent id %q", i, m.AgentId))
 		}
 		if m.Role == "" {

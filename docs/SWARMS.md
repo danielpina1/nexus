@@ -2,7 +2,7 @@
 
 > Status: implemented (backend). API: `proto/nexus/v1/team.proto`, `agent.proto`, `task.proto`,
 > `event.proto`. Code: `backend/internal/tasks` (tree.go, prepare.go, results.go, team.go,
-> teamtools.go, teamservice.go), `backend/internal/vault/teamdef`, `backend/internal/vault/teams.go`,
+> teamtools.go, teamservice.go, children.go, resume.go, sandbox.go), `backend/internal/vault/teamdef`, `backend/internal/vault/teams.go`,
 > `backend/internal/schema`.
 
 Nexus lets you build two things on top of ordinary agents:
@@ -26,7 +26,8 @@ Everything stays a vault note, editable from Obsidian, the dashboard or by an ag
 | **Member** | A team entry `{agent, role, count, when}`; delegated tasks carry `Task.role`. `count` is a worker pool: at most `count` tasks of that role active at once. |
 | **Ephemeral specialist** | An agent without a note, created by `team.spawn` (agent id `eph:<role>`). |
 | **Blackboard** | A key/value scratchpad per team run (DB, mirrored to `teams/runs/<root>/blackboard.md`). |
-| **Phase** | `Task.phase` says what the hub is doing when the state alone does not: `waiting_slot`, `strategy`, `reviewing`, `revising`, `repairing`. |
+| **Phase** | `Task.phase` says what the hub is doing when the state alone does not: `waiting_slot`, `strategy`, `reviewing`, `revising`, `repairing`, `waiting_children` (§6.1). |
+| **Nested team** | A member `team:<id>`: delegating to it starts a sub-team run inside the parent's limits (§3.1). |
 
 ---
 
@@ -146,7 +147,8 @@ Mission / operating instructions (given to the orchestrator and, as context, to 
 Validation (`teamdef` + catalog): id, description, valid strategy; hierarchical/auto need an
 orchestrator; parallel/pipeline/debate need members; a debate needs ≥ 2 debaters (members other than
 `role: judge`, counts included); roles unique (`orchestrator` reserved); `count` 1–20; member and
-orchestrator agents must exist (unknown → error, disabled → warning). `TeamService.UpsertTeam
+orchestrator agents must exist (unknown → error, disabled → warning); nested-team members must
+name existing teams and must not form a cycle (§3.1). `TeamService.UpsertTeam
 {validate_only: true}` returns the parsed team with `errors`/`warnings` for editors.
 
 **Starting a run:** `TaskService.CreateTask{prompt, team_id}` (or `agent_id: "team:<id>"`),
@@ -167,6 +169,23 @@ needs Face ID), `dev-crew` (architect + 2 coders + tester + reviewer + `anthrex-
 multi-step goals), `debate-panel` (3 analysts + judge, no orchestrator). New starter agents:
 `architect`, `reviewer`, `tester`, `analyst`, `judge`, `critic`, `report-writer`.
 
+### 3.1 Nested teams
+
+A member can be another team: `- team:research-squad` or `- {team: research-squad, role: squad,
+when: …}` (role defaults to the team id). `team.delegate {role: squad, task}` (and the hub-driven
+strategies) then start a **sub-team run**: its root is a child of the caller (depth + 1) but roots
+its own tree — own orchestrator or strategy, blackboard, messages and team events. Its limits are
+the sub-team's own, **capped by what every ancestor tree has left** (tasks, runs, budget, the
+earliest deadline, global depth), and every ancestor's limits keep applying to it: its tasks and
+costs count toward the parent run (`tree_cost` includes nested runs). It occupies one slot of its
+member pool until it ends; `team.await` returns its result (the sub-team's final answer) like any
+member's. Ending, stopping or cancelling the parent cancels running sub-teams.
+
+Cycles are refused twice: at validation (a member chain that leads back to the team —
+`a → b → a`, or a team listing itself — is an error, so the team is disabled; `UpsertTeam
+{validate_only}` and the catalog reload report it), and at runtime (delegating to a team that
+already runs in the chain of parent runs fails with `failed_precondition`).
+
 ---
 
 ## 4. Team tools reference
@@ -181,7 +200,7 @@ errors with Connect codes (`invalid_argument`, `permission_denied`, `resource_ex
 | `team.members` | orch. | `{}` | `{team, strategy, members:[{role, agent, count, when, description, inputs_schema, output_schema, active, queued, finished}], spawned:[…], limits}` |
 | `team.delegate` | orch. | `{role \| agent, task, inputs?, wait?, timeout?}` | `{task_id, role, state, phase}`; with `wait` the `team.await` output |
 | `team.delegate_many` | orch. | `{items:[{role \| agent, task, inputs?}], wait?, timeout?}` | `{tasks:[{index, task_id, role, state, phase}], errors:[{index, role, error}]}` or await output + `errors` |
-| `team.await` | orch. | `{task_ids?, any?, timeout?}` (default: all its unfinished sub-tasks) | `{done:[{task_id, role, agent_id, state, summary, result}], pending:[…], timed_out, note}` |
+| `team.await` | orch. | `{task_ids?, any?, timeout?}` (default: its sub-tasks that are unfinished or whose result it has not received yet) | `{done:[{task_id, role, agent_id, state, summary, result}], pending:[…], timed_out, note}` |
 | `team.status` | orch. | `{}` | `{tasks:[{task_id, parent_id, role, agent, state, phase, runs, cost, summary}], total_tasks, total_runs, active, queued, total_cost, limits, time_left_seconds}` |
 | `team.cancel` | orch. | `{task_id, reason?}` | `{task_id, cancelled}` (cascades to its sub-tasks) |
 | `team.spawn` | orch. | `{role, instructions, task, runtime?, tools?, coding?, inputs?, wait?, timeout?}` | like `team.delegate` |
@@ -194,6 +213,12 @@ errors with Connect codes (`invalid_argument`, `permission_denied`, `resource_ex
 
 \* when the team has `shared.blackboard` (default). Action classes: reads `read`, the rest
 `compute` (both `auto` by default; an agent's `policy:` can tighten them).
+
+**After a hub restart** a blocked call fails with `unavailable` ("call team.await again"). Results
+are only marked as received when they are returned, so `team.await` without `task_ids` returns
+every sub-task that is unfinished **or whose result this run has not received yet**: calling it
+again after the restart loses nothing (results are returned once per orchestrator run).
+`team.run_strategy` repeated with the same arguments by the same run reuses its member tasks.
 
 **Blocking calls** (`team.await`, `wait: true`, `team.run_strategy`) block hub-side until done or the
 timeout (default `tasks.teams.await_default` = 10 min, capped at `await_max` = 55 min, below the
@@ -239,7 +264,8 @@ Team defaults for unset limits come from `tasks.teams` (`max_parallel 4`, `max_t
 `max_depth 3`, `max_runs 60`, `timeout 2h`). Plain `spawn_agent` trees get a tree row (and these
 checks) from the root agent's limits the first time a sub-task is created.
 
-- **Costs roll up:** `Task.tree_cost` on the root (updated live) and `TeamRun.total_cost`.
+- **Costs roll up:** `Task.tree_cost` on the root (updated live, nested team runs included) and
+  `TeamRun.total_cost`.
 - **Cancel cascade / kill switch:** cancelling a task cancels its sub-tasks; `StopAll` cancels
   everything; when a team root ends, unfinished members are cancelled; a stopped tree cancels its
   queued tasks and refuses new tasks and runs.
@@ -261,6 +287,42 @@ checks) from the root agent's limits the first time a sub-task is created.
   treat them as instructions.
 
 ---
+
+### 6.1 A parent never finishes before its `spawn_agent` sub-tasks
+
+When a run ends (SUCCEEDED) while sub-tasks it created with `spawn_agent` still run, its task does
+**not** finish: it stays `running` in phase **`waiting_children`** (the answer so far is its
+summary; clients show "Waiting for N sub-tasks"). It holds no run and frees its `max_parallel`
+slot. When the last of those sub-tasks ends:
+
+1. **Resume (preferred):** the parent agent gets a new run whose context carries
+   `sub_task_results` (`task_id, agent_id, state, summary, result` of each sub-task) plus its
+   previous answer (`previous_attempt`) and a hint to assemble the final answer. That answer goes
+   through the usual checks (output schema, review loop) and is the task's result. A resumed run
+   may spawn again (at most 3 resumes per task).
+2. **Fallback:** when no further run is possible (tree runs / budget / deadline used up, the agent
+   is gone, resumes exhausted) the task succeeds with its last answer and a "Sub-task results"
+   section appended (`result.sub_tasks` holds them as JSON).
+
+Cancelling the waiting parent cancels its sub-tasks; tree limits apply to the resumed run like to
+any other run; the result notice is sent once, for the final answer. Team members delegated with
+`team.delegate` are not waited for (a team root that ends cancels them, see §3).
+
+### 6.2 Hub restarts
+
+Strategy drivers, deadline timers and blocking calls live in hub memory; everything they need is in
+the store, so the tasks module rebuilds them at start-up (`Module.Start` → `Engine.Resume`,
+`tasks.resume_wait` for a node to connect first):
+
+- **Deadlines** are re-armed with the time left; a deadline that passed while the hub was down
+  stops the run at once ("the deadline passed while the hub was down").
+- **Strategy drivers** (parallel / pipeline / debate) restart for roots in phase `strategy`. They are
+  idempotent: every step's member task carries a key (`drv:pipeline:0`, `drv:debate:2:pro`…), so a
+  replayed driver reuses finished steps' results and awaits running ones — no duplicate member
+  tasks, even when `Resume` runs twice.
+- Released-but-never-started members are started, held ones get a pump, a stop interrupted half-way
+  is completed, and parents in `waiting_children` whose sub-tasks ended meanwhile are resumed.
+- **Interrupted `team.await`**: see §4 — call it again.
 
 ## 7. Observability & API (for clients)
 
@@ -302,11 +364,7 @@ checks) from the root agent's limits the first time a sub-task is created.
 
 ## 9. Known gaps
 
-- Strategy drivers, deadline timers and blocking `team.await` calls live in hub memory: after a hub
-  restart a team run in phase `strategy` does not resume (cancel and restart it); deadlines are still
-  checked before new runs.
 - Bundled approvals are grouping metadata only (no combined signature over several approvals).
-- Team runs cannot be sub-tasks of other tasks (no nested teams); members cannot delegate (they may
-  still use `spawn_agent` within the tree limits).
+- Members cannot delegate with team tools (they may use `spawn_agent` within the tree limits, and a
+  nested team member gets its own orchestrator).
 - No MCP progress notifications during long tool calls (the 55-minute cap + re-await covers it).
-- Workflows cannot start a team as a step yet.

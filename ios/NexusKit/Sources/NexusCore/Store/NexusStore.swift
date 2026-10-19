@@ -124,10 +124,16 @@ public final class NexusStore {
     public var inbox: [InboxItem] {
         var items: [InboxItem] = approvals.values.filter { $0.state == .pending }.map { .approval($0) }
         items += questions.values.map { .question($0) }
-        items += notices.map { .notice($0) }
+        // A chat reply is shown in the chat: no "result" card for it (web selectors.ts).
+        items += notices.filter { !isChatResult($0) }.map { .notice($0) }
         return items.sorted { lhs, rhs in
             lhs.rank != rhs.rank ? lhs.rank < rhs.rank : lhs.date > rhs.date
         }
+    }
+
+    /// A result notice of a chat task (the reply is already in the chat).
+    public func isChatResult(_ notice: NoticeItem) -> Bool {
+        notice.notice.kind == .result && !notice.taskID.isEmpty && tasks[notice.taskID]?.isChat == true
     }
 
     public var runningTasks: [Nexus_V1_Task] {
@@ -153,7 +159,7 @@ public final class NexusStore {
     }
 
     public func chatTasks(forAgent agentID: String?) -> [Nexus_V1_Task] {
-        rootTasks.filter { agentID == nil ? ($0.source == "ios-chat" || $0.source.isEmpty) : $0.agentID == agentID }
+        rootTasks.filter { agentID == nil ? ($0.source == "ios-chat" || $0.source == "chat" || $0.source.isEmpty) : $0.agentID == agentID }
             .sorted { $0.createdAt.date < $1.createdAt.date }
     }
 
@@ -740,6 +746,35 @@ public final class NexusStore {
         return delivery
     }
 
+    /// Sends a chat message (CommandContext source "chat" + conversation id): the Hub routes it
+    /// without the router (assistant, "@agent", "/search", "remember"). Queued in the `Outbox`
+    /// while the Hub is unreachable (text only).
+    public func sendChat(_ input: String, conversationID: String, attachments: [Nexus_V1_Attachment] = []) async throws -> Delivery<Nexus_V1_ExecuteResponse> {
+        if isDemo { throw HubError.demoMode }
+        let record: (Nexus_V1_ExecuteResponse) -> Void = { [weak self] response in
+            guard let self, response.hasTask else { return }
+            self.tasks[response.task.id] = response.task
+            self.append(TimelineItem(id: "local_\(UUID().uuidString)", at: Date(), runID: response.task.currentRunID, kind: .userMessage(input)), to: response.task.id)
+        }
+        if !attachments.isEmpty {
+            if reachability.isUnavailable { throw OutboxError.attachmentsNeedConnection }
+            let response = try await requireActions().execute(input, attachments: attachments, source: "chat", conversationID: conversationID)
+            record(response)
+            return .sent(response)
+        }
+        let delivery = try await deliverOrQueue(.chat(input: input, conversationID: conversationID)) { actions, key in
+            try await actions.execute(input, source: "chat", conversationID: conversationID, idempotencyKey: key)
+        }
+        if case .sent(let response) = delivery { record(response) }
+        return delivery
+    }
+
+    /// Demo mode: applies a scripted event as if it came from the Hub (chat demo).
+    public func applyDemo(_ event: Nexus_V1_Event) {
+        guard isDemo else { return }
+        apply(event)
+    }
+
     /// Replies to a task; queued while the Hub is unreachable (text only).
     @discardableResult
     public func sendMessage(taskID: String, text: String, questionID: String? = nil, choice: String? = nil, attachments: [Nexus_V1_Attachment] = []) async throws -> Delivery<Void> {
@@ -771,6 +806,11 @@ public final class NexusStore {
                 _ = try await ApprovalSigner().authenticate(reason: "Approve “\(approval.title)”")
             }
             approvals.removeValue(forKey: approval.id)
+            // Like the Hub's approval event: the run's timeline shows the decision.
+            var decided = approval
+            decided.state = approve ? .approved : .denied
+            append(TimelineItem(id: UUID().uuidString, at: Date(), runID: approval.runID, kind: .approval(decided)), to: approval.taskID)
+            onApprovalChanged?(decided)
             return .sent(())
         }
         let request = try await requireActions().signDecision(

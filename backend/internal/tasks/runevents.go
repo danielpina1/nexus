@@ -70,8 +70,11 @@ func (e *Engine) HandleRunEvent(ctx context.Context, nodeID string, re *nexusv1.
 
 	// Result checks (output schema, review) are resolved before the lock.
 	var check *resultCheck
+	waitKids := 0
 	if nt := ev.GetTaskUpdated().GetTask(); nt.GetState() == stSucceeded {
 		check = e.resultCheckFor(ctx, run)
+		// A run must not end its task while its spawn_agent sub-tasks run.
+		waitKids = e.runningChildren(ctx, run.taskID)
 	}
 
 	_, err = e.mutate(ctx, run.taskID, actor, func(r *taskRec) error {
@@ -86,7 +89,7 @@ func (e *Engine) HandleRunEvent(ctx context.Context, nodeID string, re *nexusv1.
 			if !current {
 				return e.endRun(ctx, run.id, tu.GetTask())
 			}
-			return e.applyNodeState(ctx, r, run.id, tu.GetTask(), check)
+			return e.applyNodeState(ctx, r, run.id, tu.GetTask(), check, waitKids)
 		}
 		r.extra = append(r.extra, ev)
 		if !current {
@@ -181,7 +184,7 @@ func (e *Engine) accept(ctx context.Context, r *taskRec, runID string) error {
 }
 
 // applyNodeState handles a TaskUpdated reported by the node for the current run.
-func (e *Engine) applyNodeState(ctx context.Context, r *taskRec, runID string, nt *nexusv1.Task, check *resultCheck) error {
+func (e *Engine) applyNodeState(ctx context.Context, r *taskRec, runID string, nt *nexusv1.Task, check *resultCheck, waitKids int) error {
 	switch s := nt.GetState(); s {
 	case stRunning:
 		if r.task.State == stAssigned {
@@ -195,6 +198,9 @@ func (e *Engine) applyNodeState(ctx context.Context, r *taskRec, runID string, n
 	case stSucceeded:
 		if r.task.Phase == phaseReviewing {
 			return e.endRun(ctx, runID, nt) // a late duplicate of the reviewed answer
+		}
+		if waitKids > 0 {
+			return e.waitForChildren(ctx, r, runID, nt, waitKids)
 		}
 		return e.succeed(ctx, r, runID, nt, check)
 	case stFailed, stCancelled:
@@ -218,6 +224,20 @@ func (e *Engine) endRun(ctx context.Context, runID string, nt *nexusv1.Task) err
 		return nil
 	}
 	return e.setRunState(ctx, runID, state, nt.GetSummary())
+}
+
+// wantsResultNotice reports whether a finished task announces its result
+// with an Inbox notice (and so a push notification): root tasks only, and
+// not workflow steps (the workflow reports once, at the end), chat tasks
+// (the reply is shown in the chat) or sandbox test runs.
+func wantsResultNotice(r *taskRec) bool {
+	return r.task.ParentId == "" && r.task.Source != "workflow" && r.task.Source != SourceSandbox && !IsChatTask(r.task, r.req)
+}
+
+// IsChatTask reports whether a task is a chat message's task (params
+// chat: true, set by the command service for CommandContext.source "chat").
+func IsChatTask(t *nexusv1.Task, req *nexusv1.CreateTaskRequest) bool {
+	return req.GetParams().GetFields()["chat"].GetBoolValue() || t.GetSource() == "chat"
 }
 
 func resultNotice(t *nexusv1.Task) *nexusv1.Event {

@@ -114,6 +114,11 @@ func (e *Engine) resumeTree(ctx context.Context, rootID string) error {
 		return err
 	}
 	for _, t := range tasks {
+		if t.Phase == phaseWaitingChildren {
+			// Its sub-tasks may have ended while the hub was down.
+			e.childrenSettled(ctx, t.Id)
+			continue
+		}
 		if t.Id != rootID && t.State == stQueued && t.Phase == "" && t.CurrentRunId == "" && t.AgentId != "" {
 			if _, err := e.startTask(ctx, t.Id); err != nil {
 				e.log.Warn("tasks: resume start task", "task", t.Id, "err", err)

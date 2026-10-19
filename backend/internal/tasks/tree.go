@@ -78,6 +78,11 @@ type taskExt struct {
 	Sandbox        bool            `json:"sandbox,omitempty"`
 	SandboxBlocked []sandboxAction `json:"sandbox_blocked,omitempty"`
 	SandboxCalls   []string        `json:"sandbox_calls,omitempty"`
+	// ChildResumes counts runs resumed after the task's spawn_agent
+	// sub-tasks ended (children.go); ChildrenReported lists the sub-tasks
+	// whose results were handed to a resumed run.
+	ChildResumes     int      `json:"child_resumes,omitempty"`
+	ChildrenReported []string `json:"children_reported,omitempty"`
 }
 
 func (e *Engine) loadExt(ctx context.Context, taskID string) (*taskExt, error) {
@@ -478,8 +483,10 @@ func (e *Engine) remainingTime(ctx context.Context, rootID string) time.Duration
 func held(t *nexusv1.Task) bool { return t.Phase == phaseWaitingSlot && t.State == stQueued }
 
 // active reports whether a task occupies a slot.
+// A task waiting for its sub-tasks (phase waiting_children) has no run and
+// frees its slot, so its children can start even with max_parallel 1.
 func active(t *nexusv1.Task) bool {
-	return !IsTerminal(t.State) && !held(t) && t.Phase != phaseStrategy
+	return !IsTerminal(t.State) && !held(t) && t.Phase != phaseStrategy && t.Phase != phaseWaitingChildren
 }
 
 // pump starts held tasks of a tree while max_parallel and member pools
@@ -613,6 +620,10 @@ func (e *Engine) broadcastTerminal() {
 // frees slots and ends team runs.
 func (e *Engine) onTerminal(ctx context.Context, t *nexusv1.Task) {
 	e.broadcastTerminal()
+	if t.ParentId != "" && t.Source == sourceSpawn {
+		// The parent may be waiting for its spawn_agent sub-tasks.
+		defer e.childrenSettled(ctx, t.ParentId)
+	}
 	if x, err := e.loadExt(ctx, t.Id); err == nil && x.ReviewOf != "" {
 		e.reviewDone(ctx, t, x)
 	}
