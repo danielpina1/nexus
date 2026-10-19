@@ -16,18 +16,19 @@ public enum MockData {
     }
 
     public static let agents: [Nexus_V1_Agent] = {
-        func agent(_ id: String, _ name: String, _ icon: String, _ runtime: String, _ description: String) -> Nexus_V1_Agent {
+        func agent(_ id: String, _ name: String, _ icon: String, _ runtime: String, _ description: String, model: String = "") -> Nexus_V1_Agent {
             var a = Nexus_V1_Agent()
             a.id = id
             a.name = name
             a.icon = icon
             a.runtime = runtime
+            a.model = model
             a.description_p = description
             a.enabled = true
             return a
         }
         return [
-            agent("assistant", "Assistant", "sparkles", "openai", "Everyday tasks, calendar and email"),
+            agent("assistant", "Athena · Assistant", "sparkles", "claude-code", "Your assistant and default chat partner", model: "smart"),
             agent("code-fixer", "Code fixer", "hammer", "claude-code", "Fixes failing tests and opens PRs"),
             agent("grocery-continente", "Grocery (Continente)", "cart", "browser", "Fills the Continente cart"),
             agent("ops", "Ops", "server.rack", "openai", "Keeps the machines healthy"),

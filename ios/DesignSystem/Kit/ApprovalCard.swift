@@ -33,6 +33,8 @@ struct NXApprovalCard: View {
     /// Opens the full review (exact action, hash, comment).
     var onReview: (() -> Void)?
     var onRetry: (() -> Void)?
+    /// The readable action (command, diff, amount…), shown under the summary.
+    var detail: AnyView?
 
     init(
         model: NXApprovalCardModel,
@@ -42,7 +44,8 @@ struct NXApprovalCard: View {
         onApprove: @escaping () -> Void,
         onDeny: @escaping () -> Void,
         onReview: (() -> Void)? = nil,
-        onRetry: (() -> Void)? = nil
+        onRetry: (() -> Void)? = nil,
+        detail: AnyView? = nil
     ) {
         self.model = model
         self.compact = compact
@@ -52,6 +55,7 @@ struct NXApprovalCard: View {
         self.onDeny = onDeny
         self.onReview = onReview
         self.onRetry = onRetry
+        self.detail = detail
     }
 
     private var isPending: Bool { model.state == .pending }
@@ -72,6 +76,9 @@ struct NXApprovalCard: View {
                     .nx(NXType.footnote)
                     .foregroundStyle(NXColor.fg2)
                     .lineLimit(compact ? 2 : nil)
+            }
+            if let detail {
+                detail
             }
             if !compact, let context = model.context, !context.isEmpty {
                 Text(context)

@@ -85,11 +85,15 @@ struct InboxCard: View {
     }
 }
 
-/// The kit approval card wired to the store. Approve signs with the Face ID–bound key;
-/// biometric approvals open the full review first (what you see is what you sign).
+/// The kit approval card wired to the store, with the readable action (command, diff, URL,
+/// amount…; raw JSON only behind "Raw details"). Approve signs with the Face ID–bound key;
+/// in the Inbox biometric approvals open the full review first (what you see is what you
+/// sign). `inline` (chat) approves biometric ones in place: the action is shown above the
+/// button and the signer re-verifies the action hash before Face ID.
 struct ApprovalCardView: View {
     let approval: Nexus_V1_Approval
     var compact = false
+    var inline = false
 
     @Environment(NexusStore.self) private var store
     @Environment(AppRouter.self) private var router
@@ -102,7 +106,7 @@ struct ApprovalCardView: View {
         let task = store.tasks[approval.taskID]
         NXApprovalCard(
             model: NXApprovalCardModel(
-                title: approval.title,
+                title: approval.readableTitle,
                 summary: approval.summary,
                 isBiometric: approval.isBiometric,
                 actionClass: approval.actionClass.label.lowercased(),
@@ -116,7 +120,7 @@ struct ApprovalCardView: View {
             deciding: deciding,
             error: errorMessage,
             onApprove: {
-                if approval.isBiometric {
+                if approval.isBiometric && !inline {
                     router.openApproval(approval.id)
                 } else {
                     decide(approve: true)
@@ -124,7 +128,18 @@ struct ApprovalCardView: View {
             },
             onDeny: { decide(approve: false) },
             onReview: { router.openApproval(approval.id) },
-            onRetry: { errorMessage = nil }
+            onRetry: { errorMessage = nil },
+            detail: detail
+        )
+    }
+
+    private var detail: AnyView? {
+        guard let readable = approval.readableDetail else { return nil }
+        return AnyView(
+            VStack(alignment: .leading, spacing: 0) {
+                ToolDetailView(detail: readable)
+                RawDetailsDisclosure(text: approval.payloadPreview)
+            }
         )
     }
 
@@ -150,80 +165,6 @@ struct ApprovalCardView: View {
             } catch {
                 errorMessage = error.localizedDescription
                 toasts.error("Couldn't send the decision", error) { decide(approve: approve) }
-            }
-        }
-    }
-}
-
-/// Agent question (`ask_user`): choices and a free-text reply. info/35 border until answered.
-struct QuestionCardView: View {
-    let question: QuestionItem
-    var compact = false
-
-    @Environment(NexusStore.self) private var store
-    @Environment(ToastCenter.self) private var toasts
-    @State private var replyText = ""
-    @State private var sending: String?
-    @State private var errorMessage: String?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: NXSpace.s2) {
-            HStack(spacing: 6) {
-                NXBadge("Question", systemImage: "questionmark.bubble", tone: .info)
-                Text(Format.relative(question.at))
-                    .nx(NXType.caption.weight(.regular))
-                    .foregroundStyle(NXColor.muted)
-            }
-            Text(question.question.text)
-                .nx(NXType.body.weight(.semibold))
-                .foregroundStyle(NXColor.fg)
-                .fixedSize(horizontal: false, vertical: true)
-            if !question.question.choices.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: NXSpace.s2) {
-                        ForEach(question.question.choices, id: \.self) { choice in
-                            NXButton(choice, kind: .secondary, size: .small, isLoading: sending == choice) {
-                                answer(choice: choice)
-                            }
-                            .disabled(sending != nil)
-                        }
-                    }
-                }
-            }
-            if question.question.allowFreeText || question.question.choices.isEmpty {
-                HStack(spacing: NXSpace.s2) {
-                    NXTextField(placeholder: "Reply…", text: $replyText)
-                        .submitLabel(.send)
-                        .onSubmit { answer(text: replyText) }
-                    NXIconButton(systemImage: "paperplane.fill", label: "Send reply", tint: NXColor.accent, isLoading: sending == "") {
-                        answer(text: replyText)
-                    }
-                    .disabled(replyText.trimmingCharacters(in: .whitespaces).isEmpty || sending != nil)
-                }
-            }
-            if let errorMessage {
-                NXInlineError(errorMessage) { self.errorMessage = nil }
-            }
-        }
-        .nxCard(urgency: .info)
-        .accessibilityElement(children: .contain)
-    }
-
-    private func answer(choice: String? = nil, text: String = "") {
-        let message = choice ?? text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !message.isEmpty else { return }
-        sending = choice ?? ""
-        errorMessage = nil
-        Task {
-            defer { sending = nil }
-            do {
-                let delivery = try await store.sendMessage(taskID: question.taskID, text: message, questionID: question.id, choice: choice)
-                replyText = ""
-                if delivery.isQueued {
-                    toasts.info("Queued", "Your answer is sent when your Nexus is reachable.")
-                }
-            } catch {
-                errorMessage = error.localizedDescription
             }
         }
     }

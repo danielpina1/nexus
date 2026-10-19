@@ -17,7 +17,6 @@ struct ApprovalSheet: View {
     @State private var errorMessage: String?
     @State private var comment = ""
     @State private var remember = false
-    @State private var showRawPayload = false
     /// Set when the signed decision was queued because the Hub is unreachable.
     @State private var queued: (approve: Bool, expires: Date?)?
 
@@ -96,7 +95,7 @@ struct ApprovalSheet: View {
                         NXApprovalClassBadge(isBiometric: approval.isBiometric)
                         NXBadge(approval.actionClass.label.lowercased())
                     }
-                    Text(approval.title)
+                    Text(approval.readableTitle)
                         .nx(NXType.title1)
                         .foregroundStyle(NXColor.fg)
                         .fixedSize(horizontal: false, vertical: true)
@@ -225,64 +224,23 @@ struct ApprovalSheet: View {
         .padding(NXSpace.s6)
     }
 
+    /// The exact action, readable (command + cwd, line diff, URL, amount and merchant, inputs);
+    /// the raw JSON that is signed stays one tap away under "Raw details".
     @ViewBuilder
     private func previewSection(_ approval: Nexus_V1_Approval) -> some View {
         let preview = approval.payloadPreview
         if !preview.isEmpty {
             VStack(alignment: .leading, spacing: NXSpace.s2) {
-                HStack {
-                    Text("Exact action")
-                        .nx(NXType.title3)
-                        .foregroundStyle(NXColor.fg)
-                        .accessibilityAddTraits(.isHeader)
-                    Spacer()
-                    Button(showRawPayload ? "Fields" : "Raw") { showRawPayload.toggle() }
-                        .font(NXType.footnote.weight(.semibold).font)
-                        .foregroundStyle(NXColor.accent)
-                        .frame(minWidth: NXSize.touchMin, minHeight: NXSize.touchMin)
-                        .nxFocusRing()
-                        .accessibilityLabel(showRawPayload ? "Show fields" : "Show raw JSON")
+                Text("Exact action")
+                    .nx(NXType.title3)
+                    .foregroundStyle(NXColor.fg)
+                    .accessibilityAddTraits(.isHeader)
+                if let readable = approval.readableDetail {
+                    ToolDetailView(detail: readable)
                 }
-                if showRawPayload {
-                    Text(preview)
-                        .nx(NXType.mono)
-                        .foregroundStyle(NXColor.fg2)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    let keys = approval.payload.fields.keys.sorted()
-                    ForEach(Array(keys.enumerated()), id: \.element) { index, key in
-                        HStack(alignment: .firstTextBaseline) {
-                            Text(key)
-                                .nx(NXType.body)
-                                .foregroundStyle(NXColor.muted)
-                            Spacer()
-                            Text(Self.display(approval.payload.fields[key]))
-                                .nx(NXType.body.weight(.medium))
-                                .monospacedDigit()
-                                .foregroundStyle(NXColor.fg)
-                                .multilineTextAlignment(.trailing)
-                        }
-                        .frame(minHeight: 36)
-                        .accessibilityElement(children: .combine)
-                        if index < keys.count - 1 { NXDivider() }
-                    }
-                }
+                RawDetailsDisclosure(text: preview)
             }
             .nxCard()
-        }
-    }
-
-    private static func display(_ value: Google_Protobuf_Value?) -> String {
-        guard let value else { return "" }
-        switch value.kind {
-        case .stringValue(let s): return s
-        case .numberValue(let n): return n.formatted()
-        case .boolValue(let b): return b ? "yes" : "no"
-        case .nullValue: return "—"
-        case .listValue(let list): return "\(list.values.count) items"
-        case .structValue(let s): return "\(s.fields.count) fields"
-        case .none: return ""
         }
     }
 

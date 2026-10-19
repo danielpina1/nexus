@@ -14,9 +14,11 @@ final class AppEnvironment {
     let lock = AppLock()
     let toasts = ToastCenter()
     let liveActivities = LiveActivityManager()
+    let chat: ChatStore
 
     private init() {
         store = NexusStore()
+        chat = ChatStore(store: store)
         store.onSnapshot = {
             WidgetCenter.shared.reloadAllTimelines()
         }
@@ -46,6 +48,7 @@ struct NexusApp: App {
                 .environment(env.router)
                 .environment(env.lock)
                 .environment(env.toasts)
+                .environment(env.chat)
                 .onOpenURL { url in
                     env.router.handle(url: url)
                 }
@@ -112,7 +115,15 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     // MARK: UNUserNotificationCenterDelegate
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
-        [.banner, .list, .sound]
+        let category = notification.request.content.categoryIdentifier
+        let taskID = notification.request.content.userInfo["task_id"] as? String ?? ""
+        // A chat reply is already in the chat: no result banner for it (the Hub does not push
+        // them either; this covers older Hubs and local notices).
+        let isChatResult = await MainActor.run { () -> Bool in
+            guard category == NotificationCategories.Category.result, !taskID.isEmpty else { return false }
+            return AppEnvironment.shared.store.tasks[taskID]?.isChat == true
+        }
+        return isChatResult ? [] : [.banner, .list, .sound]
     }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {

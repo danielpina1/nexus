@@ -127,10 +127,29 @@ scheme `NexusKit-Package`, iOS Simulator destination).
   an approval notification can be reviewed and signed while away.
 - Pair at home on Wi-Fi (pairing probes each QR URL and explains when none answers).
 
+## Chat
+
+The Chat tab talks to the assistant like the web chat (docs/AGENTS.md §2.4): every message is
+`Execute` with `CommandContext{source: "chat", conversation_id}` (one id per thread, kept on the
+phone; the compose button starts a new chat). `@agent` / `@team:<id>` picks an agent, `/search …`
+searches the vault and `remember …` saves a note; agent threads prefix their agent. The reply
+streams into its bubble from the event stream (`App/Chat/ChatConversation.swift`): Markdown with a
+caret, a "Thinking… Ns" timer, the time to first token, tool calls as chips, questions (options
+with descriptions, multi-select, "Other…") and approvals (readable: command + cwd, line diff, URL,
+amount and merchant; raw JSON behind "Raw details"; Face ID inline) and the label
+"Agent · Claude Code · <exact model id>". Stop cancels the running reply. Chat result notices are
+not shown (Inbox and foreground banners). Shared logic lives in `NexusCore/Chat` (tested in
+`ChatLogicTests`).
+
 ## Demo mode
 
 Onboarding → "Explore demo mode" (or Settings → Demo mode) loads sample agents, nodes, tasks,
 approvals and timelines from `MockData` — no Hub needed. SwiftUI previews use the same data.
+The chat starts with a finished answer, an open multi-select question and a pending edit
+approval, and replies to new messages with scripted streamed runs (`App/Chat/ChatDemo.swift`):
+"fix … and push" (edit diff + git push approvals), "buy …" (Face ID spend approval), "plan a
+trip" (question), "research …" (a sub-task), "… background" (the background-work warning),
+`/search …` and `remember …`.
 
 ## What needs a real device
 
