@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -53,6 +54,23 @@ func NewStore(t testing.TB) *Store {
 	if err != nil {
 		t.Fatalf("open memory db: %v", err)
 	}
+	return newStore(t, db)
+}
+
+// NewFileStore opens a private database file in a temporary directory. Use
+// it for tests that restart an engine on the same store: an in-memory
+// database lives in its one connection, which a cancelled query may drop.
+func NewFileStore(t testing.TB) *Store {
+	t.Helper()
+	db, err := sqlitex.Open(filepath.Join(t.TempDir(), "hub.db"))
+	if err != nil {
+		t.Fatalf("open db file: %v", err)
+	}
+	return newStore(t, db)
+}
+
+func newStore(t testing.TB, db *sql.DB) *Store {
+	t.Helper()
 	t.Cleanup(func() { db.Close() })
 	if _, err := db.Exec(`CREATE TABLE schema_migrations (module TEXT NOT NULL, idx INTEGER NOT NULL, PRIMARY KEY (module, idx))`); err != nil {
 		t.Fatalf("create schema_migrations: %v", err)

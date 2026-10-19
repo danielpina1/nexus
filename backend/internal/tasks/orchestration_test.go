@@ -22,6 +22,12 @@ import (
 func (f *fixture) restart(t *testing.T) {
 	t.Helper()
 	f.e.Close()
+	// Like a real restart, start from fresh connections: a query cancelled
+	// by Close may leave a pooled connection on a stale read snapshot.
+	// (Needs a file database, see durable.)
+	db := f.env.Store.DB()
+	db.SetMaxIdleConns(0)
+	db.SetMaxIdleConns(2)
 	old := f.env.Host
 	h := kerneltest.New(t)
 	for _, name := range []string{kernel.SvcStore, kernel.SvcEventBus, kernel.SvcDispatcher, kernel.SvcAgents, kernel.SvcTeams,
@@ -37,6 +43,27 @@ func (f *fixture) restart(t *testing.T) {
 	}
 	f.e = m.Engine
 	t.Cleanup(m.Engine.Close)
+}
+
+// durable gives the fixture a file database, for tests that restart.
+func durable(t *testing.T) opt {
+	return func(f *fixture) {
+		f.env.Store = taskstest.NewFileStore(t)
+		f.env.Host.Provide(kernel.SvcStore, f.env.Store)
+	}
+}
+
+// durableTeamFixture is teamFixture with a file database.
+func durableTeamFixture(t *testing.T, teams *taskstest.Teams, extra ...*nexusv1.Agent) *fixture {
+	t.Helper()
+	return newFixture(t, durable(t), func(f *fixture) {
+		for _, a := range extra {
+			f.agents.Add(a, "Instructions for "+a.Id)
+		}
+		if teams != nil {
+			f.env.Host.Provide(kernel.SvcTeams, teams)
+		}
+	})
 }
 
 func notices(f *fixture, taskID string) []*nexusv1.Event {
@@ -208,7 +235,7 @@ func TestWaitingParentFreesItsSlot(t *testing.T) {
 }
 
 func TestWaitingChildrenSurvivesRestart(t *testing.T) {
-	f := newFixture(t)
+	f := newFixture(t, durable(t))
 	ctx := context.Background()
 	root := f.create(t, &nexusv1.CreateTaskRequest{Prompt: "x", AgentId: "smart"})
 	kid := spawn(t, f, root.Id, "helper", "sub")
@@ -329,7 +356,7 @@ func TestRoutedRuntimeHintPersistsForFallback(t *testing.T) {
 func TestPipelineDriverResumesAfterRestart(t *testing.T) {
 	tm := taskstest.Team("pipe", "", nexusv1.TeamStrategy_TEAM_STRATEGY_PIPELINE,
 		taskstest.Member("researcher", "draft", 1), taskstest.Member("checker", "polish", 1))
-	f := teamFixture(t, taskstest.NewTeams(tm), squadAgents()...)
+	f := durableTeamFixture(t, taskstest.NewTeams(tm), squadAgents()...)
 	ctx := context.Background()
 	root := f.create(t, &nexusv1.CreateTaskRequest{Prompt: "write a haiku", TeamId: "pipe"})
 	var first string
@@ -378,7 +405,7 @@ func TestDebateDriverResumesFinishedStepsAfterRestart(t *testing.T) {
 	tm := taskstest.Team("panel", "", nexusv1.TeamStrategy_TEAM_STRATEGY_DEBATE,
 		taskstest.Member("researcher", "pro", 1), taskstest.Member("checker", "con", 1))
 	tm.DebateRounds = 1
-	f := teamFixture(t, taskstest.NewTeams(tm), squadAgents()...)
+	f := durableTeamFixture(t, taskstest.NewTeams(tm), squadAgents()...)
 	root := f.create(t, &nexusv1.CreateTaskRequest{Prompt: "tabs or spaces?", TeamId: "panel"})
 	taskstest.Eventually(t, 2*time.Second, func() bool {
 		k := f.children(t, root.Id)
@@ -402,7 +429,7 @@ func TestDebateDriverResumesFinishedStepsAfterRestart(t *testing.T) {
 }
 
 func TestDeadlinesRearmedAfterRestart(t *testing.T) {
-	f := teamFixture(t, squad(&nexusv1.TeamLimits{TimeoutSeconds: 3600}), squadAgents()...)
+	f := durableTeamFixture(t, squad(&nexusv1.TeamLimits{TimeoutSeconds: 3600}), squadAgents()...)
 	ctx := context.Background()
 	root := f.create(t, &nexusv1.CreateTaskRequest{Prompt: "go", TeamId: "squad"})
 	f.restart(t)
@@ -428,7 +455,7 @@ func TestDeadlinesRearmedAfterRestart(t *testing.T) {
 }
 
 func TestTeamAwaitInterruptedByRestart(t *testing.T) {
-	f := teamFixture(t, squad(nil), squadAgents()...)
+	f := durableTeamFixture(t, squad(nil), squadAgents()...)
 	ctx := context.Background()
 	root := f.create(t, &nexusv1.CreateTaskRequest{Prompt: "research", TeamId: "squad"})
 	f.runEvent(t, f.get(t, root.Id), output("planning"))
