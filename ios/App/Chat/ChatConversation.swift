@@ -241,7 +241,8 @@ struct ChatReplyView: View {
         let entries = live ? (store.timelines[taskID] ?? []) : []
         let items = ChatItem.build(entries)
         let model = RunModel.from(entries, task: task)
-        let active = task?.state.isActive ?? (live && message.finalText == nil)
+        // Without the task (not loaded yet) a recent reply counts as running for a moment.
+        let active = task?.state.isActive ?? (live && message.finalText == nil && Date().timeIntervalSince(message.at) < 120)
         let text = ChatItem.replyText(items)
         let hasText = !text.isEmpty
         let state = task?.state
@@ -277,27 +278,33 @@ struct ChatReplyView: View {
             if !fallback.isEmpty && !failed {
                 ChatMarkdown(text: fallback, streaming: false)
                     .chatBubble()
-            }
-            if failed {
-                Label(task?.summary.isEmpty == false ? task!.summary : "The run failed.", systemImage: "exclamationmark.circle")
-                    .nxText(NXType.footnote)
-                    .foregroundStyle(NXColor.danger)
-                    .padding(NXSpace.s3)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(NXColor.dangerSoft, in: RoundedRectangle(cornerRadius: NXRadius.lg, style: .continuous))
-            }
-            if cancelled {
-                Text("Stopped.")
-                    .nx(NXType.caption.weight(.regular))
+            } else if task == nil && !active && items.isEmpty {
+                Text("The reply is in Run details.")
+                    .nx(NXType.footnote)
                     .foregroundStyle(NXColor.muted)
             }
-            if warn {
-                BackgroundWarningView()
-            }
-            if activeKids > 0 {
-                Label("\(activeKids) sub-task\(activeKids == 1 ? "" : "s") still running", systemImage: "arrow.triangle.branch")
-                    .nxText(NXType.caption.weight(.regular))
-                    .foregroundStyle(NXColor.info)
+            Group {
+                if failed {
+                    Label(task?.summary.isEmpty == false ? task!.summary : "The run failed.", systemImage: "exclamationmark.circle")
+                        .nxText(NXType.footnote)
+                        .foregroundStyle(NXColor.danger)
+                        .padding(NXSpace.s3)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(NXColor.dangerSoft, in: RoundedRectangle(cornerRadius: NXRadius.lg, style: .continuous))
+                }
+                if cancelled {
+                    Text("Stopped.")
+                        .nx(NXType.caption.weight(.regular))
+                        .foregroundStyle(NXColor.muted)
+                }
+                if warn {
+                    BackgroundWarningView()
+                }
+                if activeKids > 0 {
+                    Label("\(activeKids) sub-task\(activeKids == 1 ? "" : "s") still running", systemImage: "arrow.triangle.branch")
+                        .nxText(NXType.caption.weight(.regular))
+                        .foregroundStyle(NXColor.info)
+                }
             }
             NavigationLink(value: TaskRoute(id: taskID)) {
                 Label("Run details", systemImage: "list.bullet.rectangle")
@@ -308,6 +315,12 @@ struct ChatReplyView: View {
             .accessibilityHint("Opens the task with every step, cost and sub-tasks.")
         }
         .onAppear { record(hasText: hasText, task: task, text: text, model: model) }
+        .task(id: taskID) {
+            // Older replies: fetch the task once if this iPhone has not seen it yet.
+            if store.tasks[taskID] == nil && !store.isDemo {
+                await store.loadTask(taskID)
+            }
+        }
         .onChange(of: hasText) { _, _ in record(hasText: hasText, task: task, text: text, model: model) }
         .onChange(of: state) { _, _ in record(hasText: hasText, task: task, text: text, model: model) }
         .onChange(of: model) { _, _ in record(hasText: hasText, task: task, text: text, model: model) }

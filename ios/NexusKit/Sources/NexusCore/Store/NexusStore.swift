@@ -751,10 +751,15 @@ public final class NexusStore {
     /// while the Hub is unreachable (text only).
     public func sendChat(_ input: String, conversationID: String, attachments: [Nexus_V1_Attachment] = []) async throws -> Delivery<Nexus_V1_ExecuteResponse> {
         if isDemo { throw HubError.demoMode }
+        // The event stream may already have delivered newer states / output of this task:
+        // keep those, and put the prompt first in its timeline.
         let record: (Nexus_V1_ExecuteResponse) -> Void = { [weak self] response in
             guard let self, response.hasTask else { return }
-            self.tasks[response.task.id] = response.task
-            self.append(TimelineItem(id: "local_\(UUID().uuidString)", at: Date(), runID: response.task.currentRunID, kind: .userMessage(input)), to: response.task.id)
+            let id = response.task.id
+            if self.tasks[id] == nil { self.tasks[id] = response.task }
+            var entries = self.timelines[id] ?? []
+            entries.insert(TimelineItem(id: "local_\(UUID().uuidString)", at: Date(), runID: response.task.currentRunID, kind: .userMessage(input)), at: 0)
+            self.timelines[id] = entries
         }
         if !attachments.isEmpty {
             if reachability.isUnavailable { throw OutboxError.attachmentsNeedConnection }

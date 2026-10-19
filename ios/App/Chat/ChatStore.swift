@@ -216,10 +216,19 @@ final class ChatStore {
     /// Demo mode: a conversation that already shows a finished answer, a question and an
     /// approval, so the screen works without a Hub.
     func seedDemoIfNeeded() {
-        guard store.isDemo, !demoSeeded else { return }
-        demoSeeded = true
+        guard store.isDemo else { return }
+        // Demo data is rebuilt when demo mode is switched off and on: drop conversations whose
+        // tasks are gone.
+        var stale = false
+        for (k, messages) in threads where k.hasPrefix("demo:") {
+            if messages.contains(where: { m in m.taskID.map { store.tasks[$0] == nil } ?? false }) {
+                threads[k] = []
+                stale = true
+            }
+        }
         let k = key(ChatThread(agentID: nil))
-        guard (threads[k] ?? []).isEmpty else { return }
+        guard !demoSeeded || stale, (threads[k] ?? []).isEmpty else { return }
+        demoSeeded = true
         threads[k] = ChatDemo.seed(chat: self)
     }
 
